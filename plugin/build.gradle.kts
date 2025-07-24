@@ -25,13 +25,13 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
     implementation("de.maxhenkel.voicechat:voicechat-api:2.5.31")
     //implementation("dev.arbjerg:lavaplayer:2.2.1")
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.11.1")
 
-    implementation("dev.jorel:commandapi-bukkit-shade:10.1.1")
+    implementation("dev.jorel:commandapi-bukkit-shade:10.1.2")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
@@ -60,7 +60,7 @@ tasks {
 
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
-    apiVersion = "1.21.7"
+    apiVersion = "1.21.8"
     authors = listOf("mrmrmystery", "Andromedov")
     name = rootProject.name
     depend = listOf("voicechat")
@@ -73,7 +73,7 @@ modrinth {
     versionNumber.set(rootProject.version.toString())
     versionType.set("release")
     uploadFile.set(tasks.shadowJar)
-    gameVersions.addAll(listOf("1.21.7"))
+    gameVersions.addAll(listOf("1.21.8"))
     loaders.addAll(listOf("paper", "purpur"))
     dependencies {
         required.project("9eGKb6K1")
