@@ -14,18 +14,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
-import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.beam.BeamAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.getyarn.GetyarnAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.yamusic.YandexMusicAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -35,9 +23,6 @@ import dev.jorel.commandapi.arguments.GreedyStringArgument;
 import dev.jorel.commandapi.arguments.IntegerArgument;
 import dev.jorel.commandapi.arguments.LocationArgument;
 import dev.jorel.commandapi.arguments.LocationType;
-import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import dev.lavalink.youtube.clients.*;
-import dev.lavalink.youtube.clients.skeleton.Client;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
@@ -125,8 +110,7 @@ public class MixerCommand extends CommandAPICommand {
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-                                        playableComponent.setSong(JukeboxSong.BLOCKS);
-                                        playableComponent.setShowInTooltip(false);
+                                        playableComponent.setSongKey(mixerData);
 
                                         meta.setJukeboxPlayable(playableComponent);
                                     });
@@ -149,8 +133,7 @@ public class MixerCommand extends CommandAPICommand {
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, finalUrl);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-                                        playableComponent.setSong(JukeboxSong.BLOCKS);
-                                        playableComponent.setShowInTooltip(false);
+                                        playableComponent.setSongKey(mixerData);
 
                                         meta.setJukeboxPlayable(playableComponent);
                                     });

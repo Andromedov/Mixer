@@ -26,8 +26,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
-    implementation("de.maxhenkel.voicechat:voicechat-api:2.5.31")
-    //implementation("dev.arbjerg:lavaplayer:2.2.1")
+    implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.11.1")
 
@@ -49,7 +48,7 @@ tasks {
         relocate("dev.jorel.commandapi", "net.somewhatcity.mixer.commandapi")
         relocate("de.tr7zw.changeme.nbtapi", "net.somewhatcity.mixer.item-nbt-api")
         dependencies {
-            exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.5.31"))
+            exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
         }
     }
 
