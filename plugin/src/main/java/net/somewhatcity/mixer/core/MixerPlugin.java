@@ -52,6 +52,13 @@ public class MixerPlugin extends JavaPlugin {
         config.addDefault("mixer.youtube.enabled", false);
         config.addDefault("mixer.youtube.useOAuth", false);
         config.addDefault("mixer.youtube.refreshToken", "");
+        config.addDefault("mixer.http.userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        config.addDefault("mixer.http.connectTimeout", 10000);
+        config.addDefault("mixer.http.readTimeout", 30000);
+        config.addDefault("mixer.http.maxRetries", 3);
+        config.addDefault("mixer.http.retryDelay", 1000);
+        config.addDefault("mixer.dropbox.autoNormalizeUrls", true);
+        config.addDefault("mixer.dropbox.forceDirectDownload", true);
 
         config.options().copyDefaults(true);
         saveConfig();

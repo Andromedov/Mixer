@@ -27,7 +27,6 @@ import org.bukkit.persistence.PersistentDataType;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 public class Utils {
     public static boolean isDisc(ItemStack item) {
@@ -82,6 +81,89 @@ public class Utils {
         }
 
         return output;
+    }
+
+    public static String normalizeDropboxUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
+        }
+
+        try {
+            if (url.contains("dropbox.com")) {
+                if (url.contains("/s/")) {
+                    url = url.replace("www.dropbox.com/s/", "dl.dropboxusercontent.com/s/");
+                    url = url.replace("dropbox.com/s/", "dl.dropboxusercontent.com/s/");
+                }
+
+                url = url.replaceAll("[?&]dl=0", "");
+
+                if (!url.contains("?dl=1") && !url.contains("&dl=1")) {
+                    url += url.contains("?") ? "&dl=1" : "?dl=1";
+                }
+            }
+
+            if (url.contains("dropboxusercontent.com")) {
+                if (url.contains("#")) {
+                    url = url.substring(0, url.indexOf("#"));
+                }
+
+                url = url.replaceAll("[?&]_subject_uid=[^&]*", "");
+                url = url.replaceAll("[?&]_download_id=[^&]*", "");
+
+                if (!url.contains("?dl=1") && !url.contains("&dl=1")) {
+                    url += url.contains("?") ? "&dl=1" : "?dl=1";
+                }
+            }
+
+        } catch (Exception e) {
+            MixerPlugin.getPlugin().getLogger().warning("Error normalizing URL: " + e.getMessage());
+            return url;
+        }
+
+        return url;
+    }
+
+    public static boolean isUrlAccessible(String url) {
+        try {
+            Request request = new Request.Builder()
+                    .url(url)
+                    .head()
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                return response.isSuccessful();
+            }
+        } catch (Exception e) {
+            MixerPlugin.getPlugin().getLogger().warning("URL accessibility check failed for " + url + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    public static OkHttpClient createOptimizedHttpClient() {
+        return new OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .retryOnConnectionFailure(true)
+                .addInterceptor(chain -> {
+                    okhttp3.Request original = chain.request();
+                    okhttp3.Request.Builder requestBuilder = original.newBuilder()
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            .header("Accept", "audio/mpeg,audio/*,*/*;q=0.1")
+                            .header("Accept-Encoding", "identity")
+                            .header("Cache-Control", "no-cache");
+
+                    okhttp3.Request request = requestBuilder.build();
+                    return chain.proceed(request);
+                })
+                .build();
+    }
+
+    static {
+        client = createOptimizedHttpClient();
     }
 
     public static String requestCobaltMediaUrl(String url) {

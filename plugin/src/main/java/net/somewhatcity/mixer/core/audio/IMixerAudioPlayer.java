@@ -34,7 +34,6 @@ import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.yamusic.YandexMusicAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -120,8 +119,9 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             APM.registerSourceManager(youtube);
         }
 
+        HttpAudioSourceManager httpSourceManager = new HttpAudioSourceManager();
 
-        APM.registerSourceManager(new YandexMusicAudioSourceManager(true));
+        APM.registerSourceManager(httpSourceManager);
         APM.registerSourceManager(SoundCloudAudioSourceManager.createDefault());
         APM.registerSourceManager(new BandcampAudioSourceManager());
         APM.registerSourceManager(new VimeoAudioSourceManager());
@@ -134,8 +134,147 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
         APM.setFrameBufferDuration(500);
         APM.getConfiguration().setFilterHotSwapEnabled(true);
-
     }
+
+    private static String normalizeDropboxUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
+        }
+
+        try {
+            if (url.contains("dropbox.com")) {
+                if (url.contains("/s/")) {
+                    url = url.replace("www.dropbox.com/s/", "dl.dropboxusercontent.com/s/");
+                    url = url.replace("dropbox.com/s/", "dl.dropboxusercontent.com/s/");
+                }
+
+                url = url.replaceAll("[?&]dl=0", "");
+
+                if (!url.contains("?dl=1") && !url.contains("&dl=1")) {
+                    url += url.contains("?") ? "&dl=1" : "?dl=1";
+                }
+            }
+
+            if (url.contains("dropboxusercontent.com")) {
+                if (url.contains("#")) {
+                    url = url.substring(0, url.indexOf("#"));
+                }
+
+                url = url.replaceAll("[?&]_subject_uid=[^&]*", "");
+                url = url.replaceAll("[?&]_download_id=[^&]*", "");
+
+                if (!url.contains("?dl=1") && !url.contains("&dl=1")) {
+                    url += url.contains("?") ? "&dl=1" : "?dl=1";
+                }
+            }
+
+        } catch (Exception e) {
+            MixerPlugin.getPlugin().getLogger().warning("Error normalizing URL: " + e.getMessage());
+            return url;
+        }
+
+        return url;
+    }
+
+    private void loadWithRetry(String url, int currentAttempt, int maxRetries) {
+        final int attemptNumber = currentAttempt;
+
+        APM.loadItem(url, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack audioTrack) {
+                if(audioTrack.getInfo().isStream) {
+                    FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+                    String identifier = "mixers.mixer_%s%s%s".formatted(
+                            location.getBlockX(), location.getBlockY(), location.getBlockZ());
+                    config.set(identifier + ".uri", audioTrack.getInfo().uri);
+                    config.set(identifier + ".location", location);
+                    MixerPlugin.getPlugin().saveConfig();
+                }
+
+                playlist.add(audioTrack);
+                if(!playbackStarted) {
+                    loadDsp();
+                    start();
+                    playbackStarted = true;
+                }
+                if(!loadingQueue.isEmpty() && running) {
+                    load(loadingQueue.poll());
+                }
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist audioPlaylist) {
+                if (audioPlaylist.getSelectedTrack() != null) {
+                    playlist.add(audioPlaylist.getSelectedTrack());
+                } else if (!audioPlaylist.getTracks().isEmpty()) {
+                    playlist.add(audioPlaylist.getTracks().get(0));
+                }
+            }
+
+            @Override
+            public void noMatches() {
+                if (attemptNumber < maxRetries - 1) {
+                    MixerPlugin.getPlugin().getLogger().info(
+                            "No matches found, retrying attempt " + (attemptNumber + 2) +
+                                    " for URL: " + url);
+
+                    EXECUTOR_SERVICE.submit(() -> {
+                        try {
+                            Thread.sleep(1000 * (attemptNumber + 1));
+                            loadWithRetry(url, attemptNumber + 1, maxRetries);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+                } else {
+                    MixerPlugin.getPlugin().getLogger().warning(
+                            "No matches found for URL after " + maxRetries + " attempts: " + url);
+
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                "<red>Could not find playable audio at the provided URL"));
+                    });
+                }
+            }
+
+            @Override
+            public void loadFailed(FriendlyException e) {
+                if (attemptNumber < maxRetries - 1) {
+                    MixerPlugin.getPlugin().getLogger().info(
+                            "Load failed, retrying attempt " + (attemptNumber + 2) +
+                                    " for URL: " + url + ". Error: " + e.getMessage());
+
+                    EXECUTOR_SERVICE.submit(() -> {
+                        try {
+                            Thread.sleep(1000 * (int) Math.pow(2, attemptNumber));
+                            loadWithRetry(url, attemptNumber + 1, maxRetries);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+                } else {
+                    MixerPlugin.getPlugin().getLogger().severe(
+                            "Failed to load audio after " + maxRetries +
+                                    " attempts: " + e.getMessage());
+
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        String errorMsg = e.getMessage();
+                        if (errorMsg.contains("403") || errorMsg.contains("Forbidden")) {
+                            p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                    "<red>Access denied to audio file. Please check if the link is public and accessible."));
+                        } else if (errorMsg.contains("404") || errorMsg.contains("Not Found")) {
+                            p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                    "<red>Audio file not found. Please check the URL."));
+                        } else {
+                            p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                    "<red>Error loading audio: " + errorMsg));
+                        }
+                    });
+                }
+            }
+        });
+    }
+
     public IMixerAudioPlayer(Location location) {
         if(!location.getBlock().getType().equals(Material.JUKEBOX)) throw new IllegalArgumentException("no jukebox at location");
 
@@ -376,62 +515,11 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
     private void loadSingle(String audioUrl) {
         if(audioUrl == null || audioUrl.isEmpty()) return;
-        final String[] url = {audioUrl};
+        final String normalizedUrl = normalizeDropboxUrl(audioUrl);
+        MixerPlugin.getPlugin().getLogger().info("Loading audio from URL: " + normalizedUrl);
         EXECUTOR_SERVICE.submit(() -> {
-            /*
-            if(url[0].startsWith("cobalt:")) {
-                url[0] = url[0].replace("cobalt:", "");
-                url[0] = Utils.requestCobaltMediaUrl(url[0]);
-                if(url[0] == null || url[0].isEmpty()) {
-                    location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>Error playing cobalt media"));
-                    });
-                    return;
-                }
-            } else if (url[0].startsWith("https://www.youtube.com/") || url[0].startsWith("https://music.youtube.com/")) {
-                url[0] = Utils.requestCobaltMediaUrl(url[0]);
-            }
-
-             */
-
-            APM.loadItem(url[0], new AudioLoadResultHandler() {
-                @Override
-                public void trackLoaded(AudioTrack audioTrack) {
-                    if(audioTrack.getInfo().isStream) {
-                        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
-
-                        String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-                        config.set(identifier + ".uri", audioTrack.getInfo().uri);
-                        config.set(identifier + ".location", location);
-
-                        MixerPlugin.getPlugin().saveConfig();
-                    }
-
-                    playlist.add(audioTrack);
-                    if(!playbackStarted) {
-                        loadDsp();
-                        start();
-                        playbackStarted = true;
-                    }
-                    if(!loadingQueue.isEmpty() && running) load(loadingQueue.poll());
-                }
-
-                @Override
-                public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                    playlist.add(audioPlaylist.getSelectedTrack());
-                }
-
-                @Override
-                public void noMatches() {
-                }
-
-                @Override
-                public void loadFailed(FriendlyException e) {
-                    e.printStackTrace();
-                }
-            });
+            loadWithRetry(normalizedUrl, 0, 3);
         });
-
     }
     
     public void loadDsp() {
