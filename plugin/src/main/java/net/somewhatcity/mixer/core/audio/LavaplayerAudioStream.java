@@ -14,29 +14,70 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.io.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class LavaplayerAudioStream extends AudioInputStream {
     private PipedOutputStream outputStream;
     private PipedInputStream inputStream;
+    private AtomicBoolean isClosed = new AtomicBoolean(false);
 
     public LavaplayerAudioStream(AudioFormat format) throws IOException {
         super(null, format, AudioSystem.NOT_SPECIFIED);
         outputStream = new PipedOutputStream();
-        inputStream = new PipedInputStream(outputStream);
+        inputStream = new PipedInputStream(outputStream, 8192);
     }
 
     public synchronized void appendData(byte[] newData) throws IOException {
-        outputStream.write(newData);
+        if (isClosed.get()) {
+            return;
+        }
+
+        try {
+            if (outputStream != null && !isClosed.get()) {
+                outputStream.write(newData);
+                outputStream.flush();
+            }
+        } catch (IOException e) {
+            if (!isClosed.get()) {
+                System.err.println("Error writing to audio stream: " + e.getMessage());
+            }
+        }
     }
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        return inputStream.read(b, off, len);
+        if (isClosed.get()) {
+            return -1;
+        }
+        try {
+            return inputStream.read(b, off, len);
+        } catch (IOException e) {
+            if (!isClosed.get()) {
+                throw e;
+            }
+            return -1;
+        }
     }
 
     @Override
     public void close() throws IOException {
-        outputStream.close();
-        inputStream.close();
+        if (isClosed.compareAndSet(false, true)) {
+            try {
+                if (outputStream != null) {
+                    outputStream.flush();
+                    outputStream.close();
+                }
+            } catch (IOException e) { }
+
+            try {
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            } catch (IOException e) { }
+        }
+    }
+
+    public boolean isClosed() {
+        return isClosed.get();
     }
 }

@@ -132,7 +132,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         APM.registerSourceManager(new HttpAudioSourceManager());
         APM.registerSourceManager(new LocalAudioSourceManager());
 
-        APM.setFrameBufferDuration(100);
+        APM.setFrameBufferDuration(500);
+        APM.getConfiguration().setFilterHotSwapEnabled(true);
 
     }
     public IMixerAudioPlayer(Location location) {
@@ -216,27 +217,45 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 @Override
                 public void run() {
                     try {
+                        if (!running || audioStream.isClosed()) {
+                            return;
+                        }
+
                         AudioFrame frame = lavaplayer.provide();
                         if(frame != null) {
                             byte[] data = frame.getData();
                             if(decoder.isClosed()) return;
-                            byte[] decoded = Utils.shortToByte(decoder.decode(data));
 
                             try {
-                                audioStream.appendData(decoded);
+                                byte[] decoded = Utils.shortToByte(decoder.decode(data));
+                                if (!audioStream.isClosed() && running) {
+                                    audioStream.appendData(decoded);
+                                }
                             } catch (Exception ex) {
-                                ex.printStackTrace();
+                                if (running && !audioStream.isClosed()) {
+                                    System.err.println("Error processing audio frame: " + ex.getMessage());
+                                }
                             }
                         }
 
-                        if(!audioQueue.isEmpty()) {
+                        if(!audioQueue.isEmpty() && running) {
                             byte[] data = audioQueue.poll();
-                            channels.forEach(ch -> {
-                                ch.send(data);
-                            });
+                            if (data != null && !channels.isEmpty()) {
+                                channels.forEach(ch -> {
+                                    try {
+                                        ch.send(data);
+                                    } catch (Exception e) {
+                                        if (running) {
+                                            System.err.println("Error sending audio to channel: " + e.getMessage());
+                                        }
+                                    }
+                                });
+                            }
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        if (running) {
+                            System.err.println("Error in audio timer task: " + e.getMessage());
+                        }
                     }
                 }
             }, 0, 20);
@@ -272,19 +291,73 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     @Override
     public void stop() {
         running = false;
-        if(dispatcher != null) dispatcher.stop();
-        if(audioTimer != null) audioTimer.cancel();
-        encoder.close();
-        decoder.close();
+        if(dispatcher != null) {
+            try {
+                dispatcher.stop();
+            } catch (Exception e) {
+                System.err.println("Error stopping dispatcher: " + e.getMessage());
+            }
+        }
+        if(lavaplayer != null) {
+            try {
+                lavaplayer.stopTrack();
+                lavaplayer.destroy();
+            } catch (Exception e) {
+                System.err.println("Error stopping lavaplayer: " + e.getMessage());
+            }
+        }
+        if(audioTimer != null) {
+            try {
+                audioTimer.cancel();
+                audioTimer.purge();
+            } catch (Exception e) {
+                System.err.println("Error stopping audio timer: " + e.getMessage());
+            }
+        }
+        try {
+            if(encoder != null && !encoder.isClosed()) {
+                encoder.close();
+            }
+        } catch (Exception e) {
+            System.err.println("Error closing encoder: " + e.getMessage());
+        }
+        try {
+            if(decoder != null && !decoder.isClosed()) {
+                decoder.close();
+            }
+        } catch (Exception e) {
+            System.err.println("Error closing decoder: " + e.getMessage());
+        }
+
+        if(audioStream != null) {
+            try {
+                audioStream.close();
+            } catch (Exception e) {
+                System.err.println("Error closing audio stream: " + e.getMessage());
+            }
+        }
+
+        if(jvmAudioInputStream != null) {
+            try {
+                jvmAudioInputStream.close();
+            } catch (IOException e) {
+                System.err.println("Error closing JVM audio input stream: " + e.getMessage());
+            }
+        }
+
+        playlist.clear();
+        loadingQueue.clear();
+        audioQueue.clear();
+        channels.clear();
 
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
-
         String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-        if(config.contains(identifier)) config.set(identifier, null);
-
-        MixerPlugin.getPlugin().saveConfig();
+        if(config.contains(identifier)) {
+            config.set(identifier, null);
+            MixerPlugin.getPlugin().saveConfig();
+        }
 
         try {
             if(jvmAudioInputStream != null) jvmAudioInputStream.close();
@@ -365,6 +438,10 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
+                if (!running || audioStream == null || audioStream.isClosed()) {
+                    return;
+                }
+
                 jvmAudioInputStream = new JVMAudioInputStream(audioStream);
                 dispatcher = new AudioDispatcher(jvmAudioInputStream, 960, 0);
 
