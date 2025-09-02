@@ -20,7 +20,7 @@ public class MessageUtil {
     public static final Component PREFIX = MM.deserialize("<b><color:#3d32d1>[Mixer]</color></b> ");
 
     public static void sendMsg(CommandSender sender, String msg, Object... args) {
-        String[] colored = new String[args.length];
+        Object[] colored = new Object[args.length];
         for(int i = 0; i < args.length; i++) {
             colored[i] = "<color:#3d32d1>" + args[i].toString() + "</color>";
         }
@@ -29,7 +29,7 @@ public class MessageUtil {
     }
 
     public static void sendErrMsg(CommandSender sender, String msg, Object... args) {
-        String[] colored = new String[args.length];
+        Object[] colored = new Object[args.length];
         for(int i = 0; i < args.length; i++) {
             colored[i] = "<b><color:#3d32d1>" + args[i].toString() + "</color></b>";
         }
