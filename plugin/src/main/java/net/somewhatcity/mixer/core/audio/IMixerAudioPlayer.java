@@ -170,7 +170,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             channels.add(channel);
         });
 
-        // Асинхронна ініціалізація
+        // Asynchronous initialization
         initializeAsync();
     }
 
@@ -178,7 +178,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         CompletableFuture.runAsync(() -> {
             synchronized(initializationLock) {
                 try {
-                    // Ініціалізація компонентів
+                    // Initialization of components
                     lavaplayer = APM.createPlayer();
                     lavaplayer.addListener(new AudioEventAdapter() {
                         @Override
@@ -246,14 +246,12 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                             } catch (Exception e) {
                                 if (running) {
                                     MixerPlugin.getPlugin().getLogger().severe("Critical error in audio timer: " + e.getMessage());
-                                    // Можливо, потрібно зупинити плеєр
                                     stop();
                                 }
                             }
                         }
                     }, 0, 20);
 
-                    // Чекаємо трохи для стабільності
                     Thread.sleep(100);
 
                     isInitialized = true;
@@ -283,11 +281,11 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
     @Override
     public void load(String... url) {
-        // Чекаємо ініціалізації
+        // Initialization
         synchronized(initializationLock) {
             while (!isInitialized) {
                 try {
-                    initializationLock.wait(5000); // 5 секунд timeout
+                    initializationLock.wait(5000); // 5 seconds timeout
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
@@ -303,7 +301,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     public void stop() {
         running = false;
 
-        // Спочатку зупиняємо всі активні процеси
         if (audioTimer != null) {
             audioTimer.cancel();
             audioTimer = null;
@@ -313,13 +310,11 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             try {
                 dispatcher.stop();
             } catch (Exception e) {
-                // Логуємо, але не кидаємо exception
                 MixerPlugin.getPlugin().getLogger().warning("Error stopping dispatcher: " + e.getMessage());
             }
             dispatcher = null;
         }
 
-        // Закриваємо кодеки
         if (encoder != null && !encoder.isClosed()) {
             try {
                 encoder.close();
@@ -336,19 +331,17 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             }
         }
 
-        // Закриваємо аудіо потоки
         if (audioStream != null) {
             try {
                 audioStream.close();
             } catch (Exception e) {
-                // Ігноруємо помилки закриття
+                // Ignore
             }
         }
 
-        // Очищуємо з мапи в кінці
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
-        // Очищуємо конфіг
+        // Clean up config
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
         String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         if (config.contains(identifier)) {
@@ -361,7 +354,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 jvmAudioInputStream.close();
             }
         } catch (IOException e) {
-            // Ігноруємо помилки закриття
+            // Ignore
         }
     }
 
