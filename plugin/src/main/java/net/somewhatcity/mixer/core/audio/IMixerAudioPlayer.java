@@ -139,7 +139,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
         Jukebox jukebox = (Jukebox) block.getState();
 
-        NamespacedKey mixerLinks = new NamespacedKey(MixerPlugin.getPlugin(), "mixerlinks");
+        NamespacedKey mixerLinks = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_links");
         String speakerData = jukebox.getPersistentDataContainer().get(mixerLinks, PersistentDataType.STRING);
         if (speakerData == null || speakerData.isEmpty()) {
             speakers.add(new IMixerSpeaker(location));

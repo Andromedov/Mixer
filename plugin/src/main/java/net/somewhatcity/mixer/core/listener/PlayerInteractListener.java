@@ -72,7 +72,7 @@ public class PlayerInteractListener implements Listener {
                 audioPlayer.stop();
             }
             if (e.getItem() == null) return;
-            NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixerdata");
+            NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
             if (!e.getItem().getPersistentDataContainer().getKeys().contains(mixerData)) return;
             String url = e.getItem().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
             e.setCancelled(true);

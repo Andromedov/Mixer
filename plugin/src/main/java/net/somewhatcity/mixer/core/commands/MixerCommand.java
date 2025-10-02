@@ -95,7 +95,7 @@ public class MixerCommand extends CommandAPICommand {
                                         meta.displayName(MM.deserialize("<reset>" + info.title).decoration(TextDecoration.ITALIC, false));
                                         meta.lore(List.of(MM.deserialize("<reset><gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
 
-                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixerdata");
+                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
@@ -130,7 +130,7 @@ public class MixerCommand extends CommandAPICommand {
                                         meta.displayName(MM.deserialize("<reset>" + info.title).decoration(TextDecoration.ITALIC, false));
                                         meta.lore(List.of(MM.deserialize("<reset><gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
 
-                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixerdata");
+                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, finalUrl);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
@@ -179,7 +179,7 @@ public class MixerCommand extends CommandAPICommand {
                             }
                             JsonArray linked;
                             Jukebox jukebox = (Jukebox) block.getState();
-                            NamespacedKey mixerLinks = new NamespacedKey(MixerPlugin.getPlugin(), "mixerlinks");
+                            NamespacedKey mixerLinks = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_links");
                             String data = jukebox.getPersistentDataContainer().get(mixerLinks, PersistentDataType.STRING);
                             if (data == null || data.isEmpty()) {
                                 linked = new JsonArray();
@@ -213,7 +213,7 @@ public class MixerCommand extends CommandAPICommand {
                             }
                             JsonArray redstones;
                             Jukebox jukebox = (Jukebox) block.getState();
-                            NamespacedKey mixerRedstones = new NamespacedKey(MixerPlugin.getPlugin(), "mixerredstones");
+                            NamespacedKey mixerRedstones = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_redstones");
                             String data = jukebox.getPersistentDataContainer().get(mixerRedstones, PersistentDataType.STRING);
                             if (data == null || data.isEmpty()) {
                                 redstones = new JsonArray();
