@@ -435,7 +435,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
                 JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
                 if (gainSettings != null) {
-                    double gain = gainSettings.get("gain").getAsDouble();
+                    double gain = gainSettings.get("gain").getAsDouble() * 0.5;
                     GainProcessor gainProcessor = new GainProcessor(gain);
                     dispatcher.addAudioProcessor(gainProcessor);
                 }
