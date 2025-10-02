@@ -25,10 +25,10 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.21.9-R0.1-SNAPSHOT")
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
     implementation("dev.arbjerg:lavaplayer:2.2.4")
-    implementation("dev.lavalink.youtube:v2:1.11.1")
+    implementation("dev.lavalink.youtube:v2:1.14.0")
 
     implementation("dev.jorel:commandapi-bukkit-shade:10.1.2")
     implementation("org.apache.commons:commons-math3:3.6.1")
@@ -59,7 +59,7 @@ tasks {
 
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
-    apiVersion = "1.21.8"
+    apiVersion = "1.21.9"
     authors = listOf("mrmrmystery", "Andromedov")
     name = rootProject.name
     depend = listOf("voicechat")
