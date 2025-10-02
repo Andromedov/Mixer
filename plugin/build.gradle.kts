@@ -59,7 +59,7 @@ tasks {
 
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
-    apiVersion = "1.21.9"
+    apiVersion = "1.21.8"
     authors = listOf("mrmrmystery", "Andromedov")
     name = rootProject.name
     depend = listOf("voicechat")
