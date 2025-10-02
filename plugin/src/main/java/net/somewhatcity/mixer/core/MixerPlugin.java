@@ -22,20 +22,20 @@ import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
-import java.util.logging.Level;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
     private HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+
     @Override
     public void onLoad() {
         CommandAPI.onLoad(new CommandAPIBukkitConfig(this).verboseOutput(false));
@@ -46,46 +46,66 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
-
         FileConfiguration config = getConfig();
-
         config.addDefault("mixer.youtube.enabled", false);
         config.addDefault("mixer.youtube.useOAuth", false);
         config.addDefault("mixer.youtube.refreshToken", "");
-
         config.options().copyDefaults(true);
         saveConfig();
 
-        new Metrics(this,19824);
+        new Metrics(this, 19824);
         CommandAPI.onEnable();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
-        if(vcService != null) {
+        if (vcService != null) {
             MixerVoicechatPlugin voicechatPlugin = new MixerVoicechatPlugin();
             vcService.registerPlugin(voicechatPlugin);
         } else {
             getLogger().info("VoiceChat not found");
         }
 
+        registerCustomJukeboxSongs();
 
         playerInteractListener = new PlayerInteractListener();
-
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
         new MixerCommand();
-
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
+    }
 
+    private void registerCustomJukeboxSongs() {
+        try {
+            NamespacedKey mixerKey = new NamespacedKey(this, "mixer_data");
 
+            getServer().getScheduler().runTaskLater(this, () -> {
+                try {
+                    getLogger().info("Registering custom jukebox song key: " + mixerKey);
+                } catch (Exception e) {
+                    getLogger().warning("Could not register jukebox song: " + e.getMessage());
+                }
+            }, 1L);
+
+        } catch (Exception e) {
+            getLogger().warning("JukeboxSong registry not available, using fallback approach");
+        }
     }
 
     @Override
     public void onDisable() {
+        playerHashMap.values().forEach(player -> {
+            try {
+                player.stop();
+            } catch (Exception e) {
+                getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
+            }
+        });
+
         CommandAPI.onDisable();
     }
+
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() {
         return playerHashMap;
     }

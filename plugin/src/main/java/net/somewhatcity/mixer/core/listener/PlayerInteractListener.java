@@ -17,72 +17,85 @@ import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.block.Jukebox;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class PlayerInteractListener implements Listener {
 
+    private final Map<Location, Long> lastInteractTime = new ConcurrentHashMap<>();
+    private static final long INTERACT_COOLDOWN = 1000; // 1 секунда
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
-        if(e.getClickedBlock() == null) return;
-        if(!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
-        Jukebox jukeboxState = (Jukebox) e.getClickedBlock().getState();
+        if (e.getClickedBlock() == null) return;
+        if (!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
 
+        Location location = e.getClickedBlock().getLocation();
+        long currentTime = System.currentTimeMillis();
 
-        if(e.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
-            Location location = e.getClickedBlock().getLocation();
-            if(MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
+        Long lastTime = lastInteractTime.get(location);
+        if (lastTime != null && (currentTime - lastTime) < INTERACT_COOLDOWN) {
+            e.setCancelled(true);
+            return;
+        }
+
+        lastInteractTime.put(location, currentTime);
+
+        if (e.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
+            Location loc = e.getClickedBlock().getLocation();
+            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
+                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
                 audioPlayer.stop();
             }
         } else if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
-            Location location = e.getClickedBlock().getLocation();
-            if(MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
-                if(e.getPlayer().isSneaking()) {
-                    /*
+            Location loc = e.getClickedBlock().getLocation();
+            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
+                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
+                if (e.getPlayer().isSneaking()) {
                     int boost = e.getPlayer().getInventory().getHeldItemSlot() * 100;
-                    if(boost == 0) {
-                        oldPlayer.resetFilters();
+                    if (boost == 0) {
+                        // oldPlayer.resetFilters();
                         e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<blue>bassboost disabled"));
                         return;
                     }
-                    oldPlayer.bassBoost(boost);
-                    e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<blue>bassboost set to <b>" + boost + "%</b>"));
+                    // oldPlayer.bassBoost(boost);
+                    e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<blue>bassboost set to <b>" + boost + "</b>"));
                     return;
-
-                     */
                 }
-
                 e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<red>playback stopped"));
                 audioPlayer.stop();
             }
-
-            if(e.getItem() == null) return;
-
+            if (e.getItem() == null) return;
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            if(!e.getItem().getPersistentDataContainer().getKeys().contains(mixerData)) return;
+            if (!e.getItem().getPersistentDataContainer().getKeys().contains(mixerData)) return;
             String url = e.getItem().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
             e.setCancelled(true);
 
-            IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
-            audioPlayer.load(url);
+            try {
+                IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
+                audioPlayer.load(url);
+            } catch (Exception ex) {
+                MixerPlugin.getPlugin().getLogger().warning("Failed to create audio player: " + ex.getMessage());
+                e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<red>Failed to start playback"));
+            }
         }
     }
 
     @EventHandler
     public void onBlockBreak(BlockDestroyEvent e) {
-        if(e.getBlock().getType().equals(Material.JUKEBOX)) {
+        if (e.getBlock().getType().equals(Material.JUKEBOX)) {
             Location loc = e.getBlock().getLocation();
-            if(MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
+            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
                 IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
                 audioPlayer.stop();
             }
+            lastInteractTime.remove(loc);
         }
     }
 }

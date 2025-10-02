@@ -16,8 +16,9 @@ import javax.sound.sampled.AudioSystem;
 import java.io.*;
 
 public class LavaplayerAudioStream extends AudioInputStream {
-    private PipedOutputStream outputStream;
-    private PipedInputStream inputStream;
+    private volatile PipedOutputStream outputStream;
+    private volatile PipedInputStream inputStream;
+    private volatile boolean closed = false;
 
     public LavaplayerAudioStream(AudioFormat format) throws IOException {
         super(null, format, AudioSystem.NOT_SPECIFIED);
@@ -26,17 +27,46 @@ public class LavaplayerAudioStream extends AudioInputStream {
     }
 
     public synchronized void appendData(byte[] newData) throws IOException {
-        outputStream.write(newData);
+        if (closed || outputStream == null) {
+            return; // Ignore
+        }
+
+        try {
+            outputStream.write(newData);
+            outputStream.flush();
+        } catch (IOException e) {
+            if (!e.getMessage().contains("Write end dead")) {
+                throw e;
+            }
+            System.err.println("Audio stream write end dead - stream likely closed");
+        }
     }
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
+        if (closed || inputStream == null) {
+            return -1;
+        }
         return inputStream.read(b, off, len);
     }
 
     @Override
     public void close() throws IOException {
-        outputStream.close();
-        inputStream.close();
+        closed = true;
+        try {
+            if (outputStream != null) {
+                outputStream.close();
+            }
+        } catch (IOException e) {
+            // Ignore
+        }
+
+        try {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        } catch (IOException e) {
+            // Ignore
+        }
     }
 }
