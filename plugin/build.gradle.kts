@@ -42,7 +42,7 @@ dependencies {
 
 tasks {
     shadowJar {
-        destinationDirectory.set(getLayout().buildDirectory.dir("libs"))
+        destinationDirectory.set(rootProject.buildDir.resolve("libs"))
         archiveBaseName.set(rootProject.name)
 
         relocate("dev.jorel.commandapi", "net.somewhatcity.mixer.commandapi")
