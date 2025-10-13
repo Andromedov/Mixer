@@ -7,7 +7,6 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package net.somewhatcity.mixer.core.commands;
 
 import com.google.gson.JsonArray;
@@ -54,10 +53,10 @@ public class MixerCommand extends CommandAPICommand {
                 .executesPlayer((player, args) -> {
                     ItemStack item = player.getInventory().getItemInMainHand();
                     if (!Utils.isDisc(item)) {
-                        MessageUtil.sendErrMsg(player, "You must be holding a music disc!");
+                        MessageUtil.sendErrMsg(player, "no_disc");
                         return;
                     }
-                    MessageUtil.sendMsg(player, "Loading track. Please wait...");
+                    MessageUtil.sendMsg(player, "loading_track");
                     EXECUTOR_SERVICE.submit(() -> {
                         String url = (String) args.get(0);
                         String oldUrl;
@@ -73,12 +72,13 @@ public class MixerCommand extends CommandAPICommand {
                             oldUrl = url;
                             url = Utils.requestCobaltMediaUrl(uri);
                             if (url == null) {
-                                player.sendMessage("<c>Error while loading cobalt media");
+                                MessageUtil.sendErrMsg(player, "loading_failed", "cobalt media");
                                 return;
                             }
                         } else {
                             oldUrl = "";
                         }
+
                         String finalUrl = url;
                         IMixerAudioPlayer.APM.loadItem(url, new AudioLoadResultHandler() {
                             @Override
@@ -92,33 +92,28 @@ public class MixerCommand extends CommandAPICommand {
                                         urlToSet = finalUrl;
                                     }
                                     item.editMeta(meta -> {
-                                        meta.displayName(MM.deserialize("<reset>" + info.title).decoration(TextDecoration.ITALIC, false));
-                                        meta.lore(List.of(MM.deserialize("<reset><gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
-
+                                        meta.displayName(MM.deserialize("<green>" + info.title).decoration(TextDecoration.ITALIC, false));
+                                        meta.lore(List.of(MM.deserialize("<gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
                                         NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-
                                         // Спробуємо встановити наш ключ, але з fallback
                                         try {
                                             playableComponent.setSongKey(mixerData);
                                         } catch (Exception e) {
-                                            // Якщо не вдається, використовуємо fallback до стандартного ключа
                                             MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key, using fallback: " + e.getMessage());
                                             try {
                                                 NamespacedKey fallbackKey = NamespacedKey.minecraft("pigstep");
                                                 playableComponent.setSongKey(fallbackKey);
                                             } catch (Exception fallbackException) {
                                                 MixerPlugin.getPlugin().getLogger().severe("Even fallback jukebox key failed: " + fallbackException.getMessage());
-                                                // Можливо, варто не встановлювати компонент взагалі
                                                 return;
                                             }
                                         }
-
                                         meta.setJukeboxPlayable(playableComponent);
                                     });
-                                    MessageUtil.sendMsg(player, "Successfully loaded track: %s", info.title);
+                                    MessageUtil.sendMsg(player, "track_loaded", info.title);
                                 });
                             }
 
@@ -127,15 +122,13 @@ public class MixerCommand extends CommandAPICommand {
                                 AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
                                 Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
                                     item.editMeta(meta -> {
-                                        meta.displayName(MM.deserialize("<reset>" + info.title).decoration(TextDecoration.ITALIC, false));
-                                        meta.lore(List.of(MM.deserialize("<reset><gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
-
+                                        meta.displayName(MM.deserialize("<green>" + info.title).decoration(TextDecoration.ITALIC, false));
+                                        meta.lore(List.of(MM.deserialize("<gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
                                         NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                                         meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, finalUrl);
 
                                         JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
 
-                                        // Спробуємо встановити наш ключ, але з fallback
                                         try {
                                             playableComponent.setSongKey(mixerData);
                                         } catch (Exception e) {
@@ -148,21 +141,20 @@ public class MixerCommand extends CommandAPICommand {
                                                 return;
                                             }
                                         }
-
                                         meta.setJukeboxPlayable(playableComponent);
                                     });
-                                    MessageUtil.sendMsg(player, "Successfully loaded track: %s", info.title);
+                                    MessageUtil.sendMsg(player, "track_loaded", info.title);
                                 });
                             }
 
                             @Override
                             public void noMatches() {
-                                MessageUtil.sendErrMsg(player, "No matches found");
+                                MessageUtil.sendErrMsg(player, "no_matches");
                             }
 
                             @Override
                             public void loadFailed(FriendlyException e) {
-                                MessageUtil.sendErrMsg(player, e.getMessage());
+                                MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
                             }
                         });
                     });
@@ -174,7 +166,7 @@ public class MixerCommand extends CommandAPICommand {
                             Location jukeboxLoc = (Location) args.get(0);
                             Block block = jukeboxLoc.getBlock();
                             if (!block.getType().equals(Material.JUKEBOX)) {
-                                MessageUtil.sendErrMsg(player, "No jukebox found at location");
+                                MessageUtil.sendErrMsg(player, "no_jukebox");
                                 return;
                             }
                             JsonArray linked;
@@ -196,7 +188,7 @@ public class MixerCommand extends CommandAPICommand {
                             linked.add(locData);
                             jukebox.getPersistentDataContainer().set(mixerLinks, PersistentDataType.STRING, linked.toString());
                             jukebox.update();
-                            MessageUtil.sendMsg(player, "Location linked to jukebox");
+                            MessageUtil.sendMsg(player, "location_linked");
                         }))
                 .withSubcommand(new CommandAPICommand("redstone")
                         .withPermission("mixer.command.redstone")
@@ -208,7 +200,7 @@ public class MixerCommand extends CommandAPICommand {
                             Location jukeboxLoc = (Location) args.get(0);
                             Block block = jukeboxLoc.getBlock();
                             if (!block.getType().equals(Material.JUKEBOX)) {
-                                MessageUtil.sendErrMsg(player, "No jukebox found at location");
+                                MessageUtil.sendErrMsg(player, "no_jukebox");
                                 return;
                             }
                             JsonArray redstones;
@@ -221,7 +213,7 @@ public class MixerCommand extends CommandAPICommand {
                                 redstones = (JsonArray) JsonParser.parseString(data);
                             }
                             if (player.getTargetBlockExact(10) == null) {
-                                MessageUtil.sendErrMsg(player, "Not looking at a block");
+                                MessageUtil.sendErrMsg(player, "no_block");
                                 return;
                             }
                             Location loc = player.getTargetBlockExact(10).getLocation();
@@ -237,7 +229,28 @@ public class MixerCommand extends CommandAPICommand {
                             redstones.add(locData);
                             jukebox.getPersistentDataContainer().set(mixerRedstones, PersistentDataType.STRING, redstones.toString());
                             jukebox.update();
-                            MessageUtil.sendMsg(player, "Redstone location linked to jukebox");
+                            MessageUtil.sendMsg(player, "redstone_linked");
+                        }))
+                .withSubcommand(new CommandAPICommand("reload")
+                        .withPermission("mixer.command.reload")
+                        .executesPlayer((player, args) -> {
+                            MixerPlugin.getPlugin().reloadPluginConfig();
+                            MessageUtil.sendMsg(player, "config_reloaded");
+                        }))
+                .withSubcommand(new CommandAPICommand("audioinfo")
+                        .withPermission("mixer.command.audioinfo")
+                        .executesPlayer((player, args) -> {
+                            Utils.logAudioConfiguration();
+                            MixerPlugin plugin = MixerPlugin.getPlugin();
+
+                            player.sendMessage("§a=== Audio Configuration ===");
+                            player.sendMessage("§7Sample Rate: §f" + plugin.getAudioSampleRate() + " Hz");
+                            player.sendMessage("§7Buffer Size: §f" + plugin.getAudioBufferSize() + " samples");
+                            player.sendMessage("§7Frame Buffer Duration: §f" + plugin.getAudioFrameBufferDuration() + " ms");
+                            player.sendMessage("§7Volume: §f" + plugin.getVolumePercent() + "% (" +
+                                    String.format("%.2f", plugin.getVolumeMultiplier()) + "x)");
+                            player.sendMessage("§7YouTube: §f" + (plugin.isYoutubeEnabled() ? "Enabled" : "Disabled"));
+                            player.sendMessage("§7Language: §f" + plugin.getLanguage());
                         }))
                 .withSubcommand(new DspCommand());
         register();

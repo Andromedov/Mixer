@@ -17,9 +17,12 @@ import de.maxhenkel.voicechat.api.VolumeCategory;
 import de.maxhenkel.voicechat.api.events.EventRegistration;
 import de.maxhenkel.voicechat.api.events.VoicechatServerStartedEvent;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
+import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+
+import javax.sound.sampled.AudioFormat;
 
 public class MixerVoicechatPlugin implements VoicechatPlugin {
 
@@ -38,6 +41,10 @@ public class MixerVoicechatPlugin implements VoicechatPlugin {
     @Override
     public void initialize(VoicechatApi api) {
         MixerVoicechatPlugin.api = api;
+    }
+
+    public static AudioFormat getConfiguredAudioFormat() {
+        return Utils.createConfiguredAudioFormat();
     }
 
     private void onServerStarted(VoicechatServerStartedEvent event) {

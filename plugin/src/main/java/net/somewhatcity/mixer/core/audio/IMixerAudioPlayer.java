@@ -7,7 +7,6 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package net.somewhatcity.mixer.core.audio;
 
 import be.tarsos.dsp.AudioDispatcher;
@@ -67,14 +66,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class IMixerAudioPlayer implements MixerAudioPlayer {
-    private static final AudioFormat AUDIO_FORMAT = new AudioFormat(48000, 16, 1, true, true);
     private static final VoicechatServerApi API = (VoicechatServerApi) MixerVoicechatPlugin.api;
     public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
 
+    private final AudioFormat audioFormat;
+    private final int frameSize;
+    private final int frameBufferDuration;
+    private final float volumeMultiplier;
+
     private final Object initializationLock = new Object();
     private volatile boolean isInitialized = false;
-
     private Location location;
     private Block block;
     private Set<MixerSpeaker> speakers;
@@ -95,15 +97,16 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private JsonObject dspSettings;
 
     static {
-        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
-        if (config.getBoolean("mixer.youtube.enabled")) {
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+
+        if (plugin.isYoutubeEnabled()) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
                     new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
                     new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
             });
 
-            if (config.getBoolean("mixer.youtube.useOAuth")) {
-                String refreshToken = config.getString("mixer.youtube.refreshToken");
+            if (plugin.isYoutubeUseOAuth()) {
+                String refreshToken = plugin.getYoutubeRefreshToken();
                 if (refreshToken != null && !refreshToken.isEmpty()) {
                     youtube.useOauth2(refreshToken, true);
                 } else {
@@ -112,6 +115,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             }
             APM.registerSourceManager(youtube);
         }
+
         APM.registerSourceManager(SoundCloudAudioSourceManager.createDefault());
         APM.registerSourceManager(new BandcampAudioSourceManager());
         APM.registerSourceManager(new VimeoAudioSourceManager());
@@ -121,18 +125,34 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         APM.registerSourceManager(new NicoAudioSourceManager());
         APM.registerSourceManager(new HttpAudioSourceManager());
         APM.registerSourceManager(new LocalAudioSourceManager());
-        APM.setFrameBufferDuration(100);
+
+        APM.setFrameBufferDuration(MixerPlugin.getPlugin().getAudioFrameBufferDuration());
     }
 
     public IMixerAudioPlayer(Location location) {
         if (!location.getBlock().getType().equals(Material.JUKEBOX)) {
             throw new IllegalArgumentException("no jukebox at location");
         }
+
         if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
             MixerAudioPlayer oldPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
             oldPlayer.stop();
         }
+
         MixerPlugin.getPlugin().playerHashMap().put(location, this);
+
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        this.audioFormat = new AudioFormat(
+                plugin.getAudioSampleRate(),
+                16,
+                1,
+                true,
+                true
+        );
+        this.frameSize = plugin.getAudioBufferSize();
+        this.frameBufferDuration = plugin.getAudioFrameBufferDuration();
+        this.volumeMultiplier = plugin.getVolumeMultiplier();
+
         this.location = location;
         this.block = location.getBlock();
         this.speakers = new HashSet<>();
@@ -170,7 +190,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             channels.add(channel);
         });
 
-        // Asynchronous initialization
         initializeAsync();
     }
 
@@ -178,7 +197,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         CompletableFuture.runAsync(() -> {
             synchronized(initializationLock) {
                 try {
-                    // Initialization of components
                     lavaplayer = APM.createPlayer();
                     lavaplayer.addListener(new AudioEventAdapter() {
                         @Override
@@ -196,10 +214,10 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                         }
                     });
 
-                    audioStream = new LavaplayerAudioStream(AUDIO_FORMAT);
-                    decoder = new OpusDecoder((int) AUDIO_FORMAT.getSampleRate(), AUDIO_FORMAT.getChannels());
-                    decoder.setFrameSize(960);
-                    encoder = new OpusEncoder((int) AUDIO_FORMAT.getSampleRate(), AUDIO_FORMAT.getChannels(), OpusEncoder.Application.AUDIO);
+                    audioStream = new LavaplayerAudioStream(audioFormat);
+                    decoder = new OpusDecoder((int) audioFormat.getSampleRate(), audioFormat.getChannels());
+                    decoder.setFrameSize(frameSize);
+                    encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
                     audioTimer = new Timer();
                     audioTimer.scheduleAtFixedRate(new TimerTask() {
@@ -281,7 +299,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
     @Override
     public void load(String... url) {
-        // Initialization
         synchronized(initializationLock) {
             while (!isInitialized) {
                 try {
@@ -376,11 +393,11 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
                 if (finalUrl == null || finalUrl.isEmpty()) {
                     location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>Error playing cobalt media"));
+                        p.sendMessage(MiniMessage.miniMessage().deserialize("Error playing cobalt media"));
                     });
                     return;
                 }
-            } else if (url.startsWith("https://www.youtube.com") || url.startsWith("https://music.youtube.com")) {
+            } else if (url.startsWith("https://youtube.com") || url.startsWith("https://www.youtube.com") || url.startsWith("https://music.youtube.com")) {
                 String finalUrl = Utils.requestCobaltMediaUrl(url);
             }
 
@@ -430,13 +447,17 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             @Override
             public void run() {
                 jvmAudioInputStream = new JVMAudioInputStream(audioStream);
-                dispatcher = new AudioDispatcher(jvmAudioInputStream, 960, 0);
+                dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
                 TarsosDSPAudioFormat format = dispatcher.getFormat();
 
                 JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
                 if (gainSettings != null) {
-                    double gain = gainSettings.get("gain").getAsDouble() * 0.5;
-                    GainProcessor gainProcessor = new GainProcessor(gain);
+                    double configuredGain = gainSettings.get("gain").getAsDouble();
+                    double finalGain = configuredGain * volumeMultiplier;
+                    GainProcessor gainProcessor = new GainProcessor(finalGain);
+                    dispatcher.addAudioProcessor(gainProcessor);
+                } else {
+                    GainProcessor gainProcessor = new GainProcessor(volumeMultiplier);
                     dispatcher.addAudioProcessor(gainProcessor);
                 }
 

@@ -24,10 +24,10 @@ import org.bukkit.block.Jukebox;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
+import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 public class Utils {
     public static boolean isDisc(ItemStack item) {
@@ -63,8 +63,7 @@ public class Utils {
 
         ByteBuffer bb = ByteBuffer.allocate(input.length * 2);
 
-        for(index = 0; index != iterations; ++index)
-        {
+        for(index = 0; index != iterations; ++index) {
             bb.putShort(input[index]);
         }
 
@@ -82,6 +81,63 @@ public class Utils {
         }
 
         return output;
+    }
+
+    public static short[] applyVolumeToShortArray(short[] input, float volumeMultiplier) {
+        if (volumeMultiplier == 1.0f) {
+            return input; // Немає потреби в обробці
+        }
+
+        short[] output = new short[input.length];
+
+        for (int i = 0; i < input.length; i++) {
+            int sample = Math.round(input[i] * volumeMultiplier);
+
+            // Обмежуємо значення в межах short діапазону
+            if (sample > Short.MAX_VALUE) {
+                sample = Short.MAX_VALUE;
+            } else if (sample < Short.MIN_VALUE) {
+                sample = Short.MIN_VALUE;
+            }
+
+            output[i] = (short) sample;
+        }
+
+        return output;
+    }
+
+    public static byte[] applyVolumeToByteArray(byte[] input, float volumeMultiplier) {
+        if (volumeMultiplier == 1.0f) {
+            return input; // Немає потреби в обробці
+        }
+
+        // Конвертуємо в short[], застосовуємо гучність, повертаємо назад в byte[]
+        short[] shortData = byteToShort(input);
+        short[] processedData = applyVolumeToShortArray(shortData, volumeMultiplier);
+        return shortToByte(processedData);
+    }
+
+    public static AudioFormat createConfiguredAudioFormat() {
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        return new AudioFormat(
+                plugin.getAudioSampleRate(),  // Sample rate з конфігурації
+                16,                           // 16-бітна глибина
+                1,                            // Моно
+                true,                         // Signed
+                true                          // Big endian
+        );
+    }
+
+    public static void logAudioConfiguration() {
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        plugin.getLogger().info("=== Audio Configuration ===");
+        plugin.getLogger().info("Sample Rate: " + plugin.getAudioSampleRate() + " Hz");
+        plugin.getLogger().info("Buffer Size: " + plugin.getAudioBufferSize() + " samples");
+        plugin.getLogger().info("Frame Buffer Duration: " + plugin.getAudioFrameBufferDuration() + " ms");
+        plugin.getLogger().info("Volume: " + plugin.getVolumePercent() + "% (" + plugin.getVolumeMultiplier() + "x)");
+        plugin.getLogger().info("YouTube Enabled: " + plugin.isYoutubeEnabled());
+        plugin.getLogger().info("Language: " + plugin.getLanguage());
+        plugin.getLogger().info("===========================");
     }
 
     public static String requestCobaltMediaUrl(String url) {

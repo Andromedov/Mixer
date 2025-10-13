@@ -7,7 +7,6 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
@@ -19,6 +18,8 @@ import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.MixerCommand;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
+import net.somewhatcity.mixer.core.util.LocalizationManager;
+import net.somewhatcity.mixer.core.util.MessageUtil;
 import net.somewhatcity.mixer.core.util.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -35,6 +36,17 @@ public class MixerPlugin extends JavaPlugin {
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
     private HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private LocalizationManager localizationManager;
+
+    // Config
+    private boolean youtubeEnabled;
+    private boolean youtubeUseOAuth;
+    private String youtubeRefreshToken;
+    private int volumePercent;
+    private int audioSampleRate;
+    private int audioBufferSize;
+    private int audioFrameBufferDuration;
+    private String language;
 
     @Override
     public void onLoad() {
@@ -46,12 +58,12 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
-        FileConfiguration config = getConfig();
-        config.addDefault("mixer.youtube.enabled", false);
-        config.addDefault("mixer.youtube.useOAuth", false);
-        config.addDefault("mixer.youtube.refreshToken", "");
-        config.options().copyDefaults(true);
-        saveConfig();
+
+        initializeConfig();
+
+        localizationManager = new LocalizationManager(this);
+        localizationManager.setLanguage(language);
+        MessageUtil.initialize(localizationManager);
 
         new Metrics(this, 19824);
         CommandAPI.onEnable();
@@ -65,7 +77,6 @@ public class MixerPlugin extends JavaPlugin {
         }
 
         registerCustomJukeboxSongs();
-
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(playerInteractListener, this);
@@ -74,6 +85,47 @@ public class MixerPlugin extends JavaPlugin {
         new MixerCommand();
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
+
+        getLogger().info("Mixer plugin enabled with language: " + language);
+    }
+
+    private void initializeConfig() {
+        FileConfiguration config = getConfig();
+
+        // YouTube
+        config.addDefault("mixer.youtube.enabled", false);
+        config.addDefault("mixer.youtube.useOAuth", false);
+        config.addDefault("mixer.youtube.refreshToken", "");
+
+        // Volume
+        config.addDefault("mixer.volume", 50);
+
+        // Audio
+        config.addDefault("mixer.audio.sampleRate", 48000);
+        config.addDefault("mixer.audio.bufferSize", 960);
+        config.addDefault("mixer.audio.frameBufferDuration", 100);
+
+        // Language
+        config.addDefault("lang", "en");
+
+        config.options().copyDefaults(true);
+        saveConfig();
+
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
+        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        volumePercent = config.getInt("mixer.volume");
+        audioSampleRate = config.getInt("mixer.audio.sampleRate");
+        audioBufferSize = config.getInt("mixer.audio.bufferSize");
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
+        language = config.getString("lang", "en");
+
+        if (volumePercent < 0 || volumePercent > 200) {
+            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            volumePercent = 50;
+            config.set("mixer.volume", 50);
+            saveConfig();
+        }
     }
 
     private void registerCustomJukeboxSongs() {
@@ -111,6 +163,53 @@ public class MixerPlugin extends JavaPlugin {
     }
     public MixerApi api() {
         return api;
+    }
+
+    public LocalizationManager getLocalizationManager() {
+        return localizationManager;
+    }
+
+    public boolean isYoutubeEnabled() {
+        return youtubeEnabled;
+    }
+
+    public boolean isYoutubeUseOAuth() {
+        return youtubeUseOAuth;
+    }
+
+    public String getYoutubeRefreshToken() {
+        return youtubeRefreshToken;
+    }
+
+    public int getVolumePercent() {
+        return volumePercent;
+    }
+
+    public float getVolumeMultiplier() {
+        return volumePercent / 100.0f;
+    }
+
+    public int getAudioSampleRate() {
+        return audioSampleRate;
+    }
+
+    public int getAudioBufferSize() {
+        return audioBufferSize;
+    }
+
+    public int getAudioFrameBufferDuration() {
+        return audioFrameBufferDuration;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void reloadPluginConfig() {
+        reloadConfig();
+        initializeConfig();
+        localizationManager.setLanguage(language);
+        getLogger().info("Configuration reloaded!");
     }
 
     public static MixerPlugin getPlugin() {
