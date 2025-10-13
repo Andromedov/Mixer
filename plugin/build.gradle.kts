@@ -30,7 +30,7 @@ dependencies {
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.14.0")
 
-    implementation("dev.jorel:commandapi-spigot-core:11.0.0")
+    implementation("dev.jorel:commandapi-spigot-shade:11.0.0")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
