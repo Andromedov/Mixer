@@ -11,7 +11,7 @@ package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPISpigotConfig;
+import dev.jorel.commandapi.CommandAPIPaperConfig;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
@@ -49,22 +49,19 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        CommandAPI.onLoad(new CommandAPISpigotConfig(this).verboseOutput(false));
+        plugin = this;
+        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
     }
 
     public static PlayerInteractListener playerInteractListener;
 
     @Override
     public void onEnable() {
-        plugin = this;
-
         initializeConfig();
 
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
-
-        CommandAPI.onEnable();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -80,7 +77,9 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
+        CommandAPI.onEnable();
         new MixerCommand();
+
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 

@@ -12,7 +12,7 @@ package net.somewhatcity.mixer.core.commands.dsp;
 
 import com.google.gson.JsonObject;
 import dev.jorel.commandapi.CommandAPICommand;
-import dev.jorel.commandapi.arguments.FloatArgument;
+import dev.jorel.commandapi.arguments.DoubleArgument;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
@@ -20,10 +20,10 @@ import org.bukkit.Location;
 public class LowPassFilterCommand extends CommandAPICommand {
     public LowPassFilterCommand() {
         super("lowPassFilter");
-        withArguments(new FloatArgument("frequency"));
+        withArguments(new DoubleArgument("frequency"));
         executes((sender, args) -> {
             Location location = (Location) args.get(0);
-            float cutoffFrequency = (float) args.get(1);
+            double cutoffFrequency = (double) args.get(1);
 
             JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
             if(obj == null) {

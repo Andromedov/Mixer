@@ -1,3 +1,5 @@
+import net.minecrell.pluginyml.bukkit.BukkitPluginDescription
+
 plugins {
     id("io.github.goooler.shadow") version "8.1.8"
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0"
@@ -29,7 +31,7 @@ dependencies {
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.14.0")
 
-    implementation("dev.jorel:commandapi-spigot-shade:11.0.0")
+    implementation("dev.jorel:commandapi-paper-shade:11.0.0")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
@@ -44,6 +46,7 @@ tasks {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
+        relocate("dev.jorel.commandapi", "new.somewhatcity.mixer.commandapi")
         relocate("de.tr7zw.changeme.nbtapi", "net.somewhatcity.mixer.item-nbt-api")
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
@@ -65,6 +68,7 @@ bukkit {
     name = rootProject.name
     depend = listOf("voicechat")
     version = rootProject.version.toString()
+    load = BukkitPluginDescription.PluginLoadOrder.STARTUP
 }
 
 java {
