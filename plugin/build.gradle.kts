@@ -48,6 +48,9 @@ tasks {
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
         }
+        doLast {
+            println("ShadowJar output file: " + archiveFile.get().asFile.absolutePath)
+        }
     }
 
     assemble {
