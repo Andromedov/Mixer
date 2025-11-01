@@ -41,7 +41,7 @@ dependencies {
 
 tasks {
     shadowJar {
-        destinationDirectory.set(layout.buildDirectory.dir("libs"))
+        destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
         relocate("de.tr7zw.changeme.nbtapi", "net.somewhatcity.mixer.item-nbt-api")
