@@ -46,7 +46,7 @@ tasks {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
-        relocate("dev.jorel.commandapi", "new.somewhatcity.mixer.commandapi")
+        relocate("dev.jorel.commandapi", "net.somewhatcity.mixer.commandapi")
         relocate("de.tr7zw.changeme.nbtapi", "net.somewhatcity.mixer.item-nbt-api")
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
