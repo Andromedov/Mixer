@@ -37,17 +37,17 @@ import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MixerCommand extends CommandAPICommand {
+public class MixerCommand {
+    private static CommandAPICommand command;
     private static final MiniMessage MM = MiniMessage.miniMessage();
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
 
     public MixerCommand() {
-        super("mixer");
-        withSubcommand(new CommandAPICommand("burn")
+        command = new CommandAPICommand("mixer")
+                .withSubcommand(new CommandAPICommand("burn")
                 .withPermission("mixer.command.burn")
                 .withArguments(new GreedyStringArgument("url"))
                 .executesPlayer((player, args) -> {
@@ -58,105 +58,77 @@ public class MixerCommand extends CommandAPICommand {
                     }
                     MessageUtil.sendMsg(player, "loading_track");
                     EXECUTOR_SERVICE.submit(() -> {
-                        String url = (String) args.get(0);
-                        String oldUrl;
-                        if (url.startsWith("file://")) {
-                            String filename = url.substring(7);
-                            File file = new File(filename);
-                            if (file.exists() && file.isFile()) {
-                                url = file.getAbsolutePath();
-                            }
-                        }
-                        if (url.startsWith("cobalt://")) {
-                            String uri = url.substring(8);
-                            oldUrl = url;
-                            url = Utils.requestCobaltMediaUrl(uri);
-                            if (url == null) {
-                                MessageUtil.sendErrMsg(player, "loading_failed", "cobalt media");
-                                return;
-                            }
-                        } else {
-                            oldUrl = "";
-                        }
+                        try {
+                            String url = (String) args.get(0);
+                            String oldUrl = "";
 
-                        String finalUrl = url;
-                        IMixerAudioPlayer.APM.loadItem(url, new AudioLoadResultHandler() {
-                            @Override
-                            public void trackLoaded(AudioTrack audioTrack) {
-                                AudioTrackInfo info = audioTrack.getInfo();
-                                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                                    String urlToSet;
-                                    if (!oldUrl.isEmpty()) {
-                                        urlToSet = oldUrl;
-                                    } else {
-                                        urlToSet = finalUrl;
+                            if (url.startsWith("file://")) {
+                                String filename = url.substring(7);
+                                File file = new File(filename);
+                                if (file.exists() && file.isFile()) {
+                                    url = file.getAbsolutePath();
+                                }
+                            }
+
+                            if (url.startsWith("cobalt://")) {
+                                String uri = url.substring(8);
+                                oldUrl = url;
+                                url = Utils.requestCobaltMediaUrl(uri);
+                                if (url == null) {
+                                    MessageUtil.sendErrMsg(player, "loading_failed", "cobalt media");
+                                    return;
+                                }
+                            }
+
+                            String finalUrl = url;
+                            String finalOldUrl = oldUrl;
+
+                            IMixerAudioPlayer.APM.loadItem(url, new AudioLoadResultHandler() {
+                                @Override
+                                public void trackLoaded(AudioTrack audioTrack) {
+                                    AudioTrackInfo info = audioTrack.getInfo();
+                                    Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : finalUrl;
+                                        updateDiscMetadata(item, info, urlToSet);
+                                        MessageUtil.sendMsg(player, "track_loaded", info.title);
+                                    });
+                                }
+
+                                @Override
+                                public void playlistLoaded(AudioPlaylist audioPlaylist) {
+                                    AudioTrack selectedTrack = audioPlaylist.getSelectedTrack();
+                                    if (selectedTrack == null && !audioPlaylist.getTracks().isEmpty()) {
+                                        selectedTrack = audioPlaylist.getTracks().get(0);
                                     }
-                                    item.editMeta(meta -> {
-                                        meta.displayName(MM.deserialize("<green>" + info.title).decoration(TextDecoration.ITALIC, false));
-                                        meta.lore(List.of(MM.deserialize("<gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
-                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                                        meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
-                                        JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-                                        // Спробуємо встановити наш ключ, але з fallback
-                                        try {
-                                            playableComponent.setSongKey(mixerData);
-                                        } catch (Exception e) {
-                                            MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key, using fallback: " + e.getMessage());
-                                            try {
-                                                NamespacedKey fallbackKey = NamespacedKey.minecraft("pigstep");
-                                                playableComponent.setSongKey(fallbackKey);
-                                            } catch (Exception fallbackException) {
-                                                MixerPlugin.getPlugin().getLogger().severe("Even fallback jukebox key failed: " + fallbackException.getMessage());
-                                                return;
-                                            }
-                                        }
-                                        meta.setJukeboxPlayable(playableComponent);
+                                    if (selectedTrack == null) {
+                                        MessageUtil.sendErrMsg(player, "no_matches");
+                                        return;
+                                    }
+
+                                    AudioTrackInfo info = selectedTrack.getInfo();
+                                    Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : finalUrl;
+                                        updateDiscMetadata(item, info, urlToSet);
+                                        MessageUtil.sendMsg(player, "track_loaded", info.title);
                                     });
-                                    MessageUtil.sendMsg(player, "track_loaded", info.title);
-                                });
-                            }
+                                }
 
-                            @Override
-                            public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                                AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
-                                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                                    item.editMeta(meta -> {
-                                        meta.displayName(MM.deserialize("<green>" + info.title).decoration(TextDecoration.ITALIC, false));
-                                        meta.lore(List.of(MM.deserialize("<gray>" + info.author).decoration(TextDecoration.ITALIC, false)));
-                                        NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                                        meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, finalUrl);
+                                @Override
+                                public void noMatches() {
+                                    MessageUtil.sendErrMsg(player, "no_matches");
+                                }
 
-                                        JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-
-                                        try {
-                                            playableComponent.setSongKey(mixerData);
-                                        } catch (Exception e) {
-                                            MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key, using fallback: " + e.getMessage());
-                                            try {
-                                                NamespacedKey fallbackKey = NamespacedKey.minecraft("pigstep");
-                                                playableComponent.setSongKey(fallbackKey);
-                                            } catch (Exception fallbackException) {
-                                                MixerPlugin.getPlugin().getLogger().severe("Even fallback jukebox key failed: " + fallbackException.getMessage());
-                                                return;
-                                            }
-                                        }
-                                        meta.setJukeboxPlayable(playableComponent);
-                                    });
-                                    MessageUtil.sendMsg(player, "track_loaded", info.title);
-                                });
-                            }
-
-                            @Override
-                            public void noMatches() {
-                                MessageUtil.sendErrMsg(player, "no_matches");
-                            }
-
-                            @Override
-                            public void loadFailed(FriendlyException e) {
-                                MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
-                            }
-                        });
+                                @Override
+                                public void loadFailed(FriendlyException e) {
+                                    MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
+                                }
+                            });
+                        } catch (Exception e) {
+                            MixerPlugin.getPlugin().getLogger().severe("Error in burn command: " + e.getMessage());
+                            e.printStackTrace();
+                            MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
+                        }
                     });
                 }))
                 .withSubcommand(new CommandAPICommand("link")
@@ -254,5 +226,39 @@ public class MixerCommand extends CommandAPICommand {
                         }))
                 .withSubcommand(new DspCommand());
         register();
+    }
+
+    private void updateDiscMetadata(ItemStack item, AudioTrackInfo info, String url) {
+        item.editMeta(meta -> {
+            String displayName = "<green>" + info.author + " - " + info.title;
+            meta.displayName(MM.deserialize(displayName).decoration(TextDecoration.ITALIC, false));
+
+            NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
+            meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, url);
+
+            JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
+
+            boolean keySet = false;
+            try {
+                playableComponent.setSongKey(mixerData);
+                keySet = true;
+            } catch (Exception e) {
+                MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key, using fallback: " + e.getMessage());
+            }
+
+            if (!keySet) {
+                try {
+                    NamespacedKey fallbackKey = NamespacedKey.minecraft("pigstep");
+                    playableComponent.setSongKey(fallbackKey);
+                } catch (Exception fallbackException) {
+                    MixerPlugin.getPlugin().getLogger().severe("Even fallback jukebox key failed: " + fallbackException.getMessage());
+                }
+            }
+
+            meta.setJukeboxPlayable(playableComponent);
+        });
+    }
+    public void register() {
+        command.register();
     }
 }

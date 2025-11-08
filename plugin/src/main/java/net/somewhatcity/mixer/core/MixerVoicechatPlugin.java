@@ -60,12 +60,12 @@ public class MixerVoicechatPlugin implements VoicechatPlugin {
 
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
         ConfigurationSection section = config.getConfigurationSection("mixers");
-        if(section != null) {
-            for(String key : section.getKeys(false)) {
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
                 String uri = config.getString("mixers." + key + ".uri");
                 Location location = config.getLocation("mixers." + key + ".location");
 
-                if(uri == null || location == null) continue;
+                if (uri == null || location == null) continue;
 
                 IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
                 audioPlayer.load(uri);

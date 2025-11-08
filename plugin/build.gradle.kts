@@ -1,7 +1,7 @@
 import net.minecrell.pluginyml.bukkit.BukkitPluginDescription
 
 plugins {
-    id("io.github.goooler.shadow") version "8.1.8"
+    id("com.gradleup.shadow") version "9.2.2"
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0"
 }
 
@@ -63,7 +63,7 @@ tasks {
 
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
-    apiVersion = "1.20.6"
+    apiVersion = "1.20"
     authors = listOf("mrmrmystery", "Andromedov")
     name = rootProject.name
     depend = listOf("voicechat")
