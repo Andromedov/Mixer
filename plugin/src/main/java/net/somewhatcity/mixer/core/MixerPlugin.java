@@ -57,14 +57,14 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        CommandAPI.onEnable();
+
         plugin = this;
         initializeConfig();
 
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
-
-        CommandAPI.onEnable();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -85,7 +85,6 @@ public class MixerPlugin extends JavaPlugin {
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
-
         getLogger().info("Mixer plugin enabled with language: " + language);
     }
 
