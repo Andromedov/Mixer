@@ -27,6 +27,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
@@ -34,7 +35,7 @@ public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
-    private HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
     private LocalizationManager localizationManager;
 
     // Config
@@ -49,19 +50,21 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        plugin = this;
         CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
     }
 
-    public static PlayerInteractListener playerInteractListener;
+    protected PlayerInteractListener playerInteractListener;
 
     @Override
     public void onEnable() {
+        plugin = this;
         initializeConfig();
 
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
+
+        CommandAPI.onEnable();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -77,8 +80,8 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
-        CommandAPI.onEnable();
-        new MixerCommand();
+        MixerCommand mixerCommand = new MixerCommand();
+        mixerCommand.register();
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
@@ -87,6 +90,33 @@ public class MixerPlugin extends JavaPlugin {
     }
 
     private void initializeConfig() {
+        FileConfiguration config = getFileConfiguration();
+        config.options().copyDefaults(true);
+        saveConfig();
+    }
+
+    private @NotNull FileConfiguration getFileConfiguration() {
+        FileConfiguration config = getConfiguration();
+
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
+        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        volumePercent = config.getInt("mixer.volume");
+        audioSampleRate = config.getInt("mixer.audio.sampleRate");
+        audioBufferSize = config.getInt("mixer.audio.bufferSize");
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
+        language = config.getString("lang", "en");
+
+        if (volumePercent < 0 || volumePercent > 200) {
+            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            volumePercent = 50;
+            config.set("mixer.volume", 50);
+        }
+
+        return config;
+    }
+
+    private @NotNull FileConfiguration getConfiguration() {
         FileConfiguration config = getConfig();
 
         // YouTube
@@ -104,25 +134,7 @@ public class MixerPlugin extends JavaPlugin {
 
         // Language
         config.addDefault("lang", "en");
-
-        config.options().copyDefaults(true);
-        saveConfig();
-
-        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
-        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
-        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
-        volumePercent = config.getInt("mixer.volume");
-        audioSampleRate = config.getInt("mixer.audio.sampleRate");
-        audioBufferSize = config.getInt("mixer.audio.bufferSize");
-        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
-        language = config.getString("lang", "en");
-
-        if (volumePercent < 0 || volumePercent > 200) {
-            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
-            volumePercent = 50;
-            config.set("mixer.volume", 50);
-            saveConfig();
-        }
+        return config;
     }
 
     private void registerCustomJukeboxSongs() {
@@ -206,7 +218,6 @@ public class MixerPlugin extends JavaPlugin {
         reloadConfig();
         initializeConfig();
         localizationManager.setLanguage(language);
-        getLogger().info("Configuration reloaded!");
     }
 
     public static MixerPlugin getPlugin() {
