@@ -225,7 +225,6 @@ public class MixerCommand {
                             player.sendMessage("§7Language: §f" + plugin.getLanguage());
                         }))
                 .withSubcommand(new DspCommand());
-        register();
     }
 
     private void updateDiscMetadata(ItemStack item, AudioTrackInfo info, String url) {
