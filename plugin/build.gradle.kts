@@ -1,5 +1,3 @@
-import net.minecrell.pluginyml.bukkit.BukkitPluginDescription
-
 plugins {
     id("com.gradleup.shadow") version "9.2.2"
     id("net.minecrell.plugin-yml.bukkit") version "0.6.0"
@@ -68,7 +66,6 @@ bukkit {
     name = rootProject.name
     depend = listOf("voicechat")
     version = rootProject.version.toString()
-    load = BukkitPluginDescription.PluginLoadOrder.STARTUP
 }
 
 java {

@@ -57,8 +57,6 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        CommandAPI.onEnable();
-
         plugin = this;
         initializeConfig();
 
@@ -80,12 +78,17 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
-        MixerCommand mixerCommand = new MixerCommand();
-        mixerCommand.register();
-
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
-        getLogger().info("Mixer plugin enabled with language: " + language);
+
+        try {
+            MixerCommand mixerCommand = new MixerCommand();
+            mixerCommand.register();
+            getLogger().info("Mixer plugin enabled with language: " + language);
+        } catch (Exception e) {
+            getLogger().severe("Failed to register commands: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void initializeConfig() {
