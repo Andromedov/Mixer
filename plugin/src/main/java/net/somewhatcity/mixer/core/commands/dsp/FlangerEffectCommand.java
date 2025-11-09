@@ -25,10 +25,10 @@ public class FlangerEffectCommand extends CommandAPICommand {
         withArguments(new DoubleArgument("wet"));
         withArguments(new DoubleArgument("lfoFrequency"));
         executes((sender, args) -> {
-            Location location = (Location) args.get(0);
-            double maxFlangerLength = (double) args.get(1);
-            double wet = (double) args.get(2);
-            double lfoFrequency = (double) args.get(3);
+            Location location = (Location) args.get("jukebox");
+            double maxFlangerLength = (double) args.get("maxFlangerLength");
+            double wet = (double) args.get("wet");
+            double lfoFrequency = (double) args.get("lfoFrequency");
 
             JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
             if(obj == null) {

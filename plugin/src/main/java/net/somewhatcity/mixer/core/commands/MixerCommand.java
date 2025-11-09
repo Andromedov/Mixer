@@ -59,7 +59,7 @@ public class MixerCommand extends CommandAPICommand {
                     }
                     MessageUtil.sendMsg(player, "Loading track. Please wait...");
                     EXECUTOR_SERVICE.submit(() -> {
-                        String url = (String) args.get(0);
+                        String url = (String) args.get("url");
                         String oldUrl;
                         if (url.startsWith("file://")) {
                             String filename = url.substring(7);
@@ -171,7 +171,7 @@ public class MixerCommand extends CommandAPICommand {
                         .withPermission("mixer.command.link")
                         .withArguments(new LocationArgument("jukebox", LocationType.BLOCK_POSITION))
                         .executesPlayer((player, args) -> {
-                            Location jukeboxLoc = (Location) args.get(0);
+                            Location jukeboxLoc = (Location) args.get("jukebox");
                             Block block = jukeboxLoc.getBlock();
                             if (!block.getType().equals(Material.JUKEBOX)) {
                                 MessageUtil.sendErrMsg(player, "No jukebox found at location");
@@ -205,7 +205,7 @@ public class MixerCommand extends CommandAPICommand {
                         .withArguments(new IntegerArgument("trigger", 0))
                         .withArguments(new IntegerArgument("delay", 0))
                         .executesPlayer((player, args) -> {
-                            Location jukeboxLoc = (Location) args.get(0);
+                            Location jukeboxLoc = (Location) args.get("jukebox");
                             Block block = jukeboxLoc.getBlock();
                             if (!block.getType().equals(Material.JUKEBOX)) {
                                 MessageUtil.sendErrMsg(player, "No jukebox found at location");
@@ -231,9 +231,9 @@ public class MixerCommand extends CommandAPICommand {
                             locData.addProperty("y", loc.getY());
                             locData.addProperty("z", loc.getZ());
                             locData.addProperty("world", loc.getWorld().getName());
-                            locData.addProperty("mag", (int) args.get(1));
-                            locData.addProperty("trigger", (int) args.get(2));
-                            locData.addProperty("delay", (int) args.get(3));
+                            locData.addProperty("mag", (int) args.get("magnitude"));
+                            locData.addProperty("trigger", (int) args.get("trigger"));
+                            locData.addProperty("delay", (int) args.get("delay"));
                             redstones.add(locData);
                             jukebox.getPersistentDataContainer().set(mixerRedstones, PersistentDataType.STRING, redstones.toString());
                             jukebox.update();

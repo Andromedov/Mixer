@@ -12,14 +12,13 @@ package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPIBukkitConfig;
+import dev.jorel.commandapi.CommandAPIPaperConfig;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.MixerCommand;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
-import net.somewhatcity.mixer.core.util.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -38,7 +37,7 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIBukkitConfig(this).verboseOutput(false));
+        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
     }
 
     public static PlayerInteractListener playerInteractListener;
@@ -53,7 +52,6 @@ public class MixerPlugin extends JavaPlugin {
         config.options().copyDefaults(true);
         saveConfig();
 
-        new Metrics(this, 19824);
         CommandAPI.onEnable();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);

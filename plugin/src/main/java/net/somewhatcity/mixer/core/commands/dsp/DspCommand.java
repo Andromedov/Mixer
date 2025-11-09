@@ -29,7 +29,7 @@ public class DspCommand extends CommandAPICommand {
                 new LowPassFilterCommand()
         );
         executes((sender, args) -> {
-            Location location = (Location) args.get(0);
+            Location location = (Location) args.get("jukebox");
 
             JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
             if(obj == null) {

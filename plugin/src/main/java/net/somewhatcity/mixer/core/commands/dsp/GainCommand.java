@@ -22,8 +22,8 @@ public class GainCommand extends CommandAPICommand {
         super("gain");
         withArguments(new DoubleArgument("gain"));
         executes((sender, args) -> {
-            Location location = (Location) args.get(0);
-            double frequency = (double) args.get(1);
+            Location location = (Location) args.get("jukebox");
+            double gain = (double) args.get("gain");
 
             JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
             if(obj == null) {
@@ -32,7 +32,7 @@ public class GainCommand extends CommandAPICommand {
             }
 
             JsonObject settings = new JsonObject();
-            settings.addProperty("gain", frequency);
+            settings.addProperty("gain", gain);
 
             obj.add("gain", settings);
 
