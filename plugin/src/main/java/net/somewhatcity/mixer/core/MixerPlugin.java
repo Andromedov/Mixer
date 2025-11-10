@@ -37,7 +37,7 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIPaperConfig(plugin).verboseOutput(false));
+        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
         new MixerCommand().register();
     }
 
