@@ -37,7 +37,8 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
+        CommandAPI.onLoad(new CommandAPIPaperConfig(plugin).verboseOutput(false));
+        new MixerCommand().register();
     }
 
     public static PlayerInteractListener playerInteractListener;
@@ -69,7 +70,6 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
-        new MixerCommand();
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
     }

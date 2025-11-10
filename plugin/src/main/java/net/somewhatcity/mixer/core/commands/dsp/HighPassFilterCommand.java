@@ -17,26 +17,26 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 
-public class HighPassFilterCommand extends CommandAPICommand {
-    public HighPassFilterCommand() {
-        super("highPassFilter");
-        withArguments(new FloatArgument("frequency"));
-        executes((sender, args) -> {
-            Location location = (Location) args.get("jukebox");
-            float frequency = (float) args.get("frequency");
+public class HighPassFilterCommand {
+    public CommandAPICommand build() {
+        return new CommandAPICommand("highPassFilter")
+                .withArguments(new FloatArgument("frequency"))
+                .executes((sender, args) -> {
+                    Location location = (Location) args.get("jukebox");
+                    float frequency = (float) args.get("frequency");
 
-            JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-            if(obj == null) {
-                sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
-                return;
-            }
+                    JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
+                    if(obj == null) {
+                        sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
+                        return;
+                    }
 
-            JsonObject settings = new JsonObject();
-            settings.addProperty("frequency", frequency);
+                    JsonObject settings = new JsonObject();
+                    settings.addProperty("frequency", frequency);
 
-            obj.add("highPassFilter", settings);
+                    obj.add("highPassFilter", settings);
 
-            Utils.saveNbtData(location, "mixer_dsp", obj);
-        });
+                    Utils.saveNbtData(location, "mixer_dsp", obj);
+                });
     }
 }

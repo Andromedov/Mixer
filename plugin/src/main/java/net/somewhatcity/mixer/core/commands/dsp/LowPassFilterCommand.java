@@ -17,26 +17,26 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 
-public class LowPassFilterCommand extends CommandAPICommand {
-    public LowPassFilterCommand() {
-        super("lowPassFilter");
-        withArguments(new FloatArgument("frequency"));
-        executes((sender, args) -> {
-            Location location = (Location) args.get("jukebox");
-            float cutoffFrequency = (float) args.get("frequency");
+public class LowPassFilterCommand {
+    public CommandAPICommand build() {
+        return new CommandAPICommand("lowPassFilter")
+                .withArguments(new FloatArgument("frequency"))
+                .executes((sender, args) -> {
+                    Location location = (Location) args.get("jukebox");
+                    float cutoffFrequency = (float) args.get("frequency");
 
-            JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-            if(obj == null) {
-                sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
-                return;
-            }
+                    JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
+                    if(obj == null) {
+                        sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
+                        return;
+                    }
 
-            JsonObject settings = new JsonObject();
-            settings.addProperty("frequency", cutoffFrequency);
+                    JsonObject settings = new JsonObject();
+                    settings.addProperty("frequency", cutoffFrequency);
 
-            obj.add("lowPassFilter", settings);
+                    obj.add("lowPassFilter", settings);
 
-            Utils.saveNbtData(location, "mixer_dsp", obj);
-        });
+                    Utils.saveNbtData(location, "mixer_dsp", obj);
+                });
     }
 }

@@ -18,27 +18,27 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 
-public class DspCommand extends CommandAPICommand {
-    public DspCommand() {
-        super("dsp");
-        withArguments(new LocationArgument("jukebox", LocationType.BLOCK_POSITION));
-        withSubcommands(
-                new HighPassFilterCommand(),
-                new FlangerEffectCommand(),
-                new GainCommand(),
-                new LowPassFilterCommand()
-        );
-        executes((sender, args) -> {
-            Location location = (Location) args.get("jukebox");
+public class DspCommand {
+    public CommandAPICommand build() {
+        return new CommandAPICommand("dsp")
+                .withArguments(new LocationArgument("jukebox", LocationType.BLOCK_POSITION))
+                .withSubcommands(
+                    new HighPassFilterCommand().build(),
+                    new FlangerEffectCommand().build(),
+                    new GainCommand().build(),
+                    new LowPassFilterCommand().build()
+                )
+                .executes((sender, args) -> {
+                    Location location = (Location) args.get("jukebox");
 
-            JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-            if(obj == null) {
-                sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
-                return;
-            }
+                    JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
+                    if(obj == null) {
+                        sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
+                        return;
+                    }
 
-            Utils.saveNbtData(location, "mixer_dsp", new JsonObject());
-            sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>DSP reset"));
-        });
+                    Utils.saveNbtData(location, "mixer_dsp", new JsonObject());
+                    sender.sendMessage(MiniMessage.miniMessage().deserialize("<green>DSP reset"));
+                });
     }
 }

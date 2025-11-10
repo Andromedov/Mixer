@@ -42,13 +42,13 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MixerCommand extends CommandAPICommand {
+public class MixerCommand {
     private static final MiniMessage MM = MiniMessage.miniMessage();
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
 
-    public MixerCommand() {
-        super("mixer");
-        withSubcommand(new CommandAPICommand("burn")
+    public void register() {
+        new CommandAPICommand("mixer")
+                .withSubcommand(new CommandAPICommand("burn")
                 .withPermission("mixer.command.burn")
                 .withArguments(new GreedyStringArgument("url"))
                 .executesPlayer((player, args) -> {
@@ -239,7 +239,7 @@ public class MixerCommand extends CommandAPICommand {
                             jukebox.update();
                             MessageUtil.sendMsg(player, "Redstone location linked to jukebox");
                         }))
-                .withSubcommand(new DspCommand());
-        register();
+                .withSubcommand(new DspCommand().build())
+        .register();
     }
 }

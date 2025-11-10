@@ -17,26 +17,26 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 
-public class GainCommand extends CommandAPICommand {
-    public GainCommand() {
-        super("gain");
-        withArguments(new DoubleArgument("gain"));
-        executes((sender, args) -> {
-            Location location = (Location) args.get("jukebox");
-            double gain = (double) args.get("gain");
+public class GainCommand {
+    public CommandAPICommand build() {
+        return new CommandAPICommand("gain")
+                .withArguments(new DoubleArgument("gain"))
+                .executes((sender, args) -> {
+                    Location location = (Location) args.get("jukebox");
+                    double gain = (double) args.get("gain");
 
-            JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-            if(obj == null) {
-                sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
-                return;
-            }
+                    JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
+                    if(obj == null) {
+                        sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
+                        return;
+                    }
 
-            JsonObject settings = new JsonObject();
-            settings.addProperty("gain", gain);
+                    JsonObject settings = new JsonObject();
+                    settings.addProperty("gain", gain);
 
-            obj.add("gain", settings);
+                    obj.add("gain", settings);
 
-            Utils.saveNbtData(location, "mixer_dsp", obj);
-        });
+                    Utils.saveNbtData(location, "mixer_dsp", obj);
+                });
     }
 }

@@ -1,5 +1,3 @@
-import net.minecrell.pluginyml.bukkit.BukkitPluginDescription
-
 plugins {
     id("io.github.goooler.shadow") version "8.1.8"
     id("de.eldoria.plugin-yml.bukkit") version "0.8.0"
@@ -48,7 +46,6 @@ tasks {
         archiveBaseName.set(rootProject.name)
 
         relocate("dev.jorel.commandapi", "net.somewhatcity.mixer.commandapi")
-        relocate("de.tr7zw.changeme.nbtapi", "net.somewhatcity.mixer.item-nbt-api")
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
         }
@@ -66,7 +63,6 @@ bukkit {
     name = rootProject.name
     depend = listOf("voicechat")
     version = rootProject.version.toString()
-    load = BukkitPluginDescription.PluginLoadOrder.STARTUP
 }
 
 java {

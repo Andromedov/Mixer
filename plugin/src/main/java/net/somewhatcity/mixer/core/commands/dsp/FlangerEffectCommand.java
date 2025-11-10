@@ -12,38 +12,37 @@ package net.somewhatcity.mixer.core.commands.dsp;
 
 import com.google.gson.JsonObject;
 import dev.jorel.commandapi.CommandAPICommand;
-
 import dev.jorel.commandapi.arguments.DoubleArgument;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 
-public class FlangerEffectCommand extends CommandAPICommand {
-    public FlangerEffectCommand() {
-        super("flangerEffect");
-        withArguments(new DoubleArgument("maxFlangerLength"));
-        withArguments(new DoubleArgument("wet"));
-        withArguments(new DoubleArgument("lfoFrequency"));
-        executes((sender, args) -> {
-            Location location = (Location) args.get("jukebox");
-            double maxFlangerLength = (double) args.get("maxFlangerLength");
-            double wet = (double) args.get("wet");
-            double lfoFrequency = (double) args.get("lfoFrequency");
+public class FlangerEffectCommand {
+    public CommandAPICommand build() {
+        return new  CommandAPICommand("flangerEffect")
+                .withArguments(new DoubleArgument("maxFlangerLength"))
+                .withArguments(new DoubleArgument("wet"))
+                .withArguments(new DoubleArgument("lfoFrequency"))
+                .executes((sender, args) -> {
+                    Location location = (Location) args.get("jukebox");
+                    double maxFlangerLength = (double) args.get("maxFlangerLength");
+                    double wet = (double) args.get("wet");
+                    double lfoFrequency = (double) args.get("lfoFrequency");
 
-            JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-            if(obj == null) {
-                sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
-                return;
-            }
+                    JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
+                    if(obj == null) {
+                        sender.sendMessage(MiniMessage.miniMessage().deserialize("<red>No jukebox at location"));
+                        return;
+                    }
 
-            JsonObject settings = new JsonObject();
-            settings.addProperty("maxFlangerLength", maxFlangerLength);
-            settings.addProperty("wet", wet);
-            settings.addProperty("lfoFrequency", lfoFrequency);
+                    JsonObject settings = new JsonObject();
+                    settings.addProperty("maxFlangerLength", maxFlangerLength);
+                    settings.addProperty("wet", wet);
+                    settings.addProperty("lfoFrequency", lfoFrequency);
 
-            obj.add("flangerEffect", settings);
+                    obj.add("flangerEffect", settings);
 
-            Utils.saveNbtData(location, "mixer_dsp", obj);
-        });
+                    Utils.saveNbtData(location, "mixer_dsp", obj);
+                });
     }
 }
