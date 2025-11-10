@@ -30,7 +30,6 @@ dependencies {
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.14.0")
 
-    implementation("dev.jorel:commandapi-paper-shade:11.0.0")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
@@ -45,7 +44,6 @@ tasks {
         destinationDirectory.set(rootProject.buildDir.resolve("libs"))
         archiveBaseName.set(rootProject.name)
 
-        relocate("dev.jorel.commandapi", "net.somewhatcity.mixer.commandapi")
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
         }

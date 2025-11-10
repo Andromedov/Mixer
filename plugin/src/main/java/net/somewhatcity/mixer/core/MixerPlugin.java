@@ -11,12 +11,10 @@
 package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
-import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPIPaperConfig;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
-import net.somewhatcity.mixer.core.commands.MixerCommand;
+import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import org.bukkit.Bukkit;
@@ -35,12 +33,6 @@ public class MixerPlugin extends JavaPlugin {
     private static final String PLUGIN_ID = "mixer";
     private HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
 
-    @Override
-    public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
-        new MixerCommand().register();
-    }
-
     public static PlayerInteractListener playerInteractListener;
 
     @Override
@@ -53,7 +45,7 @@ public class MixerPlugin extends JavaPlugin {
         config.options().copyDefaults(true);
         saveConfig();
 
-        CommandAPI.onEnable();
+        new CommandRegistry(this).registerCommands();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -100,8 +92,6 @@ public class MixerPlugin extends JavaPlugin {
                 getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
             }
         });
-
-        CommandAPI.onDisable();
     }
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() {
