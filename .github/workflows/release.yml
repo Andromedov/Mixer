@@ -1,0 +1,75 @@
+name: Auto Release on Commit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_release:
+    if: "!contains(github.event.head_commit.message, '[ci skip]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse Commit Message
+        id: parse_commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Latest commit: $COMMIT_MSG"
+          
+          IS_PRERELEASE="false"
+          VERSION=""
+          DO_RELEASE="false"
+
+          if [[ $COMMIT_MSG == \[release\]\ v* ]]; then
+            DO_RELEASE="true"
+            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[release\] \(v[0-9.]\+\)/\1/p')
+          
+          elif [[ $COMMIT_MSG == \[prerelease\]\ v* ]]; then
+            DO_RELEASE="true"
+            IS_PRERELEASE="true"
+            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[prerelease\] \(v[0-9.]\+.*\)/\1/p')
+          fi
+          
+          if [[ $DO_RELEASE == "true" && -n "$VERSION" ]]; then
+            echo "Releasing version: $VERSION"
+            echo "Is prerelease: $IS_PRERELEASE"
+            echo "do_release=true" >> $GITHUB_OUTPUT
+            echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          else
+            echo "No release commit found. Skipping."
+            echo "do_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Java 21
+        if: steps.parse_commit.outputs.do_release == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Make gradlew executable
+        if: steps.parse_commit.outputs.do_release == 'true'
+        run: chmod +x gradlew
+
+      - name: Build project
+        if: steps.parse_commit.outputs.do_release == 'true'
+        run: ./gradlew build
+
+      - name: Create GitHub Release
+        if: steps.parse_commit.outputs.do_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.parse_commit.outputs.version_tag }}
+          name: Release ${{ steps.parse_commit.outputs.version_tag }}
+          generate_release_notes: true
+          prerelease: ${{ steps.parse_commit.outputs.is_prerelease }}
+          files: build/libs/*.jar
