@@ -32,7 +32,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.logging.Level;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
@@ -70,9 +69,6 @@ public class MixerPlugin extends JavaPlugin {
         mixersConfig = YamlConfiguration.loadConfiguration(dataFile);
 
         new CommandRegistry(this).registerCommands();
-
-        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer").setLevel(Level.INFO);
-        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer.track.playback.LocalAudioTrackExecutor").setLevel(Level.OFF);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -234,7 +230,7 @@ public class MixerPlugin extends JavaPlugin {
         try {
             mixersConfig.save(dataFile);
         } catch (IOException e) {
-            getLogger().warning("Could not save mixers.yml: " + e.getMessage());
+            getLogger().warning("Could not save data.yml: " + e.getMessage());
         }
     }
 
