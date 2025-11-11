@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LocalizationManager {
+    private static final int latestLangVersion = 1;
     private final JavaPlugin plugin;
     private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
     private String currentLanguage = "en";
@@ -27,8 +28,8 @@ public class LocalizationManager {
             langDir.mkdirs();
         }
 
-        createDefaultLanguageFile("en");
-        createDefaultLanguageFile("uk");
+        createDefaultLanguageFile("en", latestLangVersion);
+        createDefaultLanguageFile("uk", latestLangVersion);
 
         File[] langFiles = langDir.listFiles((dir, name) -> name.endsWith(".yml"));
         if (langFiles != null) {
@@ -40,21 +41,32 @@ public class LocalizationManager {
         }
     }
 
-    private void createDefaultLanguageFile(String langCode) {
+    private void createDefaultLanguageFile(String langCode, int latestVersion) {
         File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
-        if (!langFile.exists()) {
-            try {
-                InputStream resource = plugin.getResource("lang/" + langCode + ".yml");
-                if (resource != null) {
-                    plugin.saveResource("lang/" + langCode + ".yml", false);
-                } else {
-                    FileConfiguration config = YamlConfiguration.loadConfiguration(langFile);
-                    config.save(langFile);
-                }
-            } catch (IOException e) {
-                plugin.getLogger().warning("Could not create language file: " + langCode + ".yml");
+
+        if (langFile.exists()) {
+            FileConfiguration diskConfig = YamlConfiguration.loadConfiguration(langFile);
+            int diskVersion = diskConfig.getInt("lang-version", 0);
+
+            if (diskVersion >= latestVersion) {
+                return;
             }
+
+            File oldFile = new File(plugin.getDataFolder(), "lang/" + langCode + "_v" + diskVersion + ".yml.old");
+            if (oldFile.exists()) {
+                oldFile.delete();
+            }
+
+            langFile.renameTo(oldFile);
+            plugin.getLogger().warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            plugin.getLogger().warning("Your language file '" + langCode + ".yml' is outdated!");
+            plugin.getLogger().warning("A new file with version " + latestVersion + " will be created.");
+            plugin.getLogger().warning("Your old file has been backed up to: " + oldFile.getName());
+            plugin.getLogger().warning("Please update your custom messages from the old file.");
+            plugin.getLogger().warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
+
+        plugin.saveResource("lang/" + langCode + ".yml", false);
     }
 
     public void setLanguage(String langCode) {

@@ -21,3 +21,6 @@ messages:
     bassboost_disabled: "<blue>bassboost disabled"
     bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
     failed_to_start: "<red>Failed to start playback"
+
+# DO NOT CHANGE
+lang-version: 0

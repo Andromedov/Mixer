@@ -71,6 +71,7 @@ public class PlayerInteractListener implements Listener {
                 }
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
                 audioPlayer.stop();
+                e.setCancelled(true);
                 return;
             }
             if (e.getItem() == null) return;

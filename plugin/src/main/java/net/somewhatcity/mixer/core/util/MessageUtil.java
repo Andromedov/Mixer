@@ -67,7 +67,7 @@ public class MessageUtil {
         }
 
         String message = localizationManager.getMessage("actionBar." + messageKey, args);
-        sender.sendMessage(MM.deserialize(message));
+        sender.sendActionBar(MM.deserialize(message));
     }
 
     public static void reloadMessages() {
