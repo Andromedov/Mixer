@@ -7,19 +7,16 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
 package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
-import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPIPaperConfig;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
-import net.somewhatcity.mixer.core.commands.MixerCommand;
+import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
-import net.somewhatcity.mixer.core.util.LocalizationManager;
-import net.somewhatcity.mixer.core.util.MessageUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -27,7 +24,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
@@ -48,11 +44,6 @@ public class MixerPlugin extends JavaPlugin {
     private int audioFrameBufferDuration;
     private String language;
 
-    @Override
-    public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIPaperConfig(this).verboseOutput(false));
-    }
-
     protected PlayerInteractListener playerInteractListener;
 
     @Override
@@ -64,6 +55,8 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
 
+        new CommandRegistry(this).registerCommands();
+
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
             MixerVoicechatPlugin voicechatPlugin = new MixerVoicechatPlugin();
@@ -73,6 +66,7 @@ public class MixerPlugin extends JavaPlugin {
         }
 
         registerCustomJukeboxSongs();
+
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(playerInteractListener, this);
@@ -80,15 +74,6 @@ public class MixerPlugin extends JavaPlugin {
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
-
-        try {
-            MixerCommand mixerCommand = new MixerCommand();
-            mixerCommand.register();
-            getLogger().info("Mixer plugin enabled with language: " + language);
-        } catch (Exception e) {
-            getLogger().severe("Failed to register commands: " + e.getMessage());
-            e.printStackTrace();
-        }
     }
 
     private void initializeConfig() {
@@ -165,8 +150,6 @@ public class MixerPlugin extends JavaPlugin {
                 getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
             }
         });
-
-        CommandAPI.onDisable();
     }
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() {
