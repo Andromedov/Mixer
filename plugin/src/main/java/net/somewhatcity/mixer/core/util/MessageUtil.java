@@ -12,6 +12,7 @@ package net.somewhatcity.mixer.core.util;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public class MessageUtil {
@@ -34,9 +35,9 @@ public class MessageUtil {
         player.sendMessage(component);
     }
 
-    public static void sendErrMsg(Player player, String messageKey, Object... args) {
+    public static void sendErrMsg(CommandSender sender, String messageKey, Object... args) {
         if (localizationManager == null) {
-            player.sendMessage("§cLocalization not initialized!");
+            sender.sendMessage("§cLocalization not initialized!");
             return;
         }
 
@@ -44,6 +45,6 @@ public class MessageUtil {
         String message = localizationManager.getMessage("errors." + messageKey, args);
 
         Component component = MM.deserialize(prefix + "§c" + message);
-        player.sendMessage(component);
+        sender.sendMessage(component);
     }
 }

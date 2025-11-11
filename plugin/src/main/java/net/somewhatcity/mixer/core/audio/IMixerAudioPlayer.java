@@ -210,50 +210,56 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
-                    this.audioTask = Bukkit.getScheduler().runTaskTimerAsynchronously(MixerPlugin.getPlugin(), () -> {
-                        if (!running) {
-                            return;
-                        }
-                        try {
-                            AudioFrame frame = lavaplayer.provide();
-                            if (frame != null && running) {
-                                byte[] data = frame.getData();
-                                if (decoder != null && !decoder.isClosed()) {
-                                    byte[] decoded = Utils.shortToByte(decoder.decode(data));
+                    Timer audioTimer = new Timer();
+                    audioTimer.scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if (!running) {
+                                cancel();
+                                return;
+                            }
 
-                                    if (audioStream != null) {
-                                        try {
-                                            audioStream.appendData(decoded);
-                                        } catch (Exception ex) {
-                                            if (running) {
-                                                MixerPlugin.getPlugin().getLogger().warning("Error appending audio data: " + ex.getMessage());
+                            try {
+                                AudioFrame frame = lavaplayer.provide();
+                                if (frame != null && running) {
+                                    byte[] data = frame.getData();
+                                    if (decoder != null && !decoder.isClosed()) {
+                                        byte[] decoded = Utils.shortToByte(decoder.decode(data));
+
+                                        if (audioStream != null) {
+                                            try {
+                                                audioStream.appendData(decoded);
+                                            } catch (Exception ex) {
+                                                if (running) {
+                                                    MixerPlugin.getPlugin().getLogger().warning("Error appending audio data: " + ex.getMessage());
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            if (!audioQueue.isEmpty() && running) {
-                                byte[] data = audioQueue.poll();
-                                if (data != null) {
-                                    channels.forEach(ch -> {
-                                        try {
-                                            ch.send(data);
-                                        } catch (Exception e) {
-                                            if (running) {
-                                                MixerPlugin.getPlugin().getLogger().warning("Error sending audio to channel: " + e.getMessage());
+                                if (!audioQueue.isEmpty() && running) {
+                                    byte[] data = audioQueue.poll();
+                                    if (data != null) {
+                                        channels.forEach(ch -> {
+                                            try {
+                                                ch.send(data);
+                                            } catch (Exception e) {
+                                                if (running) {
+                                                    MixerPlugin.getPlugin().getLogger().warning("Error sending audio to channel: " + e.getMessage());
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                                    }
+                                }
+                            } catch (Exception e) {
+                                if (running) {
+                                    MixerPlugin.getPlugin().getLogger().severe("Critical error in audio timer: " + e.getMessage());
+                                    stop();
                                 }
                             }
-                        } catch (Exception e) {
-                            if (running) {
-                                MixerPlugin.getPlugin().getLogger().severe("Critical error in audio timer: " + e.getMessage());
-                                stop();
-                            }
                         }
-                    }, 0L, 1L);
+                    }, 0, 20);
 
                     Thread.sleep(100);
 
@@ -287,7 +293,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         synchronized(initializationLock) {
             while (!isInitialized) {
                 try {
-                    initializationLock.wait(5000); // 5 seconds timeout
+                    initializationLock.wait(5000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
@@ -342,7 +348,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
-        // Clean up config
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
         String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
@@ -379,7 +384,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
                 if (finalUrl == null || finalUrl.isEmpty()) {
                     location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize("Error playing cobalt media"));
+                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>Error playing cobalt media</red>"));
                     });
                     return;
                 }
@@ -423,64 +428,81 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
                 @Override
                 public void noMatches() {
-                    // No matches found
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>No matches found for URL</red>"));
+                    });
                 }
 
                 @Override
                 public void loadFailed(FriendlyException e) {
-                    e.printStackTrace();
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                "<red>Error loading track: " + e.getMessage() + "</red>"
+                        ));
+                    });
+                    MixerPlugin.getPlugin().getLogger().warning("Failed to load audio: " + e.getMessage());
                 }
             });
         });
     }
 
     public void loadDsp() {
-        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> {
-            jvmAudioInputStream = new JVMAudioInputStream(audioStream);
-            dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
-            TarsosDSPAudioFormat format = dispatcher.getFormat();
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (!running) return;
 
-            JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
-            if (gainSettings != null) {
-                double configuredGain = gainSettings.get("gain").getAsDouble();
-                double finalGain = configuredGain * volumeMultiplier;
-                GainProcessor gainProcessor = new GainProcessor(finalGain);
-                dispatcher.addAudioProcessor(gainProcessor);
-            } else {
-                GainProcessor gainProcessor = new GainProcessor(volumeMultiplier);
-                dispatcher.addAudioProcessor(gainProcessor);
+                try {
+                    jvmAudioInputStream = new JVMAudioInputStream(audioStream);
+                    dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
+                    TarsosDSPAudioFormat format = dispatcher.getFormat();
+
+                    JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
+                    if (gainSettings != null) {
+                        double configuredGain = gainSettings.get("gain").getAsDouble();
+                        double finalGain = configuredGain * volumeMultiplier;
+                        GainProcessor gainProcessor = new GainProcessor(finalGain);
+                        dispatcher.addAudioProcessor(gainProcessor);
+                    } else {
+                        GainProcessor gainProcessor = new GainProcessor(volumeMultiplier);
+                        dispatcher.addAudioProcessor(gainProcessor);
+                    }
+
+                    JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
+                    if (highPassSettings != null) {
+                        float frequency = highPassSettings.get("frequency").getAsFloat();
+                        HighPass highPass = new HighPass(frequency, format.getSampleRate());
+                        dispatcher.addAudioProcessor(highPass);
+                    }
+
+                    JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
+                    if (flangerEffectSettings != null) {
+                        double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
+                        double wet = flangerEffectSettings.get("wet").getAsDouble();
+                        double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
+                        FlangerEffect flangerEffect = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
+                        dispatcher.addAudioProcessor(flangerEffect);
+                    }
+
+                    JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
+                    if (lowPassSettings != null) {
+                        float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
+                        LowPassFS lowPassFS = new LowPassFS(cutoffFrequency, format.getSampleRate());
+                        dispatcher.addAudioProcessor(lowPassFS);
+                    }
+
+                    dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
+                        if (encoder != null && !encoder.isClosed()) {
+                            byte[] encoded = encoder.encode(Utils.byteToShort(data));
+                            audioQueue.add(encoded);
+                        }
+                    }, volumeMultiplier));
+
+                    dispatcher.run();
+                } catch (Exception e) {
+                    MixerPlugin.getPlugin().getLogger().warning("Error in DSP processing: " + e.getMessage());
+                }
             }
-
-            JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
-            if (highPassSettings != null) {
-                float frequency = highPassSettings.get("frequency").getAsFloat();
-                HighPass highPass = new HighPass(frequency, format.getSampleRate());
-                dispatcher.addAudioProcessor(highPass);
-            }
-
-            JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
-            if (flangerEffectSettings != null) {
-                double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
-                double wet = flangerEffectSettings.get("wet").getAsDouble();
-                double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
-                FlangerEffect flangerEffect = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
-                dispatcher.addAudioProcessor(flangerEffect);
-            }
-
-            JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
-            if (lowPassSettings != null) {
-                float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
-                LowPassFS lowPassFS = new LowPassFS(cutoffFrequency, format.getSampleRate());
-                dispatcher.addAudioProcessor(lowPassFS);
-            }
-
-            dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
-                if (encoder.isClosed()) return;
-                byte[] encoded = encoder.encode(Utils.byteToShort(data));
-                audioQueue.add(encoded);
-            }));
-
-            dispatcher.run();
-        }, 10L);
+        }, 500);
     }
 }
