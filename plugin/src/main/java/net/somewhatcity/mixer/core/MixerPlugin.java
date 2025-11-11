@@ -11,50 +11,64 @@
 package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
-import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPIBukkitConfig;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
-import net.somewhatcity.mixer.core.commands.MixerCommand;
+import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
-import net.somewhatcity.mixer.core.util.Metrics;
+import net.somewhatcity.mixer.core.util.LocalizationManager;
+import net.somewhatcity.mixer.core.util.MessageUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
-    private HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private LocalizationManager localizationManager;
+    private File dataFile;
+    private FileConfiguration mixersConfig;
+    protected PlayerInteractListener playerInteractListener;
 
-    @Override
-    public void onLoad() {
-        CommandAPI.onLoad(new CommandAPIBukkitConfig(this).verboseOutput(false));
-    }
-
-    public static PlayerInteractListener playerInteractListener;
+    // Config
+    private boolean youtubeEnabled;
+    private boolean youtubeUseOAuth;
+    private String youtubeRefreshToken;
+    private int volumePercent;
+    private int audioSampleRate;
+    private int audioBufferSize;
+    private int audioFrameBufferDuration;
+    private String language;
 
     @Override
     public void onEnable() {
         plugin = this;
-        FileConfiguration config = getConfig();
-        config.addDefault("mixer.youtube.enabled", false);
-        config.addDefault("mixer.youtube.useOAuth", false);
-        config.addDefault("mixer.youtube.refreshToken", "");
-        config.options().copyDefaults(true);
-        saveConfig();
+        initializeConfig();
 
-        new Metrics(this, 19824);
-        CommandAPI.onEnable();
+        localizationManager = new LocalizationManager(this);
+        localizationManager.setLanguage(language);
+        MessageUtil.initialize(localizationManager);
+
+        dataFile = new File(getDataFolder(), "data.yml");
+        if (!dataFile.exists()) {
+            saveResource("data.yml", false);
+        }
+        mixersConfig = YamlConfiguration.loadConfiguration(dataFile);
+
+        new CommandRegistry(this).registerCommands();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -71,9 +85,56 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
 
-        new MixerCommand();
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
+    }
+
+    private void initializeConfig() {
+        saveDefaultConfig();
+        FileConfiguration config = getFileConfiguration();
+        config.options().copyDefaults(true);
+    }
+
+    private @NotNull FileConfiguration getFileConfiguration() {
+        FileConfiguration config = getConfiguration();
+
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
+        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        volumePercent = config.getInt("mixer.volume");
+        audioSampleRate = config.getInt("mixer.audio.sampleRate");
+        audioBufferSize = config.getInt("mixer.audio.bufferSize");
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
+        language = config.getString("lang", "en");
+
+        if (volumePercent < 0 || volumePercent > 200) {
+            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            volumePercent = 50;
+            config.set("mixer.volume", 50);
+        }
+
+        return config;
+    }
+
+    private @NotNull FileConfiguration getConfiguration() {
+        FileConfiguration config = getConfig();
+
+        // YouTube
+        config.addDefault("mixer.youtube.enabled", false);
+        config.addDefault("mixer.youtube.useOAuth", false);
+        config.addDefault("mixer.youtube.refreshToken", "");
+
+        // Volume
+        config.addDefault("mixer.volume", 50);
+
+        // Audio
+        config.addDefault("mixer.audio.sampleRate", 48000);
+        config.addDefault("mixer.audio.bufferSize", 960);
+        config.addDefault("mixer.audio.frameBufferDuration", 100);
+
+        // Language
+        config.addDefault("lang", "en");
+        return config;
     }
 
     private void registerCustomJukeboxSongs() {
@@ -102,8 +163,6 @@ public class MixerPlugin extends JavaPlugin {
                 getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
             }
         });
-
-        CommandAPI.onDisable();
     }
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() {
@@ -111,6 +170,68 @@ public class MixerPlugin extends JavaPlugin {
     }
     public MixerApi api() {
         return api;
+    }
+
+    public LocalizationManager getLocalizationManager() {
+        return localizationManager;
+    }
+
+    public boolean isYoutubeEnabled() {
+        return youtubeEnabled;
+    }
+
+    public boolean isYoutubeUseOAuth() {
+        return youtubeUseOAuth;
+    }
+
+    public String getYoutubeRefreshToken() {
+        return youtubeRefreshToken;
+    }
+
+    public int getVolumePercent() {
+        return volumePercent;
+    }
+
+    public float getVolumeMultiplier() {
+        return volumePercent / 100.0f;
+    }
+
+    public int getAudioSampleRate() {
+        return audioSampleRate;
+    }
+
+    public int getAudioBufferSize() {
+        return audioBufferSize;
+    }
+
+    public int getAudioFrameBufferDuration() {
+        return audioFrameBufferDuration;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void reloadPluginConfig() {
+        reloadConfig();
+        initializeConfig();
+        localizationManager.setLanguage(language);
+
+        for (IMixerAudioPlayer player : playerHashMap.values()) {
+            player.updateVolume();
+        }
+    }
+
+    public FileConfiguration getMixersConfig() {
+        return mixersConfig;
+    }
+
+    public void saveMixersConfig() {
+        try {
+            mixersConfig.save(dataFile);
+        } catch (IOException e) {
+            getLogger().warning("Could not save data.yml: " + e.getMessage());
+        }
     }
 
     public static MixerPlugin getPlugin() {

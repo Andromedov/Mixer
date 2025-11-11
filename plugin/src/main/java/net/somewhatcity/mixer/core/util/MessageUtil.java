@@ -15,26 +15,64 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.command.CommandSender;
 
 public class MessageUtil {
+    private static final MiniMessage MM = MiniMessage.miniMessage();
+    private static LocalizationManager localizationManager;
 
-    public static final MiniMessage MM = MiniMessage.miniMessage();
-    public static final Component PREFIX = MM.deserialize("<b><color:#3d32d1>[Mixer]</color></b> ");
-
-    public static void sendMsg(CommandSender sender, String msg, Object... args) {
-        String[] colored = new String[args.length];
-        for(int i = 0; i < args.length; i++) {
-            colored[i] = "<color:#3d32d1>" + args[i].toString() + "</color>";
-        }
-
-        sender.sendMessage(PREFIX.append(MM.deserialize(msg.formatted(colored))));
+    public static void initialize(LocalizationManager manager) {
+        localizationManager = manager;
     }
 
-    public static void sendErrMsg(CommandSender sender, String msg, Object... args) {
-        String[] colored = new String[args.length];
-        for(int i = 0; i < args.length; i++) {
-            colored[i] = "<b><color:#3d32d1>" + args[i].toString() + "</color></b>";
+    public static void sendMsg(CommandSender sender, String messageKey, Object... args) {
+        if (localizationManager == null) {
+            return;
         }
 
-        sender.sendMessage(PREFIX.append(MM.deserialize("<b><color:#ff4a56>[Error]</color></b> ")).append(MM.deserialize(msg.formatted(colored))));
+        String prefix = localizationManager.getPrefix();
+        String message = localizationManager.getMessage("success." + messageKey, args);
+
+        Component component = MM.deserialize(prefix + message);
+        sender.sendMessage(component);
     }
 
+    public static void sendErrMsg(CommandSender sender, String messageKey, Object... args) {
+        if (localizationManager == null) {
+            sender.sendMessage("§cLocalization not initialized!");
+            return;
+        }
+
+        String prefix = localizationManager.getPrefix();
+        String message = localizationManager.getMessage("errors." + messageKey, args);
+
+        Component component = MM.deserialize(prefix + "<red>" + message);
+        sender.sendMessage(component);
+    }
+
+    public static void sendPlgMsg(CommandSender sender, String messageKey, Object... args) {
+        if (localizationManager == null) {
+            sender.sendMessage("§cLocalization not initialized!");
+            return;
+        }
+
+        String prefix = localizationManager.getPrefix();
+        String message = localizationManager.getMessage("plugin." + messageKey, args);
+
+        Component component = MM.deserialize(prefix + message);
+        sender.sendMessage(component);
+    }
+
+    public static void sendActionBarMsg(CommandSender sender, String messageKey, Object... args) {
+        if (localizationManager == null) {
+            sender.sendMessage("§cLocalization not initialized!");
+            return;
+        }
+
+        String message = localizationManager.getMessage("actionBar." + messageKey, args);
+        sender.sendActionBar(MM.deserialize(message));
+    }
+
+    public static void reloadMessages() {
+        if (localizationManager != null) {
+            localizationManager.reloadLanguages();
+        }
+    }
 }

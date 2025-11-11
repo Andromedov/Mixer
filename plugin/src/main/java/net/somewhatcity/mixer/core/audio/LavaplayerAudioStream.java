@@ -10,6 +10,8 @@
 
 package net.somewhatcity.mixer.core.audio;
 
+import net.somewhatcity.mixer.core.MixerPlugin;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -22,8 +24,9 @@ public class LavaplayerAudioStream extends AudioInputStream {
 
     public LavaplayerAudioStream(AudioFormat format) throws IOException {
         super(null, format, AudioSystem.NOT_SPECIFIED);
+        int bufferSize = MixerPlugin.getPlugin().getAudioBufferSize() * 4; // 4 bytes per sample
         outputStream = new PipedOutputStream();
-        inputStream = new PipedInputStream(outputStream);
+        inputStream = new PipedInputStream(outputStream, bufferSize);
     }
 
     public synchronized void appendData(byte[] newData) throws IOException {

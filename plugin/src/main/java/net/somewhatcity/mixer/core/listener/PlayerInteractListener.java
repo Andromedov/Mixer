@@ -14,6 +14,7 @@ import com.destroystokyo.paper.event.block.BlockDestroyEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
+import net.somewhatcity.mixer.core.util.MessageUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PlayerInteractListener implements Listener {
 
     private final Map<Location, Long> lastInteractTime = new ConcurrentHashMap<>();
-    private static final long INTERACT_COOLDOWN = 1000; // 1 секунда
+    private static final long INTERACT_COOLDOWN = 1000; // 1 second
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
@@ -61,15 +62,17 @@ public class PlayerInteractListener implements Listener {
                     int boost = e.getPlayer().getInventory().getHeldItemSlot() * 100;
                     if (boost == 0) {
                         // oldPlayer.resetFilters();
-                        e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<blue>bassboost disabled"));
+                        MessageUtil.sendActionBarMsg(e.getPlayer(), "bassboost_disabled");
                         return;
                     }
                     // oldPlayer.bassBoost(boost);
-                    e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<blue>bassboost set to <b>" + boost + "</b>"));
+                    MessageUtil.sendActionBarMsg(e.getPlayer(), "bassboost_set_to", boost);
                     return;
                 }
-                e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<red>playback stopped"));
+                MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
                 audioPlayer.stop();
+                e.setCancelled(true);
+                return;
             }
             if (e.getItem() == null) return;
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
@@ -82,7 +85,7 @@ public class PlayerInteractListener implements Listener {
                 audioPlayer.load(url);
             } catch (Exception ex) {
                 MixerPlugin.getPlugin().getLogger().warning("Failed to create audio player: " + ex.getMessage());
-                e.getPlayer().sendActionBar(MiniMessage.miniMessage().deserialize("<red>Failed to start playback"));
+                MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
             }
         }
     }

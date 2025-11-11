@@ -14,7 +14,8 @@ import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
 
 public class AudioOutputProcessor implements AudioProcessor {
-    private DataListener listener;
+    private final DataListener listener;
+
     public AudioOutputProcessor(DataListener listener) {
         this.listener = listener;
     }
@@ -27,7 +28,7 @@ public class AudioOutputProcessor implements AudioProcessor {
 
     @Override
     public void processingFinished() {
-
+        // Called when audio processing is finished
     }
 
     interface DataListener {

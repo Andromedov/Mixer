@@ -17,9 +17,13 @@ import de.maxhenkel.voicechat.api.VolumeCategory;
 import de.maxhenkel.voicechat.api.events.EventRegistration;
 import de.maxhenkel.voicechat.api.events.VoicechatServerStartedEvent;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
+import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+
+import javax.sound.sampled.AudioFormat;
+import java.util.logging.Level;
 
 public class MixerVoicechatPlugin implements VoicechatPlugin {
 
@@ -40,6 +44,10 @@ public class MixerVoicechatPlugin implements VoicechatPlugin {
         MixerVoicechatPlugin.api = api;
     }
 
+    public static AudioFormat getConfiguredAudioFormat() {
+        return Utils.createConfiguredAudioFormat();
+    }
+
     private void onServerStarted(VoicechatServerStartedEvent event) {
         VoicechatServerApi api = event.getVoicechat();
 
@@ -51,14 +59,14 @@ public class MixerVoicechatPlugin implements VoicechatPlugin {
 
         api.registerVolumeCategory(mixer);
 
-        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
         ConfigurationSection section = config.getConfigurationSection("mixers");
-        if(section != null) {
-            for(String key : section.getKeys(false)) {
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
                 String uri = config.getString("mixers." + key + ".uri");
                 Location location = config.getLocation("mixers." + key + ".location");
 
-                if(uri == null || location == null) continue;
+                if (uri == null || location == null) continue;
 
                 IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
                 audioPlayer.load(uri);

@@ -1,0 +1,26 @@
+# Made by Andromedov
+messages:
+  plugin:
+    prefix: "<gradient:#7277D8:#4851F5>[Mixer]</gradient> "
+  errors:
+    no_disc: "Ви повинні тримати музичний диск!"
+    no_jukebox: "Програвач не знайдено в цьому місці"
+    not_looking: "Ви не дивитесь на блок."
+    invalid_location: "Неправильна локація."
+    loading_failed: "Помилка при завантаженні: %s"
+    must_be_player: "Ви повинні бути гравцем, щоб виконувати цю команду."
+    no_matches: "Не знайдено відповідних результатів."
+  success:
+    loading_track: "Завантаження треку. Будь ласка, зачекайте..."
+    location_link: "Локація тепер пов'язана з програвачем"
+    redstone_location_link: "Redstone-локація тепер пов'язана з програвачем"
+    track_loaded: "Трек успішно завантажено: %s"
+    config_reloaded: "Конфігурацію успішно перезавантажено!"
+  actionBar:
+    playback_stop: "<red>відтворення зупинено"
+    bassboost_disabled: "<blue>бас-буст вимкнено"
+    bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
+    failed_to_start: "<red>Не вдалось розпочати відтворення"
+
+# DO NOT CHANGE
+lang-version: 0
