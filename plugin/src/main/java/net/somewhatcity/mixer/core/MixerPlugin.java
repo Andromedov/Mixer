@@ -29,6 +29,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
+import java.util.logging.Level;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
@@ -59,6 +60,8 @@ public class MixerPlugin extends JavaPlugin {
         MessageUtil.initialize(localizationManager);
 
         new CommandRegistry(this).registerCommands();
+
+        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer").setLevel(Level.INFO);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {

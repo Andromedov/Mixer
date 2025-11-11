@@ -1,6 +1,7 @@
 package net.somewhatcity.mixer.core.commands;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.Message;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -15,6 +16,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import io.papermc.paper.math.BlockPosition;
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -66,7 +68,8 @@ public class CommandRegistry {
                     .then(registerBurnCommand())
                     .then(registerLinkCommand())
                     .then(registerRedstoneCommand())
-                    .then(registerDspCommand());
+                    .then(registerDspCommand())
+                    .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
         });
@@ -321,13 +324,13 @@ public class CommandRegistry {
 
     private int executeDspReset(CommandContext<CommandSourceStack> ctx) {
         Location location = getBukkitLocation(ctx, "jukebox");
-        if(location == null) {
+        if (location == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>Invalid location or not a player."));
             return 0;
         }
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-        if(obj == null) {
+        if (obj == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>No jukebox at location"));
             return 0;
         }
@@ -342,7 +345,7 @@ public class CommandRegistry {
         double gain = ctx.getArgument("gain", Double.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-        if(obj == null) {
+        if (obj == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>No jukebox at location"));
             return 0;
         }
@@ -360,7 +363,7 @@ public class CommandRegistry {
         float frequency = ctx.getArgument("frequency", Float.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-        if(obj == null) {
+        if (obj == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>No jukebox at location"));
             return 0;
         }
@@ -378,7 +381,7 @@ public class CommandRegistry {
         float frequency = ctx.getArgument("frequency", Float.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-        if(obj == null) {
+        if (obj == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>No jukebox at location"));
             return 0;
         }
@@ -398,7 +401,7 @@ public class CommandRegistry {
         double lfoFrequency = ctx.getArgument("lfoFrequency", Double.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
-        if(obj == null) {
+        if (obj == null) {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>No jukebox at location"));
             return 0;
         }
@@ -413,14 +416,37 @@ public class CommandRegistry {
         return Command.SINGLE_SUCCESS;
     }
 
+    // --- /mixer reload ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerReloadCommand() {
+        return Commands.literal("reload")
+                .requires(source -> source.getSender().hasPermission("mixer.command.reload"))
+                .executes(this::executeReload);
+    }
+
+    private int executeReload(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        try {
+            MessageUtil.reloadMessages();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        plugin.reloadConfig();
+        MessageUtil.sendMsg(sender, "config_reloaded");
+
+        return Command.SINGLE_SUCCESS;
+    }
+
 
     private Location getBukkitLocation(CommandContext<CommandSourceStack> ctx, String argumentName) {
         CommandSender sender = ctx.getSource().getSender();
         org.bukkit.World world = null;
 
-        if(sender instanceof Player player) {
+        if (sender instanceof Player player) {
             world = player.getWorld();
-        } else if (sender instanceof org.bukkit.command.BlockCommandSender blockSender) {
+        }
+        else if (sender instanceof org.bukkit.command.BlockCommandSender blockSender) {
             world = blockSender.getBlock().getWorld();
         }
 
@@ -436,7 +462,8 @@ public class CommandRegistry {
             BlockPositionResolver resolver = ctx.getArgument(argumentName, BlockPositionResolver.class);
             BlockPosition pos = resolver.resolve(ctx.getSource());
             return pos.toLocation(world);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             return null;
         }
     }
