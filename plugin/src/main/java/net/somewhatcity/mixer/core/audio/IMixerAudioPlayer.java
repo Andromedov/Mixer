@@ -62,26 +62,27 @@ import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class IMixerAudioPlayer implements MixerAudioPlayer {
     private static final VoicechatServerApi API = (VoicechatServerApi) MixerVoicechatPlugin.api;
     public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
-    private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
 
+    // Audio format configuration
     private final AudioFormat audioFormat;
     private final int frameSize;
     private final int frameBufferDuration;
     private final float volumeMultiplier;
 
+    private final Map<String, Long> lastLogTimes = new ConcurrentHashMap<>();
     private final Object initializationLock = new Object();
     private volatile boolean isInitialized = false;
+
     private Location location;
     private Block block;
     private Set<MixerSpeaker> speakers;
     private MixerDsp dsp;
-    private org.bukkit.scheduler.BukkitTask audioTask;
+    private Timer audioTimer;
     private AudioPlayer lavaplayer;
     private OpusDecoder decoder;
     private OpusEncoder encoder;
@@ -97,16 +98,16 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private JsonObject dspSettings;
 
     static {
-        MixerPlugin plugin = MixerPlugin.getPlugin();
+        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
 
-        if (plugin.isYoutubeEnabled()) {
+        if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
                     new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
                     new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
             });
 
-            if (plugin.isYoutubeUseOAuth()) {
-                String refreshToken = plugin.getYoutubeRefreshToken();
+            if (config.getBoolean("mixer.youtube.useOAuth", false)) {
+                String refreshToken = config.getString("mixer.youtube.refreshToken", "");
                 if (refreshToken != null && !refreshToken.isEmpty()) {
                     youtube.useOauth2(refreshToken, true);
                 } else {
@@ -126,7 +127,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         APM.registerSourceManager(new HttpAudioSourceManager());
         APM.registerSourceManager(new LocalAudioSourceManager());
 
-        APM.setFrameBufferDuration(MixerPlugin.getPlugin().getAudioFrameBufferDuration());
+        int frameBufferDuration = MixerPlugin.getPlugin().getAudioFrameBufferDuration();
+        APM.setFrameBufferDuration(frameBufferDuration);
     }
 
     public IMixerAudioPlayer(Location location) {
@@ -142,16 +144,21 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         MixerPlugin.getPlugin().playerHashMap().put(location, this);
 
         MixerPlugin plugin = MixerPlugin.getPlugin();
+
+        // Get audio configuration from config
+        int sampleRate = plugin.getAudioSampleRate();
+        this.frameSize = plugin.getAudioBufferSize();
+        this.frameBufferDuration = plugin.getAudioFrameBufferDuration();
+        this.volumeMultiplier = plugin.getVolumeMultiplier();
+
+        // Create audio format matching configuration
         this.audioFormat = new AudioFormat(
-                plugin.getAudioSampleRate(),
+                sampleRate,
                 16,
                 1,
                 true,
                 true
         );
-        this.frameSize = plugin.getAudioBufferSize();
-        this.frameBufferDuration = plugin.getAudioFrameBufferDuration();
-        this.volumeMultiplier = plugin.getVolumeMultiplier();
 
         this.location = location;
         this.block = location.getBlock();
@@ -203,6 +210,24 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
                             start();
                         }
+
+                        @Override
+                        public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
+                            handlePlaybackException(track, exception);
+                        }
+
+                        @Override
+                        public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
+                            MixerPlugin.getPlugin().getLogger().warning(
+                                    "Track stuck: " + track.getInfo().title + " (threshold: " + thresholdMs + "ms)"
+                            );
+                            location.getNearbyPlayers(10).forEach(p -> {
+                                p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                        "<yellow>Track playback stuck, skipping...</yellow>"
+                                ));
+                            });
+                            start(); // Skip to next track
+                        }
                     });
 
                     audioStream = new LavaplayerAudioStream(audioFormat);
@@ -210,7 +235,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
-                    Timer audioTimer = new Timer();
+                    // Timer for audio frame processing - CRITICAL for synchronization
+                    audioTimer = new Timer();
                     audioTimer.scheduleAtFixedRate(new TimerTask() {
                         @Override
                         public void run() {
@@ -259,7 +285,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                                 }
                             }
                         }
-                    }, 0, 20);
+                    }, 0, 20); // 20ms interval for 50fps
 
                     Thread.sleep(100);
 
@@ -309,8 +335,9 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     public void stop() {
         running = false;
 
-        if (this.audioTask != null && !this.audioTask.isCancelled()) {
-            this.audioTask.cancel();
+        if (audioTimer != null) {
+            audioTimer.cancel();
+            audioTimer = null;
         }
 
         if (dispatcher != null) {
@@ -346,6 +373,14 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             }
         }
 
+        if (jvmAudioInputStream != null) {
+            try {
+                jvmAudioInputStream.close();
+            } catch (IOException e) {
+                MixerPlugin.getPlugin().getLogger().warning("Error closing jvmAudioInputStream: " + e.getMessage());
+            }
+        }
+
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
@@ -356,14 +391,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 MixerPlugin.getPlugin().saveConfig();
             }
         });
-
-        try {
-            if (jvmAudioInputStream != null) {
-                jvmAudioInputStream.close();
-            }
-        } catch (IOException e) {
-            MixerPlugin.getPlugin().getLogger().warning("Error closing audioStream: " + e.getMessage());
-        }
     }
 
     private void start() {
@@ -377,72 +404,86 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
     private void loadSingle(String audioUrl) {
         if (audioUrl == null || audioUrl.isEmpty()) return;
-        EXECUTOR_SERVICE.submit(() -> {
-            String urlToLoad = audioUrl;
-            if (audioUrl.startsWith("cobalt://")) {
-                String finalUrl = audioUrl.replace("cobalt://", "");
-                finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
-                if (finalUrl == null || finalUrl.isEmpty()) {
-                    location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>Error playing cobalt media</red>"));
-                    });
-                    return;
+
+        String urlToLoad = audioUrl;
+        if (audioUrl.startsWith("cobalt://")) {
+            String finalUrl = audioUrl.replace("cobalt://", "");
+            finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
+            if (finalUrl == null || finalUrl.isEmpty()) {
+                location.getNearbyPlayers(10).forEach(p -> {
+                    p.sendMessage(MiniMessage.miniMessage().deserialize(
+                            "<red>Error playing cobalt media</red>"
+                    ));
+                });
+                if (!loadingQueue.isEmpty() && running) {
+                    loadSingle(loadingQueue.poll());
                 }
+                return;
+            }
+            urlToLoad = finalUrl;
+        } else if (audioUrl.startsWith("https://youtube.com") || audioUrl.startsWith("https://www.youtube.com") || audioUrl.startsWith("https://music.youtube.com")) {
+            String finalUrl = Utils.requestCobaltMediaUrl(audioUrl);
+            if (finalUrl != null && !finalUrl.isEmpty()) {
                 urlToLoad = finalUrl;
-            } else if (audioUrl.startsWith("https://youtube.com") || audioUrl.startsWith("https://www.youtube.com") || audioUrl.startsWith("https://music.youtube.com")) {
-                String finalUrl = Utils.requestCobaltMediaUrl(audioUrl);
-                if (finalUrl != null && !finalUrl.isEmpty()) {
-                    urlToLoad = finalUrl;
+            }
+        }
+
+        String finalUrlToLoad = urlToLoad;
+        APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack audioTrack) {
+                if (audioTrack.getInfo().isStream) {
+                    // Stream logic if needed
+                }
+
+                FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+                String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                    config.set(identifier + ".uri", audioTrack.getInfo().uri);
+                    config.set(identifier + ".location", location);
+                    MixerPlugin.getPlugin().saveConfig();
+                });
+
+                playlist.add(audioTrack);
+                if (!playbackStarted) {
+                    loadDsp();
+                    start();
+                    playbackStarted = true;
+                }
+                if (!loadingQueue.isEmpty() && running) {
+                    loadSingle(loadingQueue.poll());
                 }
             }
 
-            APM.loadItem(urlToLoad, new AudioLoadResultHandler() {
-                @Override
-                public void trackLoaded(AudioTrack audioTrack) {
-                    if (audioTrack.getInfo().isStream) {
-                        // Stream logic
-                    }
-                    FileConfiguration config = MixerPlugin.getPlugin().getConfig();
-                    String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-                    Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        config.set(identifier + ".uri", audioTrack.getInfo().uri);
-                        config.set(identifier + ".location", location);
-                        MixerPlugin.getPlugin().saveConfig();
-                    });
+            @Override
+            public void playlistLoaded(AudioPlaylist audioPlaylist) {
+                playlist.add(audioPlaylist.getSelectedTrack());
+            }
 
-                    playlist.add(audioTrack);
-                    if (!playbackStarted) {
-                        loadDsp();
-                        start();
-                        playbackStarted = true;
-                    }
-                    if (!loadingQueue.isEmpty() && running) {
-                        load(loadingQueue.poll());
-                    }
+            @Override
+            public void noMatches() {
+                location.getNearbyPlayers(10).forEach(p -> {
+                    p.sendMessage(MiniMessage.miniMessage().deserialize(
+                            "<red>No matches found for URL</red>"
+                    ));
+                });
+                if (!loadingQueue.isEmpty() && running) {
+                    loadSingle(loadingQueue.poll());
                 }
+            }
 
-                @Override
-                public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                    playlist.add(audioPlaylist.getSelectedTrack());
+            @Override
+            public void loadFailed(FriendlyException e) {
+                location.getNearbyPlayers(10).forEach(p -> {
+                    p.sendMessage(MiniMessage.miniMessage().deserialize(
+                            "<red>Error loading track: " + e.getMessage() + "</red>"
+                    ));
+                });
+                MixerPlugin.getPlugin().getLogger().warning("Failed to load audio: " + e.getMessage());
+                if (!loadingQueue.isEmpty() && running) {
+                    loadSingle(loadingQueue.poll());
                 }
-
-                @Override
-                public void noMatches() {
-                    location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>No matches found for URL</red>"));
-                    });
-                }
-
-                @Override
-                public void loadFailed(FriendlyException e) {
-                    location.getNearbyPlayers(10).forEach(p -> {
-                        p.sendMessage(MiniMessage.miniMessage().deserialize(
-                                "<red>Error loading track: " + e.getMessage() + "</red>"
-                        ));
-                    });
-                    MixerPlugin.getPlugin().getLogger().warning("Failed to load audio: " + e.getMessage());
-                }
-            });
+            }
         });
     }
 
@@ -463,7 +504,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                         double finalGain = configuredGain * volumeMultiplier;
                         GainProcessor gainProcessor = new GainProcessor(finalGain);
                         dispatcher.addAudioProcessor(gainProcessor);
-                    } else {
+                    }
+                    else {
                         GainProcessor gainProcessor = new GainProcessor(volumeMultiplier);
                         dispatcher.addAudioProcessor(gainProcessor);
                     }
@@ -496,7 +538,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                             byte[] encoded = encoder.encode(Utils.byteToShort(data));
                             audioQueue.add(encoded);
                         }
-                    }, volumeMultiplier));
+                    }));
 
                     dispatcher.run();
                 } catch (Exception e) {
@@ -504,5 +546,47 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 }
             }
         }, 500);
+    }
+
+    private void handlePlaybackException(AudioTrack track, FriendlyException exception) {
+        String errorMessage;
+
+        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+        boolean shouldNotifyPlayer = config.getBoolean("mixer.errorsNotifiers.notifyPlayer", false);
+        boolean shouldLog = config.getBoolean("mixer.errorsNotifiers.log", true);
+
+        if (exception.getCause() instanceof RuntimeException) {
+            RuntimeException cause = (RuntimeException) exception.getCause();
+            String causeMessage = cause.getMessage();
+
+            if (causeMessage != null && causeMessage.contains("Not success status code: 403")) {
+                errorMessage = "<yellow>Track URL expired. Please reload the track.</yellow>";
+                shouldLog = false;
+                logThrottled("HTTP 403 for track: " + track.getInfo().uri, 300000); // 5 minutes
+            }
+            else if (causeMessage != null && causeMessage.contains("Not success status code: 404")) {
+                errorMessage = "<red>Track not found (404). URL may be invalid.</red>";
+            }
+            else if (causeMessage != null && causeMessage.contains("Not success status code: 429")) {
+                errorMessage = "<yellow>Rate limit reached. Please wait before retrying.</yellow>";
+            }
+            else { errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>"; }
+        }
+        else { errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>"; }
+
+        if (shouldNotifyPlayer) { location.getNearbyPlayers(10).forEach(p -> { p.sendMessage(MiniMessage.miniMessage().deserialize(errorMessage)); }); }
+        if (shouldLog) { MixerPlugin.getPlugin().getLogger().warning("Playback error for track [" + track.getInfo().title + "]: " + exception.getMessage()); }
+
+        if (!playlist.isEmpty()) { start(); }
+    }
+
+    private void logThrottled(String message, long throttleMs) {
+        long now = System.currentTimeMillis();
+        Long lastTime = lastLogTimes.get(message);
+
+        if (lastTime == null || (now - lastTime) > throttleMs) {
+            MixerPlugin.getPlugin().getLogger().warning(message);
+            lastLogTimes.put(message, now);
+        }
     }
 }

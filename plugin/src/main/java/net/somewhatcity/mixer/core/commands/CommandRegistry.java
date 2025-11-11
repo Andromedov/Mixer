@@ -75,27 +75,27 @@ public class CommandRegistry {
     // --- /mixer burn ---
     private LiteralArgumentBuilder<CommandSourceStack> registerBurnCommand() {
         return Commands.literal("burn")
-                .requires(source -> source.getSender().hasPermission("mixer.command.burn")) //
-                .then(Commands.argument("url", StringArgumentType.greedyString()) //
+                .requires(source -> source.getSender().hasPermission("mixer.command.burn"))
+                .then(Commands.argument("url", StringArgumentType.greedyString())
                         .executes(this::executeBurn));
     }
 
     private int executeBurn(CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player player)) {
-            MessageUtil.sendErrMsg(sender, "You must be a player to run this command.");
+            MessageUtil.sendErrMsg(sender, "must_be_player");
             return 0;
         }
 
-        String url = ctx.getArgument("url", String.class); //
+        String url = ctx.getArgument("url", String.class);
 
         ItemStack item = player.getInventory().getItemInMainHand();
         if (!Utils.isDisc(item)) {
-            MessageUtil.sendErrMsg(player, "You must be holding a music disc!");
+            MessageUtil.sendErrMsg(player, "no_disc");
             return 0;
         }
 
-        MessageUtil.sendMsg(player, "Loading track. Please wait...");
+        MessageUtil.sendMsg(player, "loading_track");
 
         EXECUTOR_SERVICE.submit(() -> {
             String oldUrl;
@@ -127,7 +127,7 @@ public class CommandRegistry {
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
                         String urlToSet =!oldUrl.isEmpty()? oldUrl : urlForLambda;
                         applyDiscMeta(item, info, urlToSet);
-                        MessageUtil.sendMsg(player, "Successfully loaded track: %s", info.title);
+                        MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
                 }
 
@@ -136,13 +136,13 @@ public class CommandRegistry {
                     AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
                         applyDiscMeta(item, info, urlForLambda);
-                        MessageUtil.sendMsg(player, "Successfully loaded track: %s", info.title);
+                        MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
                 }
 
                 @Override
                 public void noMatches() {
-                    MessageUtil.sendErrMsg(player, "No matches found");
+                    MessageUtil.sendErrMsg(player, "no_matches");
                 }
 
                 @Override
@@ -157,7 +157,7 @@ public class CommandRegistry {
 
     private void applyDiscMeta(ItemStack item, AudioTrackInfo info, String urlToSet) {
         item.editMeta(meta -> {
-            meta.displayName(MM.deserialize("<gray>" + info.author + " <reset>- " + info.title).decoration(TextDecoration.ITALIC, false));
+            meta.displayName(MM.deserialize("<reset>" + info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
             meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
@@ -182,7 +182,7 @@ public class CommandRegistry {
     private LiteralArgumentBuilder<CommandSourceStack> registerLinkCommand() {
         return Commands.literal("link")
                 .requires(source -> source.getSender().hasPermission("mixer.command.link"))
-                .then(Commands.argument("jukebox", ArgumentTypes.blockPosition()) //
+                .then(Commands.argument("jukebox", ArgumentTypes.blockPosition())
                         .executes(this::executeLink));
     }
 
@@ -190,19 +190,19 @@ public class CommandRegistry {
         CommandSourceStack source = ctx.getSource();
         CommandSender sender = source.getSender();
         if (!(sender instanceof Player player)) {
-            MessageUtil.sendErrMsg(sender, "You must be a player to run this command.");
+            MessageUtil.sendErrMsg(sender, "must_be_player");
             return 0;
         }
 
         Location jukeboxLoc = getBukkitLocation(ctx, "jukebox", player.getWorld());
         if (jukeboxLoc == null) {
-            MessageUtil.sendErrMsg(player, "Invalid location.");
+            MessageUtil.sendErrMsg(player, "invalid_location");
             return 0;
         }
 
         Block block = jukeboxLoc.getBlock();
         if (!block.getType().equals(Material.JUKEBOX)) {
-            MessageUtil.sendErrMsg(player, "No jukebox found at location");
+            MessageUtil.sendErrMsg(player, "no_jukebox");
             return 0;
         }
 
@@ -221,7 +221,7 @@ public class CommandRegistry {
         linked.add(locData);
         jukebox.getPersistentDataContainer().set(mixerLinks, PersistentDataType.STRING, linked.toString());
         jukebox.update();
-        MessageUtil.sendMsg(player, "Location linked to jukebox");
+        MessageUtil.sendMsg(player, "location_link");
         return Command.SINGLE_SUCCESS;
     }
 
@@ -230,8 +230,8 @@ public class CommandRegistry {
     private LiteralArgumentBuilder<CommandSourceStack> registerRedstoneCommand() {
         return Commands.literal("redstone")
                 .requires(source -> source.getSender().hasPermission("mixer.command.redstone"))
-                .then(Commands.argument("jukebox", ArgumentTypes.blockPosition()) //
-                        .then(Commands.argument("magnitude", IntegerArgumentType.integer(0, 2048)) //
+                .then(Commands.argument("jukebox", ArgumentTypes.blockPosition())
+                        .then(Commands.argument("magnitude", IntegerArgumentType.integer(0, 2048))
                                 .then(Commands.argument("trigger", IntegerArgumentType.integer(0))
                                         .then(Commands.argument("delay", IntegerArgumentType.integer(0))
                                                 .executes(this::executeRedstone)))));
@@ -241,19 +241,19 @@ public class CommandRegistry {
         CommandSourceStack source = ctx.getSource();
         CommandSender sender = source.getSender();
         if (!(sender instanceof Player player)) {
-            MessageUtil.sendErrMsg(sender, "You must be a player to run this command.");
+            MessageUtil.sendErrMsg(sender, "must_be_player");
             return 0;
         }
 
         Location jukeboxLoc = getBukkitLocation(ctx, "jukebox", player.getWorld());
         if (jukeboxLoc == null) {
-            MessageUtil.sendErrMsg(player, "Invalid location.");
+            MessageUtil.sendErrMsg(player, "invalid_location");
             return 0;
         }
 
         Block block = jukeboxLoc.getBlock();
         if (!block.getType().equals(Material.JUKEBOX)) {
-            MessageUtil.sendErrMsg(player, "No jukebox found at location");
+            MessageUtil.sendErrMsg(player, "no_jukebox");
             return 0;
         }
 
@@ -263,7 +263,7 @@ public class CommandRegistry {
         JsonArray redstones = (data == null || data.isEmpty())? new JsonArray() : (JsonArray) JsonParser.parseString(data);
 
         if (player.getTargetBlockExact(10) == null) {
-            MessageUtil.sendErrMsg(player, "Not looking at a block");
+            MessageUtil.sendErrMsg(player, "not_looking");
             return 0;
         }
 
@@ -280,7 +280,7 @@ public class CommandRegistry {
         redstones.add(locData);
         jukebox.getPersistentDataContainer().set(mixerRedstones, PersistentDataType.STRING, redstones.toString());
         jukebox.update();
-        MessageUtil.sendMsg(player, "Redstone location linked to jukebox");
+        MessageUtil.sendMsg(player, "redstone_location_link");
         return Command.SINGLE_SUCCESS;
     }
 
@@ -293,14 +293,14 @@ public class CommandRegistry {
 
                         // /mixer dsp <location> gain <gain>
                         .then(Commands.literal("gain")
-                                .requires(source -> source.getSender().hasPermission("mixer.command.dsp.gain")) // Додано дозвіл
-                                .then(Commands.argument("gain", DoubleArgumentType.doubleArg()) //
+                                .requires(source -> source.getSender().hasPermission("mixer.command.dsp.gain"))
+                                .then(Commands.argument("gain", DoubleArgumentType.doubleArg())
                                         .executes(this::executeDspGain)))
 
                         // /mixer dsp <location> highPassFilter <frequency>
                         .then(Commands.literal("highPassFilter")
                                 .requires(source -> source.getSender().hasPermission("mixer.command.dsp.highpass"))
-                                .then(Commands.argument("frequency", FloatArgumentType.floatArg()) //
+                                .then(Commands.argument("frequency", FloatArgumentType.floatArg())
                                         .executes(this::executeDspHighPass)))
 
                         // /mixer dsp <location> lowPassFilter <frequency>
@@ -424,8 +424,7 @@ public class CommandRegistry {
             world = blockSender.getBlock().getWorld();
         }
 
-        if(world == null) {
-            // Неможливо визначити світ (наприклад, для консолі)
+        if (world == null) {
             return null;
         }
 

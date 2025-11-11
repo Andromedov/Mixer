@@ -3,7 +3,7 @@
 # ===========================================
 # LOCALIZATION
 # ===========================================
-lang: "uk"
+lang: "en"
 
 # ===========================================
 # PLUGIN SETTINGS
@@ -14,6 +14,11 @@ mixer:
     enabled: false
     useOAuth: false
     refreshToken: ""
+
+  # Should the plugin notify players
+  errorsNotifiers:
+    notifyPlayer: false
+    log: true
 
   # Default volume settings
   volume: 50 # 50%
@@ -28,3 +33,8 @@ mixer:
     bufferSize: 960
     # Frame buffer duration (ms)
     frameBufferDuration: 100
+
+# ===========================================
+# JUKEBOXES INFO | DO NOT CHANGE
+# ===========================================
+mixers: {}
