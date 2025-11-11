@@ -23,11 +23,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.logging.Level;
 
@@ -37,6 +40,9 @@ public class MixerPlugin extends JavaPlugin {
     private static final String PLUGIN_ID = "mixer";
     private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
     private LocalizationManager localizationManager;
+    private File dataFile;
+    private FileConfiguration mixersConfig;
+    protected PlayerInteractListener playerInteractListener;
 
     // Config
     private boolean youtubeEnabled;
@@ -48,8 +54,6 @@ public class MixerPlugin extends JavaPlugin {
     private int audioFrameBufferDuration;
     private String language;
 
-    protected PlayerInteractListener playerInteractListener;
-
     @Override
     public void onEnable() {
         plugin = this;
@@ -58,6 +62,12 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
+
+        dataFile = new File(getDataFolder(), "data.yml");
+        if (!dataFile.exists()) {
+            saveResource("data.yml", false);
+        }
+        mixersConfig = YamlConfiguration.loadConfiguration(dataFile);
 
         new CommandRegistry(this).registerCommands();
 
@@ -84,9 +94,9 @@ public class MixerPlugin extends JavaPlugin {
     }
 
     private void initializeConfig() {
+        saveDefaultConfig();
         FileConfiguration config = getFileConfiguration();
         config.options().copyDefaults(true);
-        saveConfig();
     }
 
     private @NotNull FileConfiguration getFileConfiguration() {
@@ -213,6 +223,18 @@ public class MixerPlugin extends JavaPlugin {
 
         for (IMixerAudioPlayer player : playerHashMap.values()) {
             player.updateVolume();
+        }
+    }
+
+    public FileConfiguration getMixersConfig() {
+        return mixersConfig;
+    }
+
+    public void saveMixersConfig() {
+        try {
+            mixersConfig.save(dataFile);
+        } catch (IOException e) {
+            getLogger().warning("Could not save mixers.yml: " + e.getMessage());
         }
     }
 

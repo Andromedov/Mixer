@@ -33,8 +33,3 @@ mixer:
     bufferSize: 960
     # Frame buffer duration (ms)
     frameBufferDuration: 100
-
-# ===========================================
-# JUKEBOXES INFO | DO NOT CHANGE
-# ===========================================
-mixers: {}

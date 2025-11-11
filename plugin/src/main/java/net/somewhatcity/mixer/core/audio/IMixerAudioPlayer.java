@@ -98,7 +98,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private JsonObject dspSettings;
 
     static {
-        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
@@ -382,12 +382,12 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
-        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
         String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
         Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
             if (config.contains(identifier)) {
                 config.set(identifier, null);
-                MixerPlugin.getPlugin().saveConfig();
+                MixerPlugin.getPlugin().saveMixersConfig();
             }
         });
     }
@@ -455,12 +455,12 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                     // Stream logic if needed
                 }
 
-                FileConfiguration config = MixerPlugin.getPlugin().getConfig();
+                FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
                 String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
                 Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
                     config.set(identifier + ".uri", audioTrack.getInfo().uri);
                     config.set(identifier + ".location", location);
-                    MixerPlugin.getPlugin().saveConfig();
+                    MixerPlugin.getPlugin().saveMixersConfig();
                 });
 
                 playlist.add(audioTrack);
