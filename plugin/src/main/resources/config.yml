@@ -1,0 +1,30 @@
+# Mixer Configuration
+
+# ===========================================
+# LOCALIZATION
+# ===========================================
+lang: "uk"
+
+# ===========================================
+# PLUGIN SETTINGS
+# ===========================================
+mixer:
+  # YouTube integration settings
+  youtube:
+    enabled: false
+    useOAuth: false
+    refreshToken: ""
+
+  # Default volume settings
+  volume: 50 # 50%
+
+# ===========================================
+# AUDIO SETTINGS | CHANGE ONLY OF YOU KNOW WHAT YOU'RE DOING
+# ===========================================
+  audio:
+    # Sample rate (Hz)
+    sampleRate: 48000
+    # Buffer size
+    bufferSize: 960
+    # Frame buffer duration (ms)
+    frameBufferDuration: 100

@@ -1,6 +1,6 @@
 plugins {
-    id("io.github.goooler.shadow") version "8.1.8"
     id("de.eldoria.plugin-yml.bukkit") version "0.8.0"
+    id("com.gradleup.shadow") version "9.2.2"
 }
 
 repositories {
@@ -41,11 +41,14 @@ dependencies {
 
 tasks {
     shadowJar {
-        destinationDirectory.set(rootProject.buildDir.resolve("libs"))
+        destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
+        }
+        doLast {
+            println("ShadowJar output file: " + archiveFile.get().asFile.absolutePath)
         }
     }
 

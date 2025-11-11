@@ -1,0 +1,12 @@
+# Made by Andromedov
+messages:
+  plugin:
+    prefix: "<gradient:#ff6b6b:#4ecdc4>[Mixer]</gradient> "
+  errors:
+    no_disc: "Ви повинні тримати музичний диск!"
+    no_jukebox: "Програвач не знайдено в цьому місці"
+    loading_failed: "Помилка при завантаженні: %s"
+  success:
+    loading_track: "Завантаження треку. Будь ласка, зачекайте..."
+    track_loaded: "Трек успішно завантажено: %s"
+    config_reloaded: "Конфігурацію успішно перезавантажено!"

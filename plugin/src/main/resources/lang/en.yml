@@ -1,0 +1,12 @@
+# Original messages
+messages:
+  plugin:
+    prefix: "<gradient:#ff6b6b:#4ecdc4>[Mixer]</gradient> "
+  errors:
+    no_disc: "You must be holding a music disc!"
+    no_jukebox: "No jukebox found at location"
+    loading_failed: "Error while loading: %s"
+  success:
+    loading_track: "Loading track. Please wait..."
+    track_loaded: "Successfully loaded track: %s"
+    config_reloaded: "Configuration reloaded successfully!"

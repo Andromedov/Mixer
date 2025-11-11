@@ -12,22 +12,58 @@ package net.somewhatcity.mixer.core.audio;
 
 import be.tarsos.dsp.AudioEvent;
 import be.tarsos.dsp.AudioProcessor;
+import net.somewhatcity.mixer.core.MixerPlugin;
 
 public class AudioOutputProcessor implements AudioProcessor {
     private DataListener listener;
+    private float volumeMultiplier;
+
     public AudioOutputProcessor(DataListener listener) {
         this.listener = listener;
+        this.volumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
+    }
+
+    public AudioOutputProcessor(DataListener listener, float customVolumeMultiplier) {
+        this.listener = listener;
+        this.volumeMultiplier = customVolumeMultiplier;
     }
 
     @Override
     public boolean process(AudioEvent audioEvent) {
-        listener.onData(audioEvent.getByteBuffer());
+        byte[] originalData = audioEvent.getByteBuffer();
+        if (volumeMultiplier != 1.0f) {
+            byte[] processedData = applyVolumeToAudioData(originalData, volumeMultiplier);
+            listener.onData(processedData);
+        } else {
+            listener.onData(originalData);
+        }
+
         return true;
     }
 
     @Override
     public void processingFinished() {
+    }
 
+    private byte[] applyVolumeToAudioData(byte[] audioData, float volumeMultiplier) {
+        byte[] result = new byte[audioData.length];
+
+        for (int i = 0; i < audioData.length - 1; i += 2) {
+            short sample = (short) ((audioData[i + 1] << 8) | (audioData[i] & 0xFF));
+
+            int newSample = Math.round(sample * volumeMultiplier);
+
+            if (newSample > Short.MAX_VALUE) {
+                newSample = Short.MAX_VALUE;
+            } else if (newSample < Short.MIN_VALUE) {
+                newSample = Short.MIN_VALUE;
+            }
+
+            result[i] = (byte) (newSample & 0xFF);
+            result[i + 1] = (byte) ((newSample >> 8) & 0xFF);
+        }
+
+        return result;
     }
 
     interface DataListener {
