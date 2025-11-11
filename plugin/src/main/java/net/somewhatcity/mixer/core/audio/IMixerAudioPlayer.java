@@ -481,11 +481,14 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
             @Override
             public void noMatches() {
-                location.getNearbyPlayers(10).forEach(p -> {
-                    p.sendMessage(MiniMessage.miniMessage().deserialize(
-                            "<red>No matches found for URL</red>"
-                    ));
+                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                "<red>No matches found for URL</red>"
+                        ));
+                    });
                 });
+
                 if (!loadingQueue.isEmpty() && running) {
                     loadSingle(loadingQueue.poll());
                 }
@@ -493,11 +496,14 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
             @Override
             public void loadFailed(FriendlyException e) {
-                location.getNearbyPlayers(10).forEach(p -> {
-                    p.sendMessage(MiniMessage.miniMessage().deserialize(
-                            "<red>Error loading track: " + e.getMessage() + "</red>"
-                    ));
+                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize(
+                                "<red>Error loading track: " + e.getMessage() + "</red>"
+                        ));
+                    });
                 });
+
                 MixerPlugin.getPlugin().getLogger().warning("Failed to load audio: " + e.getMessage());
                 if (!loadingQueue.isEmpty() && running) {
                     loadSingle(loadingQueue.poll());
