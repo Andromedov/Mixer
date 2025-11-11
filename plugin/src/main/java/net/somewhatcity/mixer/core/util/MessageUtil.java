@@ -60,6 +60,16 @@ public class MessageUtil {
         sender.sendMessage(component);
     }
 
+    public static void sendActionBarMsg(CommandSender sender, String messageKey, Object... args) {
+        if (localizationManager == null) {
+            sender.sendMessage("§cLocalization not initialized!");
+            return;
+        }
+
+        String message = localizationManager.getMessage("actionBar." + messageKey, args);
+        sender.sendMessage(MM.deserialize(message));
+    }
+
     public static void reloadMessages() {
         if (localizationManager != null) {
             localizationManager.reloadLanguages();

@@ -16,3 +16,8 @@ messages:
     redstone_location_link: "Redstone-локація тепер пов'язана з програвачем"
     track_loaded: "Трек успішно завантажено: %s"
     config_reloaded: "Конфігурацію успішно перезавантажено!"
+  actionBar:
+    playback_stop: "<red>відтворення зупинено"
+    bassboost_disabled: "<blue>бас-буст вимкнено"
+    bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
+    failed_to_start: "<red>Не вдалось розпочати відтворення"

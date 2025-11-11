@@ -58,8 +58,6 @@ public class MixerVoicechatPlugin implements VoicechatPlugin {
                 .build();
 
         api.registerVolumeCategory(mixer);
-        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer").setLevel(Level.INFO);
-        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer.track.playback.LocalAudioTrackExecutor").setLevel(Level.OFF);
 
         FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
         ConfigurationSection section = config.getConfigurationSection("mixers");
