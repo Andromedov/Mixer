@@ -1,12 +1,18 @@
 # Original messages
 messages:
   plugin:
-    prefix: "<gradient:#ff6b6b:#4ecdc4>[Mixer]</gradient> "
+    prefix: "<gradient:#7277D8:#4851F5>[Mixer]</gradient> "
   errors:
     no_disc: "You must be holding a music disc!"
     no_jukebox: "No jukebox found at location"
+    not_looking: "Not looking at a block"
+    invalid_location: "Invalid location."
     loading_failed: "Error while loading: %s"
+    must_be_player: "You must be a player to run this command."
+    no_matches: "No matches found."
   success:
     loading_track: "Loading track. Please wait..."
+    location_link: "Location linked to jukebox"
+    redstone_location_link: "Redstone location linked to jukebox"
     track_loaded: "Successfully loaded track: %s"
     config_reloaded: "Configuration reloaded successfully!"
