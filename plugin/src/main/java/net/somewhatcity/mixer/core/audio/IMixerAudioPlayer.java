@@ -72,7 +72,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private final AudioFormat audioFormat;
     private final int frameSize;
     private final int frameBufferDuration;
-    private final float volumeMultiplier;
+    private GainProcessor gainProcessor;
 
     private final Map<String, Long> lastLogTimes = new ConcurrentHashMap<>();
     private final Object initializationLock = new Object();
@@ -149,7 +149,6 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         int sampleRate = plugin.getAudioSampleRate();
         this.frameSize = plugin.getAudioBufferSize();
         this.frameBufferDuration = plugin.getAudioFrameBufferDuration();
-        this.volumeMultiplier = plugin.getVolumeMultiplier();
 
         // Create audio format matching configuration
         this.audioFormat = new AudioFormat(
@@ -393,6 +392,26 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         });
     }
 
+    public void updateVolume() {
+        this.dspSettings = Utils.loadNbtData(location, "mixerdsp");
+
+        if (this.gainProcessor == null) {
+            return;
+        }
+
+        float currentVolumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
+
+        JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
+        double finalGain;
+        if (gainSettings != null) {
+            double configuredGain = gainSettings.get("gain").getAsDouble();
+            finalGain = configuredGain * currentVolumeMultiplier;
+        } else {
+            finalGain = currentVolumeMultiplier;
+        }
+        this.gainProcessor.setGain(finalGain);
+    }
+
     private void start() {
         if (!running) return;
         if (!playlist.isEmpty()) {
@@ -498,17 +517,17 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                     dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
                     TarsosDSPAudioFormat format = dispatcher.getFormat();
 
+                    float currentVolumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
                     JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
                     if (gainSettings != null) {
                         double configuredGain = gainSettings.get("gain").getAsDouble();
-                        double finalGain = configuredGain * volumeMultiplier;
-                        GainProcessor gainProcessor = new GainProcessor(finalGain);
-                        dispatcher.addAudioProcessor(gainProcessor);
+                        double finalGain = configuredGain * currentVolumeMultiplier;
+                        gainProcessor = new GainProcessor(finalGain);
                     }
                     else {
-                        GainProcessor gainProcessor = new GainProcessor(volumeMultiplier);
-                        dispatcher.addAudioProcessor(gainProcessor);
+                        gainProcessor = new GainProcessor(currentVolumeMultiplier);
                     }
+                    dispatcher.addAudioProcessor(gainProcessor);
 
                     JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
                     if (highPassSettings != null) {

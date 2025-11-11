@@ -62,6 +62,7 @@ public class MixerPlugin extends JavaPlugin {
         new CommandRegistry(this).registerCommands();
 
         java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer").setLevel(Level.INFO);
+        java.util.logging.Logger.getLogger("com.sedmelluq.discord.lavaplayer.track.playback.LocalAudioTrackExecutor").setLevel(Level.OFF);
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -209,6 +210,10 @@ public class MixerPlugin extends JavaPlugin {
         reloadConfig();
         initializeConfig();
         localizationManager.setLanguage(language);
+
+        for (IMixerAudioPlayer player : playerHashMap.values()) {
+            player.updateVolume();
+        }
     }
 
     public static MixerPlugin getPlugin() {
