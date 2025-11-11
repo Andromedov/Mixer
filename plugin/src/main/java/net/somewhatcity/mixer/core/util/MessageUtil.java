@@ -61,7 +61,7 @@ public class MessageUtil {
     }
 
     public static void reloadMessages() {
-        if (localizationManager == null) {
+        if (localizationManager != null) {
             localizationManager.reloadLanguages();
         }
     }

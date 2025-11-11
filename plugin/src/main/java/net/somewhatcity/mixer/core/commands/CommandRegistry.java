@@ -432,7 +432,7 @@ public class CommandRegistry {
             e.printStackTrace();
         }
 
-        plugin.reloadConfig();
+        plugin.reloadPluginConfig();
         MessageUtil.sendMsg(sender, "config_reloaded");
 
         return Command.SINGLE_SUCCESS;

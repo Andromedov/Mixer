@@ -85,7 +85,7 @@ public class Utils {
 
     public static short[] applyVolumeToShortArray(short[] input, float volumeMultiplier) {
         if (volumeMultiplier == 1.0f) {
-            return input; // Немає потреби в обробці
+            return input;
         }
 
         short[] output = new short[input.length];
@@ -93,7 +93,6 @@ public class Utils {
         for (int i = 0; i < input.length; i++) {
             int sample = Math.round(input[i] * volumeMultiplier);
 
-            // Обмежуємо значення в межах short діапазону
             if (sample > Short.MAX_VALUE) {
                 sample = Short.MAX_VALUE;
             } else if (sample < Short.MIN_VALUE) {
@@ -108,10 +107,9 @@ public class Utils {
 
     public static byte[] applyVolumeToByteArray(byte[] input, float volumeMultiplier) {
         if (volumeMultiplier == 1.0f) {
-            return input; // Немає потреби в обробці
+            return input;
         }
 
-        // Конвертуємо в short[], застосовуємо гучність, повертаємо назад в byte[]
         short[] shortData = byteToShort(input);
         short[] processedData = applyVolumeToShortArray(shortData, volumeMultiplier);
         return shortToByte(processedData);
@@ -120,9 +118,9 @@ public class Utils {
     public static AudioFormat createConfiguredAudioFormat() {
         MixerPlugin plugin = MixerPlugin.getPlugin();
         return new AudioFormat(
-                plugin.getAudioSampleRate(),  // Sample rate з конфігурації
-                16,                           // 16-бітна глибина
-                1,                            // Моно
+                plugin.getAudioSampleRate(),  // Sample rate
+                16,                           // 16-bit
+                1,                            // Mono
                 true,                         // Signed
                 true                          // Big endian
         );
