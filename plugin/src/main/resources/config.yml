@@ -3,6 +3,8 @@
 # ===========================================
 # LOCALIZATION
 # ===========================================
+# Set the default language for the plugin.
+# Supported: "en", "uk"
 lang: "en"
 
 # ===========================================
@@ -15,19 +17,20 @@ mixer:
     useOAuth: false
     refreshToken: ""
 
-  # Should the plugin notify players
+  # Should the plugin notify players of playback errors?
   errorsNotifiers:
     notifyPlayer: false
     log: true
 
   # Default volume settings
-  volume: 50 # 50%
+  # This is a global multiplier. 50 = 50% volume.
+  volume: 50
 
 # ===========================================
 # AUDIO SETTINGS | CHANGE ONLY OF YOU KNOW WHAT YOU'RE DOING
 # ===========================================
   audio:
-    # Sample rate (Hz)
+    # Sample rate (Hz). 48000 is standard.
     sampleRate: 48000
     # Buffer size
     bufferSize: 960
