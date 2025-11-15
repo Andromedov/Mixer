@@ -1,5 +1,9 @@
 # Mixer
 
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
+[![Lavaplayer](https://img.shields.io/badge/Lavaplayer-2.2.4-red.svg)](https://www.oracle.com/java/)
+[![Java](https://img.shields.io/badge/Simple_Voice_Chat-2.6.x-black.svg)](https://modrinth.com/plugin/simple-voice-chat)
+
 **Mixer** is a plugin for PaperMC servers that enhances the [Simple Voice Chat](https://modrinth.com/plugin/simple-voice-chat) mod. It allows you to create custom music discs that can play audio from any source (like YouTube, SoundCloud, or Direct Link) through the in-game voice chat.
 
 This plugin transforms standard Jukeboxes into a complete audio system, supporting playlists, remote speakers, and audio DSP effects.
