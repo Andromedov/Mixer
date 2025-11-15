@@ -29,4 +29,6 @@ For complete instructions on installation, configuration, and all commands, plea
 
 ## 👾 Shoutouts
 
-Original developer is not very active, but shoutout to [somewhatcity](https://github.com/hnwh224/Mixer) for an amazing plugin.
+Original developer is not very active, but shoutout to [somewhatcity](https://github.com/hnwh224/Mixer) for an amazing plugin.<br>
+
+Many thanks to [AntiDot](https://www.twitch.tv/anti_dot) for the increadible logo for this project.
