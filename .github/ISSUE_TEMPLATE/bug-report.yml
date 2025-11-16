@@ -46,7 +46,7 @@ body:
     validations:
       required: true
 
-  - type: textarea
+  - type: input
     id: logs
     attributes:
       label: Console Errors / Logs
