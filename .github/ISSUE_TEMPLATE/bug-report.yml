@@ -1,0 +1,86 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve the plugin
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### ⚠️ Before You Continue
+        Please make sure you are using the **latest version of Mixer**. Issues reported on outdated versions will be closed.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug on our own server? Please be as detailed as possible.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console Errors / Logs
+      description: Please paste the link from [https://mclo.gs/](https://mclo.gs/) of full error from your console or `latest.log` file.
+      placeholder: "https://mclo.gs/"
+    validations:
+      required: true
+
+  - type: input
+    id: server-version
+    attributes:
+      label: Paper/Server Version
+      placeholder: "e.g., Paper 1.21.10"
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Mixer Plugin Version
+      placeholder: "e.g., v2.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: voicechat-version
+    attributes:
+      label: SimpleVoiceChat Version
+      placeholder: "e.g., v2.6.4"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here. Screenshots, videos, or information about plugin conflicts are very helpful.
