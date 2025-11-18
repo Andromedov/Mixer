@@ -1,7 +1,7 @@
 # Mixer
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Lavaplayer](https://img.shields.io/badge/Lavaplayer-2.2.4-red.svg)](https://www.oracle.com/java/)
+[![Lavaplayer](https://img.shields.io/badge/Lavaplayer-2.2.4-red.svg)](https://github.com/lavalink-devs/lavaplayer)
 [![Java](https://img.shields.io/badge/Simple_Voice_Chat-2.6.x-black.svg)](https://modrinth.com/plugin/simple-voice-chat)
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)<br/>
 
