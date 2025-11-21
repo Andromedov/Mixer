@@ -150,7 +150,7 @@ public class CommandRegistry {
 
                 @Override
                 public void loadFailed(FriendlyException e) {
-                    MessageUtil.sendErrMsg(player, e.getMessage());
+                    MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
                 }
             });
         });

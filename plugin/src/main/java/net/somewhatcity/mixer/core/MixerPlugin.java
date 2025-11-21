@@ -95,8 +95,9 @@ public class MixerPlugin extends JavaPlugin {
         ((Logger) LogManager.getRootLogger()).addFilter(new AbstractFilter() {
             @Override
             public Result filter(LogEvent event) {
-                if (event.getLoggerName().contains("LocalAudioTrackExecutor")) {
-                    Throwable thrown = event.getThrown();
+                String loggerName = event.getLoggerName();
+                Throwable thrown = event.getThrown();
+                if (loggerName.contains("LocalAudioTrackExecutor")) {
                     if (thrown != null) {
                         String msg = thrown.getMessage();
                         if (msg != null && (msg.contains("403") || msg.contains("410") || msg.contains("Something broke"))) {
@@ -111,11 +112,29 @@ public class MixerPlugin extends JavaPlugin {
                         }
                     }
                 }
+
+                if (loggerName.contains("DefaultAudioPlayerManager")) {
+                    String logMsg = event.getMessage().getFormattedMessage();
+                    if (logMsg.contains("Error in loading item")) {
+                        if (thrown != null) {
+                            String msg = thrown.getMessage();
+                            if (msg != null && msg.contains("Something went wrong when looking up the track")) {
+                                return Filter.Result.DENY;
+                            }
+                            if (thrown.getCause() != null) {
+                                String causeMsg = thrown.getCause().getMessage();
+                                if (causeMsg != null && causeMsg.contains("Did not detect any supported formats")) {
+                                    return Filter.Result.DENY;
+                                }
+                            }
+                        }
+                    }
+                }
                 return Filter.Result.NEUTRAL;
             }
         });
 
-        getLogger().info("Mixer filters enabled: HTTP 403/410 errors will be suppressed.");
+        getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
     }
 
     private void initializeConfig() {
