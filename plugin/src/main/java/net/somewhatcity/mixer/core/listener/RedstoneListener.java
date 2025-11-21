@@ -58,8 +58,6 @@ public class RedstoneListener implements Listener {
             mixerPlayer.stop();
         }
 
-        mixerPlayer = MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
-
         List<String> loadList = new ArrayList<>();
 
         for(ItemStack item : container.getInventory()) {
@@ -82,8 +80,12 @@ public class RedstoneListener implements Listener {
             }
         }
 
-        mixerPlayer.load(loadList.toArray(String[]::new));
+        MixerAudioPlayer player = MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
 
+        final String[] urls = loadList.toArray(String[]::new);
+        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            player.load(urls);
+        });
     }
 
     private static final String TTS_URL = "https://api.streamelements.com/kappa/v2/speech?voice=Vicki&text=%s";
