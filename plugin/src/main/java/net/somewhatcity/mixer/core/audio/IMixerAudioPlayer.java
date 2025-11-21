@@ -1,12 +1,3 @@
-/*
- * Copyright (c) 2024 mrmrmystery
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
 package net.somewhatcity.mixer.core.audio;
 
 import be.tarsos.dsp.AudioDispatcher;
@@ -68,6 +59,21 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private static final VoicechatServerApi API = (VoicechatServerApi) MixerVoicechatPlugin.api;
     public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
 
+    // Retry settings
+    private static final int MAX_RETRIES = 3; // Кількість спроб
+    private static final long RETRY_DELAY_MS = 3000L; // Затримка (3 секунди)
+
+    // Context class to store retry info within the AudioTrack
+    private static class TrackContext {
+        String originalUrl;
+        int retries;
+
+        public TrackContext(String originalUrl, int retries) {
+            this.originalUrl = originalUrl;
+            this.retries = retries;
+        }
+    }
+
     // Audio format configuration
     private final AudioFormat audioFormat;
     private final int frameSize;
@@ -92,7 +98,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     private AudioDispatcher dispatcher;
     private JVMAudioInputStream jvmAudioInputStream;
     private List<LocationalAudioChannel> channels = new ArrayList<>();
-    private Queue<AudioTrack> playlist = new ArrayDeque<>();
+    private Deque<AudioTrack> playlist = new ArrayDeque<>();
     private Queue<String> loadingQueue = new ArrayDeque<>();
     private Queue<byte[]> audioQueue = new ArrayDeque<>();
     private JsonObject dspSettings;
@@ -284,7 +290,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                                 }
                             }
                         }
-                    }, 0, 20); // 20ms interval for 50fps
+                    }, 0, 20);
 
                     Thread.sleep(100);
 
@@ -425,6 +431,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         if (audioUrl == null || audioUrl.isEmpty()) return;
 
         String urlToLoad = audioUrl;
+        String originalUrl = audioUrl; // Save original for retry
+
         if (audioUrl.startsWith("cobalt://")) {
             String finalUrl = audioUrl.replace("cobalt://", "");
             finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
@@ -451,6 +459,8 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
+                audioTrack.setUserData(new TrackContext(originalUrl, 0));
+
                 if (audioTrack.getInfo().isStream) {
                     // Stream logic if needed
                 }
@@ -476,7 +486,22 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
             @Override
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                playlist.add(audioPlaylist.getSelectedTrack());
+                AudioTrack track = audioPlaylist.getSelectedTrack();
+                if (track != null) {
+                    track.setUserData(new TrackContext(originalUrl, 0));
+                    playlist.add(track);
+                } else if (!audioPlaylist.getTracks().isEmpty()) {
+                    for (AudioTrack t : audioPlaylist.getTracks()) {
+                        t.setUserData(new TrackContext(originalUrl, 0));
+                        playlist.add(t);
+                    }
+                }
+
+                if (!playbackStarted) {
+                    loadDsp();
+                    start();
+                    playbackStarted = true;
+                }
             }
 
             @Override
@@ -508,6 +533,69 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 if (!loadingQueue.isEmpty() && running) {
                     loadSingle(loadingQueue.poll());
                 }
+            }
+        });
+    }
+
+    // New method to handle retries (loads and pushes to front of queue)
+    private void retryLoad(TrackContext context) {
+        String audioUrl = context.originalUrl;
+        String urlToLoad = audioUrl;
+
+        // Logic similar to loadSingle but optimized for retry
+        if (audioUrl.startsWith("cobalt://")) {
+            String finalUrl = audioUrl.replace("cobalt://", "");
+            finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
+            if (finalUrl == null || finalUrl.isEmpty()) {
+                // If resolving fails on retry, we can't do much
+                MixerPlugin.getPlugin().getLogger().warning("Retry failed: Could not resolve Cobalt URL");
+                start(); // Skip
+                return;
+            }
+            urlToLoad = finalUrl;
+        } else if (audioUrl.startsWith("https://youtube.com") || audioUrl.startsWith("https://www.youtube.com")) {
+            String finalUrl = Utils.requestCobaltMediaUrl(audioUrl);
+            if (finalUrl != null && !finalUrl.isEmpty()) urlToLoad = finalUrl;
+        }
+
+        String finalUrlToLoad = urlToLoad;
+        APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack audioTrack) {
+                audioTrack.setUserData(context); // Preserve retry count
+                playlist.addFirst(audioTrack); // Push to front
+                start(); // Play immediately
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist audioPlaylist) {
+                // Usually retries are for single tracks, but if playlist:
+                AudioTrack track = audioPlaylist.getSelectedTrack();
+                if (track == null && !audioPlaylist.getTracks().isEmpty()) track = audioPlaylist.getTracks().get(0);
+
+                if (track != null) {
+                    track.setUserData(context);
+                    playlist.addFirst(track);
+                    start();
+                } else {
+                    start(); // Fail
+                }
+            }
+
+            @Override
+            public void noMatches() {
+                start(); // Skip
+            }
+
+            @Override
+            public void loadFailed(FriendlyException e) {
+                /*
+                If retry load fails, maybe try again? Or strictly follow retry count in handlePlaybackException?
+                Since this is a LOAD failure, not playback, handlePlaybackException won't trigger.
+                We should probably just give up here or log.
+                */
+                MixerPlugin.getPlugin().getLogger().warning("Retry load failed: " + e.getMessage());
+                start();
             }
         });
     }
@@ -579,6 +667,35 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
         boolean shouldNotifyPlayer = config.getBoolean("mixer.errorsNotifiers.notifyPlayer", false);
         boolean shouldLog = config.getBoolean("mixer.errorsNotifiers.log", true);
+
+        // --- RETRY LOGIC START ---
+        TrackContext context = (TrackContext) track.getUserData();
+        if (context == null) {
+            context = new TrackContext(track.getInfo().uri, 0);
+        }
+
+        if (context.retries < MAX_RETRIES) {
+            context.retries++;
+            int attempt = context.retries;
+
+            MixerPlugin.getPlugin().getLogger().warning(
+                    "Playback failed for " + track.getInfo().title + " (Attempt " + attempt + "/" + MAX_RETRIES + "). Retrying in " + (RETRY_DELAY_MS/1000) + "s..."
+            );
+
+            if (shouldNotifyPlayer) {
+                location.getNearbyPlayers(10).forEach(p -> p.sendMessage(MiniMessage.miniMessage().deserialize(
+                        "<yellow>Connection lost. Retrying... (" + attempt + "/" + MAX_RETRIES + ")</yellow>"
+                )));
+            }
+
+            // Schedule retry
+            final TrackContext retryContext = context;
+            Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> {
+                retryLoad(retryContext);
+            }, (RETRY_DELAY_MS / 50)); // Convert ms to ticks (approx)
+
+            return; // Don't proceed to error handling/skipping
+        }
 
         if (exception.getCause() instanceof RuntimeException) {
             RuntimeException cause = (RuntimeException) exception.getCause();
