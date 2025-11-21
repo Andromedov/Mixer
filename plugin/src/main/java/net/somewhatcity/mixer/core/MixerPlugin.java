@@ -78,7 +78,7 @@ public class MixerPlugin extends JavaPlugin {
             getLogger().info("VoiceChat not found");
         }
 
-        registerCustomJukeboxSongs();
+        // registerCustomJukeboxSongs();
 
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
@@ -137,7 +137,7 @@ public class MixerPlugin extends JavaPlugin {
         return config;
     }
 
-    private void registerCustomJukeboxSongs() {
+    /* private void registerCustomJukeboxSongs() {
         try {
             NamespacedKey mixerKey = new NamespacedKey(this, "mixer_data");
 
@@ -152,7 +152,7 @@ public class MixerPlugin extends JavaPlugin {
         } catch (Exception e) {
             getLogger().warning("JukeboxSong registry not available, using fallback approach");
         }
-    }
+    } */
 
     @Override
     public void onDisable() {
