@@ -88,7 +88,7 @@ public class RedstoneListener implements Listener {
         });
     }
 
-    private static final String TTS_URL = "https://api.streamelements.com/kappa/v2/speech?voice=Vicki&text=%s";
+    private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
         text = text.replace(" ", "%20");
         return TTS_URL.formatted(text);
