@@ -601,64 +601,62 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
     }
 
     public void loadDsp() {
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                if (!running) return;
+        CompletableFuture.runAsync(() -> {
+            try { Thread.sleep(500); } catch (InterruptedException e) { return; }
+            if (!running) return;
 
-                try {
-                    jvmAudioInputStream = new JVMAudioInputStream(audioStream);
-                    dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
-                    TarsosDSPAudioFormat format = dispatcher.getFormat();
+            try {
+                jvmAudioInputStream = new JVMAudioInputStream(audioStream);
+                dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
+                TarsosDSPAudioFormat format = dispatcher.getFormat();
 
-                    float currentVolumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
-                    JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
-                    if (gainSettings != null) {
-                        double configuredGain = gainSettings.get("gain").getAsDouble();
-                        double finalGain = configuredGain * currentVolumeMultiplier;
-                        gainProcessor = new GainProcessor(finalGain);
+                float currentVolumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
+                JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
+                if (gainSettings != null) {
+                    double configuredGain = gainSettings.get("gain").getAsDouble();
+                    double finalGain = configuredGain * currentVolumeMultiplier;
+                    gainProcessor = new GainProcessor(finalGain);
+                }
+                else {
+                    gainProcessor = new GainProcessor(currentVolumeMultiplier);
+                }
+                dispatcher.addAudioProcessor(gainProcessor);
+
+                JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
+                if (highPassSettings != null) {
+                    float frequency = highPassSettings.get("frequency").getAsFloat();
+                    HighPass highPass = new HighPass(frequency, format.getSampleRate());
+                    dispatcher.addAudioProcessor(highPass);
+                }
+
+                JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
+                if (flangerEffectSettings != null) {
+                    double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
+                    double wet = flangerEffectSettings.get("wet").getAsDouble();
+                    double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
+                    FlangerEffect flangerEffect = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
+                    dispatcher.addAudioProcessor(flangerEffect);
+                }
+
+                JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
+                if (lowPassSettings != null) {
+                    float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
+                    LowPassFS lowPassFS = new LowPassFS(cutoffFrequency, format.getSampleRate());
+                    dispatcher.addAudioProcessor(lowPassFS);
+                }
+
+                dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
+                    if (encoder != null && !encoder.isClosed()) {
+                        byte[] encoded = encoder.encode(Utils.byteToShort(data));
+                        audioQueue.add(encoded);
                     }
-                    else {
-                        gainProcessor = new GainProcessor(currentVolumeMultiplier);
-                    }
-                    dispatcher.addAudioProcessor(gainProcessor);
+                }));
 
-                    JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
-                    if (highPassSettings != null) {
-                        float frequency = highPassSettings.get("frequency").getAsFloat();
-                        HighPass highPass = new HighPass(frequency, format.getSampleRate());
-                        dispatcher.addAudioProcessor(highPass);
-                    }
-
-                    JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
-                    if (flangerEffectSettings != null) {
-                        double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
-                        double wet = flangerEffectSettings.get("wet").getAsDouble();
-                        double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
-                        FlangerEffect flangerEffect = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
-                        dispatcher.addAudioProcessor(flangerEffect);
-                    }
-
-                    JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
-                    if (lowPassSettings != null) {
-                        float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
-                        LowPassFS lowPassFS = new LowPassFS(cutoffFrequency, format.getSampleRate());
-                        dispatcher.addAudioProcessor(lowPassFS);
-                    }
-
-                    dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
-                        if (encoder != null && !encoder.isClosed()) {
-                            byte[] encoded = encoder.encode(Utils.byteToShort(data));
-                            audioQueue.add(encoded);
-                        }
-                    }));
-
-                    dispatcher.run();
+                dispatcher.run();
                 } catch (Exception e) {
                     MixerPlugin.getPlugin().getLogger().warning("Error in DSP processing: " + e.getMessage());
                 }
-            }
-        }, 500);
+            });
     }
 
     private void handlePlaybackException(AudioTrack track, FriendlyException exception) {
