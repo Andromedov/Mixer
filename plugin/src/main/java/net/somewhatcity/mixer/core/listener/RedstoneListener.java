@@ -17,9 +17,7 @@ import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.block.Barrel;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+import org.bukkit.block.*;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Repeater;
 import org.bukkit.event.EventHandler;
@@ -30,7 +28,6 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class RedstoneListener implements Listener {
@@ -49,9 +46,12 @@ public class RedstoneListener implements Listener {
         if(!block.getRelative(facing).getType().equals(Material.JUKEBOX)) return;
         Block jukebox = block.getRelative(facing);
 
+        Block containerBlock = jukebox.getRelative(BlockFace.UP);
+        BlockState containerState = containerBlock.getState();
 
-        if(!jukebox.getRelative(BlockFace.UP).getType().equals(Material.BARREL)) return;
-        Barrel barrel = (Barrel) jukebox.getRelative(BlockFace.UP).getState();
+
+        if (!(containerState instanceof Barrel) && !(containerState instanceof ShulkerBox)) return;
+        Container container = (Container) containerState;
 
         MixerAudioPlayer mixerPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
         if(mixerPlayer != null) {
@@ -60,42 +60,9 @@ public class RedstoneListener implements Listener {
 
         mixerPlayer = MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
 
-        /*
-        MAudioPlayer oldPlayer = MixerPlugin.playerInteractListener.playerHashMap.get(jukebox.getLocation());
-        if(oldPlayer != null) {
-            oldPlayer.stop();
-        }
-
-        NBTTileEntity jukeboxNbt = new NBTTileEntity(jukebox.getState());
-        String data = jukeboxNbt.getPersistentDataContainer().getString("mixer_links");
-
-        List<Location> locations = new ArrayList<>();
-
-        if(data == null || data.isEmpty()) {
-            locations.add(jukebox.getLocation());
-        } else {
-            JsonArray links = (JsonArray) JsonParser.parseString(data);
-
-            links.forEach(link -> {
-                JsonObject obj = link.getAsJsonObject();
-                Location location = new Location(
-                        Bukkit.getWorld(obj.get("world").getAsString()),
-                        obj.get("x").getAsDouble(),
-                        obj.get("y").getAsDouble(),
-                        obj.get("z").getAsDouble()
-                );
-                locations.add(location);
-            });
-        }
-
-
-        MAudioPlayer audioPlayer = new MAudioPlayer(locations, Utils.loadNbtData(jukebox.getLocation(), "mixer_dsp"));
-
-         */
-
         List<String> loadList = new ArrayList<>();
 
-        for(ItemStack item : barrel.getInventory()) {
+        for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
             if(Utils.isDisc(item)) {
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
@@ -116,7 +83,6 @@ public class RedstoneListener implements Listener {
         }
 
         mixerPlayer.load(loadList.toArray(String[]::new));
-        //MixerPlugin.playerInteractListener.playerHashMap.put(jukebox.getLocation(), audioPlayer);
 
     }
 
