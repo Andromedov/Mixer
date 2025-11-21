@@ -14,6 +14,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.core.MixerPlugin;
+import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -53,38 +54,40 @@ public class RedstoneListener implements Listener {
         if (!(containerState instanceof Barrel) && !(containerState instanceof ShulkerBox)) return;
         Container container = (Container) containerState;
 
-        MixerAudioPlayer mixerPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
-        if(mixerPlayer != null) {
-            mixerPlayer.stop();
-        }
-
         List<String> loadList = new ArrayList<>();
 
         for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
             if(Utils.isDisc(item)) {
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) return;
+                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) continue;
                 String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
                 loadList.add(url);
             }
             else if(item.getType().equals(Material.WRITABLE_BOOK)) {
                 BookMeta bookMeta = (BookMeta) item.getItemMeta();
                 StringBuilder sb = new StringBuilder();
-
                 for(Component component : bookMeta.pages()) {
                     sb.append(MiniMessage.miniMessage().serialize(component));
                 }
-
                 loadList.add(getTtsUrl(sb.toString()));
             }
         }
 
-        MixerAudioPlayer player = MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
+        if (loadList.isEmpty()) return;
+
+        MixerAudioPlayer existingPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
+        final IMixerAudioPlayer targetPlayer;
+
+        if (existingPlayer != null) {
+            targetPlayer = (IMixerAudioPlayer) existingPlayer;
+        } else {
+            targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
+        }
 
         final String[] urls = loadList.toArray(String[]::new);
         org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
-            player.load(urls);
+            targetPlayer.clearAndPlay(urls);
         });
     }
 

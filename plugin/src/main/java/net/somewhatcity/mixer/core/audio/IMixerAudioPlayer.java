@@ -215,15 +215,14 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                     lavaplayer.addListener(new AudioEventAdapter() {
                         @Override
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
-                            if (!playlist.isEmpty()) {
-                                start();
-                            }
-                            else if (!loadingQueue.isEmpty()) {
-                                loadNextFromQueue();
-                            }
-                            else {
-                                playbackStarted = false;
-                                stop();
+                            if (endReason.mayStartNext) {
+                                if (!playlist.isEmpty()) {
+                                    start();
+                                } else if (!loadingQueue.isEmpty()) {
+                                    loadNextFromQueue();
+                                } else {
+                                    playbackStarted = false;
+                                }
                             }
                         }
 
@@ -344,9 +343,21 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
         }
 
         loadingQueue.addAll(List.of(url));
-        if (playlist.isEmpty() && loadingQueue.size() > 0) {
+        if (!playbackStarted && playlist.isEmpty()) {
             loadNextFromQueue();
         }
+    }
+
+    public void clearAndPlay(String... urls) {
+        loadingQueue.clear();
+        playlist.clear();
+
+        if (lavaplayer != null) {
+            lavaplayer.stopTrack();
+        }
+
+        playbackStarted = false;
+        load(urls);
     }
 
     private void loadNextFromQueue() {
@@ -561,14 +572,13 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
 
     private void start() {
         if (!running) return;
-        if (!playlist.isEmpty()) {
-            lavaplayer.playTrack(playlist.poll());
-        } else {
-            stop();
-        }
+
+        AudioTrack track = playlist.poll();
+        if (track != null) { lavaplayer.playTrack(track); }
+        else { if (!loadingQueue.isEmpty()) { loadNextFromQueue(); } }
     }
 
-    private void loadSingle(String audioUrl) {
+    /* private void loadSingle(String audioUrl) {
         if (audioUrl == null || audioUrl.isEmpty()) return;
 
         String urlToLoad = audioUrl;
@@ -676,7 +686,7 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
                 }
             }
         });
-    }
+    } */
 
     // New method to handle retries (loads and pushes to front of queue)
     private void retryLoad(TrackContext context) {
