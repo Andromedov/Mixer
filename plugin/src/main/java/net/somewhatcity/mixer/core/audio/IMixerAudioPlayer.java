@@ -437,10 +437,10 @@ public class IMixerAudioPlayer implements MixerAudioPlayer {
             String finalUrl = audioUrl.replace("cobalt://", "");
             finalUrl = Utils.requestCobaltMediaUrl(finalUrl);
             if (finalUrl == null || finalUrl.isEmpty()) {
-                location.getNearbyPlayers(10).forEach(p -> {
-                    p.sendMessage(MiniMessage.miniMessage().deserialize(
-                            "<red>Error playing cobalt media</red>"
-                    ));
+                Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+                    location.getNearbyPlayers(10).forEach(p -> {
+                        p.sendMessage(MiniMessage.miniMessage().deserialize("<red>Error playing cobalt media</red>"));
+                    });
                 });
                 if (!loadingQueue.isEmpty() && running) {
                     loadSingle(loadingQueue.poll());
