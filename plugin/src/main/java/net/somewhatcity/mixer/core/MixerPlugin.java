@@ -20,6 +20,10 @@ import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.filter.AbstractFilter;
+import org.apache.logging.log4j.core.Filter;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -96,18 +100,18 @@ public class MixerPlugin extends JavaPlugin {
                     if (thrown != null) {
                         String msg = thrown.getMessage();
                         if (msg != null && (msg.contains("403") || msg.contains("410") || msg.contains("Something broke"))) {
-                            return Result.DENY;
+                            return Filter.Result.DENY;
                         }
 
                         if (thrown.getCause() != null) {
                             String causeMsg = thrown.getCause().getMessage();
                             if (causeMsg != null && (causeMsg.contains("403") || causeMsg.contains("410"))) {
-                                return Result.DENY;
+                                return Filter.Result.DENY;
                             }
                         }
                     }
                 }
-                return Result.NEUTRAL;
+                return Filter.Result.NEUTRAL;
             }
         });
 
