@@ -374,6 +374,12 @@ public class CommandRegistry {
         settings.addProperty("gain", gain);
         obj.add("gain", settings);
         Utils.saveNbtData(location, "mixer_dsp", obj);
+
+        IMixerAudioPlayer player = MixerPlugin.getPlugin().playerHashMap().get(location);
+        if (player != null) {
+            player.updateVolume();
+        }
+
         ctx.getSource().getSender().sendMessage(MM.deserialize("<green>Gain set to " + gain));
         return Command.SINGLE_SUCCESS;
     }
