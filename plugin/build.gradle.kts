@@ -26,6 +26,7 @@ repositories {
 dependencies {
     library("com.google.code.gson", "gson", "2.13.2")
     compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+    compileOnly("org.apache.logging.log4j:log4j-core:2.17.1")
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.14.0")

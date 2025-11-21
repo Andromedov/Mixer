@@ -19,9 +19,9 @@ import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
+import org.apache.logging.log4j.LogManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
@@ -87,6 +87,31 @@ public class MixerPlugin extends JavaPlugin {
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
+
+        ((Logger) LogManager.getRootLogger()).addFilter(new AbstractFilter() {
+            @Override
+            public Result filter(LogEvent event) {
+                if (event.getLoggerName().contains("LocalAudioTrackExecutor")) {
+                    Throwable thrown = event.getThrown();
+                    if (thrown != null) {
+                        String msg = thrown.getMessage();
+                        if (msg != null && (msg.contains("403") || msg.contains("410") || msg.contains("Something broke"))) {
+                            return Result.DENY;
+                        }
+
+                        if (thrown.getCause() != null) {
+                            String causeMsg = thrown.getCause().getMessage();
+                            if (causeMsg != null && (causeMsg.contains("403") || causeMsg.contains("410"))) {
+                                return Result.DENY;
+                            }
+                        }
+                    }
+                }
+                return Result.NEUTRAL;
+            }
+        });
+
+        getLogger().info("Mixer filters enabled: HTTP 403/410 errors will be suppressed.");
     }
 
     private void initializeConfig() {

@@ -161,6 +161,7 @@ public class CommandRegistry {
     private void applyDiscMeta(ItemStack item, AudioTrackInfo info, String urlToSet) {
         item.editMeta(meta -> {
             meta.displayName(MM.deserialize("<reset>" + info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
+            meta.setHideTooltip(true);
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
             meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
