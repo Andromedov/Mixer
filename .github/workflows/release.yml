@@ -47,21 +47,35 @@ jobs:
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Get Pull Request Body
+      - name: Get Changelog from PR
         id: get_pr_body
         if: steps.parse.outputs.do_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR_BODY=$(gh pr list --search "${{ github.sha }}" --state merged --json body --jq '.[0].body')
+          PR_NUMBER=$(gh pr list --search "${{ github.sha }}" --state merged --json number --jq '.[0].number')
           
-          if [ -z "$PR_BODY" ] || [ "$PR_BODY" == "null" ]; then
-            PR_BODY="No changelog provided in Pull Request."
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" == "null" ]; then
+            echo "No PR found for commit ${{ github.sha }}"
+            CHANGELOG="No changelog found."
+          else
+            echo "Found PR #$PR_NUMBER"
+            
+            CHANGELOG=$(gh pr view $PR_NUMBER --json comments --jq '.comments[].body | select(contains("# 📦 Mixer"))' | tail -n 1)
+            
+            if [ -z "$CHANGELOG" ]; then
+              echo "Not found in comments, checking description..."
+              CHANGELOG=$(gh pr view $PR_NUMBER --json body --jq '.body | select(contains("# 📦 Mixer"))')
+            fi
+            
+            if [ -z "$CHANGELOG" ]; then
+                CHANGELOG="Changelog not detected in PR #$PR_NUMBER comments or description."
+            fi
           fi
           
           {
             echo "changelog<<EOF"
-            echo "$PR_BODY"
+            echo "$CHANGELOG"
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
