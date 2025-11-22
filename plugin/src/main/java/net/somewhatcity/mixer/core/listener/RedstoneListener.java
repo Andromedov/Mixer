@@ -1,25 +1,15 @@
-/*
- * Copyright (c) 2024 mrmrmystery
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
 package net.somewhatcity.mixer.core.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.core.MixerPlugin;
+import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.Utils;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.block.Barrel;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+import org.bukkit.block.*;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Repeater;
 import org.bukkit.event.EventHandler;
@@ -30,10 +20,13 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RedstoneListener implements Listener {
+    private final Map<Location, Long> cooldowns = new HashMap<>();
+    private static final long COOLDOWN_MS = 1000;
 
     @EventHandler
     public void onRedstone(BlockRedstoneEvent e) {
@@ -48,79 +41,57 @@ public class RedstoneListener implements Listener {
 
         if(!block.getRelative(facing).getType().equals(Material.JUKEBOX)) return;
         Block jukebox = block.getRelative(facing);
+        Location jukeLoc = jukebox.getLocation();
 
-
-        if(!jukebox.getRelative(BlockFace.UP).getType().equals(Material.BARREL)) return;
-        Barrel barrel = (Barrel) jukebox.getRelative(BlockFace.UP).getState();
-
-        MixerAudioPlayer mixerPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
-        if(mixerPlayer != null) {
-            mixerPlayer.stop();
+        long now = System.currentTimeMillis();
+        if (cooldowns.containsKey(jukeLoc) && (now - cooldowns.get(jukeLoc)) < COOLDOWN_MS) {
+            return;
         }
+        cooldowns.put(jukeLoc, now);
 
-        mixerPlayer = MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
-
-        /*
-        MAudioPlayer oldPlayer = MixerPlugin.playerInteractListener.playerHashMap.get(jukebox.getLocation());
-        if(oldPlayer != null) {
-            oldPlayer.stop();
-        }
-
-        NBTTileEntity jukeboxNbt = new NBTTileEntity(jukebox.getState());
-        String data = jukeboxNbt.getPersistentDataContainer().getString("mixer_links");
-
-        List<Location> locations = new ArrayList<>();
-
-        if(data == null || data.isEmpty()) {
-            locations.add(jukebox.getLocation());
-        } else {
-            JsonArray links = (JsonArray) JsonParser.parseString(data);
-
-            links.forEach(link -> {
-                JsonObject obj = link.getAsJsonObject();
-                Location location = new Location(
-                        Bukkit.getWorld(obj.get("world").getAsString()),
-                        obj.get("x").getAsDouble(),
-                        obj.get("y").getAsDouble(),
-                        obj.get("z").getAsDouble()
-                );
-                locations.add(location);
-            });
-        }
+        Block containerBlock = jukebox.getRelative(BlockFace.UP);
+        BlockState containerState = containerBlock.getState();
 
 
-        MAudioPlayer audioPlayer = new MAudioPlayer(locations, Utils.loadNbtData(jukebox.getLocation(), "mixer_dsp"));
-
-         */
+        if (!(containerState instanceof Barrel) && !(containerState instanceof ShulkerBox)) return;
+        Container container = (Container) containerState;
 
         List<String> loadList = new ArrayList<>();
 
-        for(ItemStack item : barrel.getInventory()) {
+        for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
             if(Utils.isDisc(item)) {
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) return;
+                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) continue;
                 String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
                 loadList.add(url);
             }
             else if(item.getType().equals(Material.WRITABLE_BOOK)) {
                 BookMeta bookMeta = (BookMeta) item.getItemMeta();
                 StringBuilder sb = new StringBuilder();
-
                 for(Component component : bookMeta.pages()) {
                     sb.append(MiniMessage.miniMessage().serialize(component));
                 }
-
                 loadList.add(getTtsUrl(sb.toString()));
             }
         }
 
-        mixerPlayer.load(loadList.toArray(String[]::new));
-        //MixerPlugin.playerInteractListener.playerHashMap.put(jukebox.getLocation(), audioPlayer);
+        if (loadList.isEmpty()) return;
 
+        MixerAudioPlayer existingPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
+        if (existingPlayer != null) {
+            existingPlayer.stop();
+        }
+
+        final IMixerAudioPlayer targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
+
+        final String[] urls = loadList.toArray(String[]::new);
+        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            targetPlayer.clearAndPlay(urls);
+        });
     }
 
-    private static final String TTS_URL = "https://api.streamelements.com/kappa/v2/speech?voice=Vicki&text=%s";
+    private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
         text = text.replace(" ", "%20");
         return TTS_URL.formatted(text);

@@ -1,7 +1,6 @@
 package net.somewhatcity.mixer.core.commands;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.Message;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -16,7 +15,6 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import io.papermc.paper.math.BlockPosition;
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -25,6 +23,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataType;
@@ -150,7 +149,7 @@ public class CommandRegistry {
 
                 @Override
                 public void loadFailed(FriendlyException e) {
-                    MessageUtil.sendErrMsg(player, e.getMessage());
+                    MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
                 }
             });
         });
@@ -161,24 +160,45 @@ public class CommandRegistry {
     private void applyDiscMeta(ItemStack item, AudioTrackInfo info, String urlToSet) {
         item.editMeta(meta -> {
             meta.displayName(MM.deserialize("<reset>" + info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
+            meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
             meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
 
             JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
             try {
-                playableComponent.setSongKey(mixerData);
+                playableComponent.setSongKey(getVanillaSongKey(item.getType()));
             } catch (Exception e) {
-                MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key, using fallback: " + e.getMessage());
-                try {
-                    NamespacedKey fallbackKey = NamespacedKey.minecraft("pigstep");
-                    playableComponent.setSongKey(fallbackKey);
-                } catch (Exception fallbackException) {
-                    MixerPlugin.getPlugin().getLogger().severe("Even fallback jukebox key failed: " + fallbackException.getMessage());
-                    return;
-                }
+                MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key " + e.getMessage());
             }
             meta.setJukeboxPlayable(playableComponent);
         });
+    }
+
+    // Obtaining the correct key
+    private NamespacedKey getVanillaSongKey(Material material) {
+        String key = switch (material) {
+            case MUSIC_DISC_13 -> "13";
+            case MUSIC_DISC_CAT -> "cat";
+            case MUSIC_DISC_BLOCKS -> "blocks";
+            case MUSIC_DISC_CHIRP -> "chirp";
+            case MUSIC_DISC_FAR -> "far";
+            case MUSIC_DISC_MALL -> "mall";
+            case MUSIC_DISC_MELLOHI -> "mellohi";
+            case MUSIC_DISC_STAL -> "stal";
+            case MUSIC_DISC_STRAD -> "strad";
+            case MUSIC_DISC_WARD -> "ward";
+            case MUSIC_DISC_11 -> "11";
+            case MUSIC_DISC_WAIT -> "wait";
+            case MUSIC_DISC_OTHERSIDE -> "otherside";
+            case MUSIC_DISC_5 -> "5";
+            case MUSIC_DISC_PIGSTEP -> "pigstep";
+            case MUSIC_DISC_RELIC -> "relic";
+            case MUSIC_DISC_PRECIPICE -> "precipice";
+            case MUSIC_DISC_CREATOR -> "creator";
+            case MUSIC_DISC_CREATOR_MUSIC_BOX -> "creator_music_box";
+            default -> "13"; // fallback
+        };
+        return NamespacedKey.minecraft(key);
     }
 
     // --- /mixer link ---
@@ -354,6 +374,12 @@ public class CommandRegistry {
         settings.addProperty("gain", gain);
         obj.add("gain", settings);
         Utils.saveNbtData(location, "mixer_dsp", obj);
+
+        IMixerAudioPlayer player = MixerPlugin.getPlugin().playerHashMap().get(location);
+        if (player != null) {
+            player.updateVolume();
+        }
+
         ctx.getSource().getSender().sendMessage(MM.deserialize("<green>Gain set to " + gain));
         return Command.SINGLE_SUCCESS;
     }

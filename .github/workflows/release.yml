@@ -1,4 +1,4 @@
-name: Auto Release on Commit
+name: Release
 
 on:
   push:
@@ -6,11 +6,17 @@ on:
       - main
 
 jobs:
-  build_and_release:
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
+  build:
+    if: "contains(github.event.head_commit.message, '[release]') || contains(github.event.head_commit.message, '[pre-release]')"
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      pull-requests: read
+    outputs:
+      do_release: ${{ steps.parse.outputs.do_release }}
+      version_tag: ${{ steps.parse.outputs.version_tag }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      changelog: ${{ steps.get_pr_body.outputs.changelog }}
 
     steps:
       - name: Checkout code
@@ -19,57 +25,102 @@ jobs:
           fetch-depth: 0
 
       - name: Parse Commit Message
-        id: parse_commit
+        id: parse
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
           echo "Latest commit: $COMMIT_MSG"
           
+          DO_RELEASE="false"
           IS_PRERELEASE="false"
           VERSION=""
-          DO_RELEASE="false"
 
-          if [[ $COMMIT_MSG == \[release\]\ v* ]]; then
+          if [[ $COMMIT_MSG == *"[release]"* ]]; then
             DO_RELEASE="true"
-            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[release\] \(v[0-9.]\+\)/\1/p')
-          
-          elif [[ $COMMIT_MSG == \[prerelease\]\ v* ]]; then
+            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[release\] \(v[0-9.]\+\).*/\1/p')
+          elif [[ $COMMIT_MSG == *"[pre-release]"* ]]; then
             DO_RELEASE="true"
             IS_PRERELEASE="true"
-            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[prerelease\] \(v[0-9.]\+.*\)/\1/p')
-          fi
-          
-          if [[ $DO_RELEASE == "true" && -n "$VERSION" ]]; then
-            echo "Releasing version: $VERSION"
-            echo "Is prerelease: $IS_PRERELEASE"
-            echo "do_release=true" >> $GITHUB_OUTPUT
-            echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
-            echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
-          else
-            echo "No release commit found. Skipping."
-            echo "do_release=false" >> $GITHUB_OUTPUT
+            VERSION=$(echo "$COMMIT_MSG" | sed -n 's/.*\[pre-release\] \(v[0-9.]\+.*\).*/\1/p')
           fi
 
+          echo "do_release=$DO_RELEASE" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get Pull Request Body
+        id: get_pr_body
+        if: steps.parse.outputs.do_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_BODY=$(gh pr list --search "${{ github.sha }}" --state merged --json body --jq '.[0].body')
+          
+          if [ -z "$PR_BODY" ] || [ "$PR_BODY" == "null" ]; then
+            PR_BODY="No changelog provided in Pull Request."
+          fi
+          
+          {
+            echo "changelog<<EOF"
+            echo "$PR_BODY"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Set up Java 21
-        if: steps.parse_commit.outputs.do_release == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Make gradlew executable
-        if: steps.parse_commit.outputs.do_release == 'true'
         run: chmod +x gradlew
 
       - name: Build project
-        if: steps.parse_commit.outputs.do_release == 'true'
         run: ./gradlew build
 
+      - name: Upload Release Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifact
+          path: build/libs/*.jar
+          retention-days: 1
+
+  publish:
+    needs: build
+    if: needs.build.outputs.do_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifact
+          path: build/libs
+
       - name: Create GitHub Release
-        if: steps.parse_commit.outputs.do_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.parse_commit.outputs.version_tag }}
-          name: Release ${{ steps.parse_commit.outputs.version_tag }}
-          generate_release_notes: true
-          prerelease: ${{ steps.parse_commit.outputs.is_prerelease }}
+          tag_name: ${{ needs.build.outputs.version_tag }}
+          name: Release ${{ needs.build.outputs.version_tag }}
+          body: ${{ needs.build.outputs.changelog }}
+          prerelease: ${{ needs.build.outputs.is_prerelease }}
           files: build/libs/*.jar
+
+      - name: Publish to Modrinth
+        if: needs.build.outputs.is_prerelease == 'false'
+        uses: Kira-NT/mc-publish@v3.3.0
+        with:
+          modrinth-id: "94MyQ3m6"
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          name: ${{ needs.build.outputs.version_tag }}
+          version: ${{ needs.build.outputs.version_tag }}
+          changelog: ${{ needs.build.outputs.changelog }}
+          files: build/libs/*.jar
+          loaders: |
+            paper
+            purpur
+          game-versions: |
+            >=1.20.6 <=1.21.10
+          dependencies: |
+            simple-voice-chat(required){modrinth:9eGKb6K1}
