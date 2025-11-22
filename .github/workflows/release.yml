@@ -9,10 +9,14 @@ jobs:
   build:
     if: "contains(github.event.head_commit.message, '[release]') || contains(github.event.head_commit.message, '[pre-release]')"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       do_release: ${{ steps.parse.outputs.do_release }}
       version_tag: ${{ steps.parse.outputs.version_tag }}
       is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      changelog: ${{ steps.get_pr_body.outputs.changelog }}
 
     steps:
       - name: Checkout code
@@ -42,6 +46,24 @@ jobs:
           echo "do_release=$DO_RELEASE" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
           echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get Pull Request Body
+        id: get_pr_body
+        if: steps.parse.outputs.do_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_BODY=$(gh pr list --search "${{ github.sha }}" --state merged --json body --jq '.[0].body')
+          
+          if [ -z "$PR_BODY" ] || [ "$PR_BODY" == "null" ]; then
+            PR_BODY="No changelog provided in Pull Request."
+          fi
+          
+          {
+            echo "changelog<<EOF"
+            echo "$PR_BODY"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -81,7 +103,7 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.version_tag }}
           name: Release ${{ needs.build.outputs.version_tag }}
-          generate_release_notes: true
+          body: ${{ needs.build.outputs.changelog }}
           prerelease: ${{ needs.build.outputs.is_prerelease }}
           files: build/libs/*.jar
 
@@ -93,6 +115,7 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           name: ${{ needs.build.outputs.version_tag }}
           version: ${{ needs.build.outputs.version_tag }}
+          changelog: ${{ needs.build.outputs.changelog }}
           files: build/libs/*.jar
           loaders: |
             paper
