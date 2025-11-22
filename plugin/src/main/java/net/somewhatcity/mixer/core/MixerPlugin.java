@@ -73,8 +73,6 @@ public class MixerPlugin extends JavaPlugin {
             getLogger().info("VoiceChat not found");
         }
 
-        // registerCustomJukeboxSongs();
-
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(playerInteractListener, this);
