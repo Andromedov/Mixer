@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2024 mrmrmystery
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
 package net.somewhatcity.mixer.core.listener;
 
 import net.kyori.adventure.text.Component;
@@ -16,6 +6,7 @@ import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.Utils;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.*;
@@ -29,9 +20,13 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class RedstoneListener implements Listener {
+    private final Map<Location, Long> cooldowns = new HashMap<>();
+    private static final long COOLDOWN_MS = 1000;
 
     @EventHandler
     public void onRedstone(BlockRedstoneEvent e) {
@@ -46,6 +41,13 @@ public class RedstoneListener implements Listener {
 
         if(!block.getRelative(facing).getType().equals(Material.JUKEBOX)) return;
         Block jukebox = block.getRelative(facing);
+        Location jukeLoc = jukebox.getLocation();
+
+        long now = System.currentTimeMillis();
+        if (cooldowns.containsKey(jukeLoc) && (now - cooldowns.get(jukeLoc)) < COOLDOWN_MS) {
+            return;
+        }
+        cooldowns.put(jukeLoc, now);
 
         Block containerBlock = jukebox.getRelative(BlockFace.UP);
         BlockState containerState = containerBlock.getState();
@@ -77,13 +79,11 @@ public class RedstoneListener implements Listener {
         if (loadList.isEmpty()) return;
 
         MixerAudioPlayer existingPlayer = MixerPlugin.getPlugin().api().getMixerAudioPlayer(jukebox.getLocation());
-        final IMixerAudioPlayer targetPlayer;
-
         if (existingPlayer != null) {
-            targetPlayer = (IMixerAudioPlayer) existingPlayer;
-        } else {
-            targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
+            existingPlayer.stop();
         }
+
+        final IMixerAudioPlayer targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
 
         final String[] urls = loadList.toArray(String[]::new);
         org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
@@ -91,7 +91,7 @@ public class RedstoneListener implements Listener {
         });
     }
 
-    private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=uk&q=%s";
+    private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
         text = text.replace(" ", "%20");
         return TTS_URL.formatted(text);

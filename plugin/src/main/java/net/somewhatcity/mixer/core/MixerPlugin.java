@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2024 mrmrmystery
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
 package net.somewhatcity.mixer.core;
 
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
@@ -35,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MixerPlugin extends JavaPlugin {
@@ -185,26 +176,9 @@ public class MixerPlugin extends JavaPlugin {
         return config;
     }
 
-    /* private void registerCustomJukeboxSongs() {
-        try {
-            NamespacedKey mixerKey = new NamespacedKey(this, "mixer_data");
-
-            getServer().getScheduler().runTaskLater(this, () -> {
-                try {
-                    getLogger().info("Registering custom jukebox song key: " + mixerKey);
-                } catch (Exception e) {
-                    getLogger().warning("Could not register jukebox song: " + e.getMessage());
-                }
-            }, 1L);
-
-        } catch (Exception e) {
-            getLogger().warning("JukeboxSong registry not available, using fallback approach");
-        }
-    } */
-
     @Override
     public void onDisable() {
-        playerHashMap.values().forEach(player -> {
+        new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try {
                 player.stop();
             } catch (Exception e) {
@@ -213,51 +187,29 @@ public class MixerPlugin extends JavaPlugin {
         });
     }
 
-    public HashMap<Location, IMixerAudioPlayer> playerHashMap() {
-        return playerHashMap;
-    }
-    public MixerApi api() {
-        return api;
-    }
+    public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
+    public MixerApi api() { return api; }
+    public LocalizationManager getLocalizationManager() { return localizationManager; }
+    public boolean isYoutubeEnabled() { return youtubeEnabled; }
+    public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
+    public String getYoutubeRefreshToken() { return youtubeRefreshToken; }
+    public int getVolumePercent() { return volumePercent; }
+    public float getVolumeMultiplier() { return volumePercent / 100.0f; }
+    public int getAudioSampleRate() { return audioSampleRate; }
+    public int getAudioBufferSize() { return audioBufferSize; }
+    public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
+    public String getLanguage() { return language; }
 
-    public LocalizationManager getLocalizationManager() {
-        return localizationManager;
-    }
+    public FileConfiguration getMixersConfig() { return mixersConfig; }
+    public static MixerPlugin getPlugin() { return plugin; }
+    public static String getPluginId() { return PLUGIN_ID; }
 
-    public boolean isYoutubeEnabled() {
-        return youtubeEnabled;
-    }
-
-    public boolean isYoutubeUseOAuth() {
-        return youtubeUseOAuth;
-    }
-
-    public String getYoutubeRefreshToken() {
-        return youtubeRefreshToken;
-    }
-
-    public int getVolumePercent() {
-        return volumePercent;
-    }
-
-    public float getVolumeMultiplier() {
-        return volumePercent / 100.0f;
-    }
-
-    public int getAudioSampleRate() {
-        return audioSampleRate;
-    }
-
-    public int getAudioBufferSize() {
-        return audioBufferSize;
-    }
-
-    public int getAudioFrameBufferDuration() {
-        return audioFrameBufferDuration;
-    }
-
-    public String getLanguage() {
-        return language;
+    public void saveMixersConfig() {
+        try {
+            mixersConfig.save(dataFile);
+        } catch (IOException e) {
+            getLogger().warning("Could not save data.yml: " + e.getMessage());
+        }
     }
 
     public void reloadPluginConfig() {
@@ -268,25 +220,5 @@ public class MixerPlugin extends JavaPlugin {
         for (IMixerAudioPlayer player : playerHashMap.values()) {
             player.updateVolume();
         }
-    }
-
-    public FileConfiguration getMixersConfig() {
-        return mixersConfig;
-    }
-
-    public void saveMixersConfig() {
-        try {
-            mixersConfig.save(dataFile);
-        } catch (IOException e) {
-            getLogger().warning("Could not save data.yml: " + e.getMessage());
-        }
-    }
-
-    public static MixerPlugin getPlugin() {
-        return plugin;
-    }
-
-    public static String getPluginId() {
-        return PLUGIN_ID;
     }
 }
