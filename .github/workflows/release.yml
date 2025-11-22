@@ -52,6 +52,7 @@ jobs:
         if: steps.parse.outputs.do_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_USER: "Andromedov"
         run: |
           PR_NUMBER=$(gh pr list --search "${{ github.sha }}" --state merged --json number --jq '.[0].number')
           
@@ -61,15 +62,16 @@ jobs:
           else
             echo "Found PR #$PR_NUMBER"
             
-            CHANGELOG=$(gh pr view $PR_NUMBER --json comments --jq '.comments[].body | select(contains("# 📦 Mixer"))' | tail -n 1)
+            CHANGELOG=$(gh pr view $PR_NUMBER --json comments --jq ".comments[] | select(.author.login == \"$TARGET_USER\" and (.body | contains(\"📦 Mixer\") and contains(\"Changelog\"))) | .body" | tail -n 1)
             
             if [ -z "$CHANGELOG" ]; then
-              echo "Not found in comments, checking description..."
-              CHANGELOG=$(gh pr view $PR_NUMBER --json body --jq '.body | select(contains("# 📦 Mixer"))')
+              echo "Not found in comments by $TARGET_USER, checking PR description..."
+              CHANGELOG=$(gh pr view $PR_NUMBER --json body,author --jq "select(.author.login == \"$TARGET_USER\" and (.body | contains(\"📦 Mixer\") and contains(\"Changelog\"))) | .body")
             fi
             
             if [ -z "$CHANGELOG" ]; then
-                CHANGELOG="Changelog not detected in PR #$PR_NUMBER comments or description."
+                echo "DEBUG: Valid changelog by user $TARGET_USER not found."
+                CHANGELOG="Changelog not detected from user $TARGET_USER in PR #$PR_NUMBER."
             fi
           fi
           
