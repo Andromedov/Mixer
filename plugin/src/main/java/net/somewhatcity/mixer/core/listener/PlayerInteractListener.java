@@ -28,34 +28,14 @@ public class PlayerInteractListener implements Listener {
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
         // --- Portable Speaker Mechanic ---
-        /*
-            Temporary it's playing by Shift + RMB into air
-         */
-        if (e.getAction().toString().contains("RIGHT_CLICK") && e.getPlayer().isSneaking()) {
+        if (e.getAction().toString().contains("RIGHT_CLICK")) {
             ItemStack item = e.getItem();
-            if (item != null && item.getType().name().contains("MUSIC_DISC")) {
-
-                boolean isJukeboxClick = e.getClickedBlock() != null && e.getClickedBlock().getType() == Material.JUKEBOX;
-
-                if (!isJukeboxClick) {
-                    NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                    if (item.getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) {
-                        String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
-                        Player player = e.getPlayer();
-
-                        // Toggle logic
-                        if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
-                            MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();
-                            MessageUtil.sendActionBarMsg(player, "portable_speaker_stopped");
-                        } else {
-                            EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
-                            portablePlayer.load(url);
-                            MixerPlugin.getPlugin().getPortablePlayerMap().put(player.getUniqueId(), portablePlayer);
-                            MessageUtil.sendActionBarMsg(player, "portable_speaker_started");
-                        }
-                        e.setCancelled(true);
-                        return; // Exit to avoid other logic
-                    }
+            if (item != null && item.getType() == Material.NOTE_BLOCK) {
+                NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
+                if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
+                    e.setCancelled(true);
+                    MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer());
+                    return;
                 }
             }
         }
@@ -103,8 +83,8 @@ public class PlayerInteractListener implements Listener {
             }
             if (e.getItem() == null) return;
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            if (!e.getItem().getPersistentDataContainer().getKeys().contains(mixerData)) return;
-            String url = e.getItem().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().getKeys().contains(mixerData)) return;
+            String url = e.getItem().getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
             e.setCancelled(true);
 
             try {

@@ -6,6 +6,7 @@ import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
+import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
@@ -43,6 +44,7 @@ public class MixerPlugin extends JavaPlugin {
     private File dataFile;
     private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
+    private PortableSpeakerGui portableSpeakerGui;
 
     // Config
     private boolean youtubeEnabled;
@@ -84,6 +86,9 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
         pm.registerEvents(new PlayerQuitListener(), this);
+
+        portableSpeakerGui = new PortableSpeakerGui();
+        pm.registerEvents(portableSpeakerGui, this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
@@ -195,7 +200,7 @@ public class MixerPlugin extends JavaPlugin {
             try {
                 player.stop();
             } catch (Exception e) {
-                getLogger().warning("Error stopping portable player during shutdown: " + e.getMessage());
+                getLogger().warning("Error stopping portable audio player during shutdown: " + e.getMessage());
             }
         });
         portablePlayerMap.clear();
@@ -203,6 +208,7 @@ public class MixerPlugin extends JavaPlugin {
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
+    public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }

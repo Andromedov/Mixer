@@ -1,6 +1,5 @@
 package net.somewhatcity.mixer.core.audio;
 
-import de.maxhenkel.voicechat.api.Entity;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.EntityAudioChannel;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -24,9 +23,15 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
         VoicechatServerApi api = (VoicechatServerApi) MixerVoicechatPlugin.api;
         if (api != null) {
-            this.channel = api.createEntityAudioChannel(UUID.randomUUID(), (Entity) player);
-            this.channel.setCategory("mixer");
-            this.channel.setDistance(100);
+            de.maxhenkel.voicechat.api.Entity vcEntity = api.fromEntity(player);
+
+            if (vcEntity != null) {
+                this.channel = api.createEntityAudioChannel(UUID.randomUUID(), vcEntity);
+                this.channel.setCategory("mixer");
+                this.channel.setDistance(100);
+            } else {
+                MixerPlugin.getPlugin().getLogger().warning("Failed to convert player to VoiceChat entity.");
+            }
         } else {
             MixerPlugin.getPlugin().getLogger().severe("VoiceChat API is not initialized!");
         }
