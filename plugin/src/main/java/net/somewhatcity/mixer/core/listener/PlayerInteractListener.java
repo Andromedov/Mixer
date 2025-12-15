@@ -46,13 +46,12 @@ public class PlayerInteractListener implements Listener {
                         // Toggle logic
                         if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
                             MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();
-                            // MessageUtil doesn't have these keys yet, using ActionBar directly
-                            player.sendActionBar(MiniMessage.miniMessage().deserialize("<red>Portable speaker stopped"));
+                            MessageUtil.sendActionBarMsg(player, "portable_speaker_stopped");
                         } else {
                             EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
                             portablePlayer.load(url);
                             MixerPlugin.getPlugin().getPortablePlayerMap().put(player.getUniqueId(), portablePlayer);
-                            player.sendActionBar(MiniMessage.miniMessage().deserialize("<green>Portable speaker started"));
+                            MessageUtil.sendActionBarMsg(player, "portable_speaker_started");
                         }
                         e.setCancelled(true);
                         return; // Exit to avoid other logic

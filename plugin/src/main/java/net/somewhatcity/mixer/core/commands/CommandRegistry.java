@@ -68,6 +68,7 @@ public class CommandRegistry {
                     .then(registerLinkCommand())
                     .then(registerRedstoneCommand())
                     .then(registerDspCommand())
+                    .then(registerSpeakerCommand())
                     .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
@@ -439,6 +440,32 @@ public class CommandRegistry {
         obj.add("flangerEffect", settings);
         Utils.saveNbtData(location, "mixer_dsp", obj);
         ctx.getSource().getSender().sendMessage(MM.deserialize("<green>Flanger effect updated"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // --- /mixer speaker ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerSpeakerCommand() {
+        return Commands.literal("speaker")
+                .requires(source -> source.getSender().hasPermission("mixer.command.speaker"))
+                .executes(this::executeSpeaker);
+    }
+
+    private int executeSpeaker(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+
+        ItemStack speaker = new ItemStack(Material.NOTE_BLOCK);
+        speaker.editMeta(meta -> {
+            meta.displayName(MM.deserialize("<gradient:#7277D8:#4851F5>Portable Speaker</gradient>").decoration(TextDecoration.ITALIC, false));
+            NamespacedKey key = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
+            meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
+        });
+
+        player.getInventory().addItem(speaker);
+        MessageUtil.sendMsg(player, "speaker_received", "Portable Speaker");
         return Command.SINGLE_SUCCESS;
     }
 

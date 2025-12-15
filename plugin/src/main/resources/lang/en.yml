@@ -16,11 +16,14 @@ messages:
     redstone_location_link: "Redstone location linked to jukebox"
     track_loaded: "Successfully loaded track: %s"
     config_reloaded: "Configuration reloaded successfully!"
+    speaker_received: "%s received!"
   actionBar:
     playback_stop: "<red>playback stopped"
+    portable_speaker_disabled: "<red>Portable speaker stopped"
+    portable_speaker_enabled: "<green>Portable speaker started"
     bassboost_disabled: "<blue>bassboost disabled"
     bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
     failed_to_start: "<red>Failed to start playback"
 
 # DO NOT CHANGE
-lang-version: 0
+lang-version: 1
