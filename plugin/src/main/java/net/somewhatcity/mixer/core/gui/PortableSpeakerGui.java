@@ -44,7 +44,7 @@ public class PortableSpeakerGui implements Listener {
         // Start button
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         ItemMeta startMeta = start.getItemMeta();
-        String startName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
+        String startName = "<reset>" + MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
         startMeta.displayName(MiniMessage.miniMessage().deserialize(startName));
         start.setItemMeta(startMeta);
         inv.setItem(0, start);
@@ -52,7 +52,7 @@ public class PortableSpeakerGui implements Listener {
         // Stop button
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         ItemMeta stopMeta = stop.getItemMeta();
-        String stopName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
+        String stopName = "<reset>" + MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
         stopMeta.displayName(MiniMessage.miniMessage().deserialize(stopName));
         stop.setItemMeta(stopMeta);
         inv.setItem(8, stop);
@@ -82,12 +82,14 @@ public class PortableSpeakerGui implements Listener {
             if (e.getSlot() == 0) {
                 ItemStack disc = e.getView().getTopInventory().getItem(4);
                 if (disc == null || disc.getType() == Material.AIR) {
+                    // TODO: add message to language file
                     player.sendMessage(MiniMessage.miniMessage().deserialize("<red>No disc inserted!</red>"));
                     return;
                 }
 
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                 if (!disc.hasItemMeta() || !disc.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) {
+                    // TODO: add message to language file
                     player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Not a valid Mixer disc!</red>"));
                     return;
                 }
@@ -111,6 +113,7 @@ public class PortableSpeakerGui implements Listener {
                     MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();
                     MessageUtil.sendActionBarMsg(player, "playback_stop");
                 } else {
+                    // TODO: add message to language file
                     player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Nothing is playing!</red>"));
                 }
                 player.closeInventory();
