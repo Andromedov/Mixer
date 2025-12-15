@@ -3,9 +3,11 @@ package net.somewhatcity.mixer.core;
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
+import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
+import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
@@ -27,12 +29,16 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
     private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
     private LocalizationManager localizationManager;
     private File dataFile;
     private FileConfiguration mixersConfig;
@@ -77,6 +83,7 @@ public class MixerPlugin extends JavaPlugin {
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
+        pm.registerEvents(new PlayerQuitListener(), this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
@@ -183,9 +190,20 @@ public class MixerPlugin extends JavaPlugin {
                 getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
             }
         });
+
+        new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
+            try {
+                player.stop();
+            } catch (Exception e) {
+                getLogger().warning("Error stopping portable player during shutdown: " + e.getMessage());
+            }
+        });
+        portablePlayerMap.clear();
     }
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
+    public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
+
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
@@ -216,6 +234,9 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager.setLanguage(language);
 
         for (IMixerAudioPlayer player : playerHashMap.values()) {
+            player.updateVolume();
+        }
+        for (EntityMixerAudioPlayer player : portablePlayerMap.values()) {
             player.updateVolume();
         }
     }

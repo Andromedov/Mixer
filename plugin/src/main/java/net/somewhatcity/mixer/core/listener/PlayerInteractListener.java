@@ -1,27 +1,20 @@
-/*
- * Copyright (c) 2023 mrmrmystery
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
 package net.somewhatcity.mixer.core.listener;
 
 import com.destroystokyo.paper.event.block.BlockDestroyEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
+import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.MessageUtil;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
@@ -34,6 +27,41 @@ public class PlayerInteractListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
+        // --- Portable Speaker Mechanic ---
+        /*
+            Temporary it's playing by Shift + RMB into air
+         */
+        if (e.getAction().toString().contains("RIGHT_CLICK") && e.getPlayer().isSneaking()) {
+            ItemStack item = e.getItem();
+            if (item != null && item.getType().name().contains("MUSIC_DISC")) {
+
+                boolean isJukeboxClick = e.getClickedBlock() != null && e.getClickedBlock().getType() == Material.JUKEBOX;
+
+                if (!isJukeboxClick) {
+                    NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
+                    if (item.getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) {
+                        String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+                        Player player = e.getPlayer();
+
+                        // Toggle logic
+                        if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
+                            MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();
+                            // MessageUtil doesn't have these keys yet, using ActionBar directly
+                            player.sendActionBar(MiniMessage.miniMessage().deserialize("<red>Portable speaker stopped"));
+                        } else {
+                            EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
+                            portablePlayer.load(url);
+                            MixerPlugin.getPlugin().getPortablePlayerMap().put(player.getUniqueId(), portablePlayer);
+                            player.sendActionBar(MiniMessage.miniMessage().deserialize("<green>Portable speaker started"));
+                        }
+                        e.setCancelled(true);
+                        return; // Exit to avoid other logic
+                    }
+                }
+            }
+        }
+
+        // --- Original Jukebox Logic ---
         if (e.getClickedBlock() == null) return;
         if (!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
 
