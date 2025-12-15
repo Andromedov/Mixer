@@ -19,8 +19,8 @@ messages:
     speaker_received: "%s received!"
   actionBar:
     playback_stop: "<red>playback stopped"
-    portable_speaker_disabled: "<red>Portable speaker stopped"
-    portable_speaker_enabled: "<green>Portable speaker started"
+    portable_speaker_disabled: "<red>portable speaker stopped"
+    portable_speaker_enabled: "<green>portable speaker started"
     bassboost_disabled: "<blue>bassboost disabled"
     bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
     failed_to_start: "<red>Failed to start playback"
