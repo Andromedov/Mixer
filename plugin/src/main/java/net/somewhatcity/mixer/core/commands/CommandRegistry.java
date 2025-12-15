@@ -457,15 +457,29 @@ public class CommandRegistry {
             return 0;
         }
 
-        ItemStack speaker = new ItemStack(Material.NOTE_BLOCK);
+        if (!MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
+            MessageUtil.sendErrMsg(sender, "feature_disabled");
+            return 0;
+        }
+
+        String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
+        Material mat = Material.getMaterial(matName);
+        if (mat == null) {
+            mat = Material.NOTE_BLOCK;
+            MixerPlugin.getPlugin().getLogger().warning("Invalid material for portable speaker: " + matName + ". Using NOTE_BLOCK instead.");
+        }
+
+        ItemStack speaker = new ItemStack(mat);
         speaker.editMeta(meta -> {
-            meta.displayName(MM.deserialize("<gradient:#7277D8:#4851F5>Portable Speaker</gradient>").decoration(TextDecoration.ITALIC, false));
+            String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
+            meta.displayName(MM.deserialize(name).decoration(TextDecoration.ITALIC, false));
             NamespacedKey key = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
             meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         });
 
         player.getInventory().addItem(speaker);
-        MessageUtil.sendMsg(player, "speaker_received", "Portable Speaker");
+        String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
+        MessageUtil.sendMsg(player, "speaker_received", name);
         return Command.SINGLE_SUCCESS;
     }
 

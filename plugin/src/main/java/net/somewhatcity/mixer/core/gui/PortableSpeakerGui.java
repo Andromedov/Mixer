@@ -1,8 +1,6 @@
 package net.somewhatcity.mixer.core.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
@@ -25,10 +23,13 @@ import java.util.HashMap;
 
 public class PortableSpeakerGui implements Listener {
 
-    private static final Component TITLE = MiniMessage.miniMessage().deserialize("<gradient:#7277D8:#4851F5>Portable Speaker</gradient>");
+    private Component getTitle() {
+        String title = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_gui_name");
+        return MiniMessage.miniMessage().deserialize(title);
+    }
 
     public void open(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 9, TITLE);
+        Inventory inv = Bukkit.createInventory(null, 9, getTitle());
 
         // Fillers
         ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
@@ -43,14 +44,16 @@ public class PortableSpeakerGui implements Listener {
         // Start button
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         ItemMeta startMeta = start.getItemMeta();
-        startMeta.displayName(Component.text("Play", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
+        String startName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
+        startMeta.displayName(MiniMessage.miniMessage().deserialize(startName));
         start.setItemMeta(startMeta);
         inv.setItem(0, start);
 
         // Stop button
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         ItemMeta stopMeta = stop.getItemMeta();
-        stopMeta.displayName(Component.text("Stop", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
+        String stopName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
+        stopMeta.displayName(MiniMessage.miniMessage().deserialize(stopName));
         stop.setItemMeta(stopMeta);
         inv.setItem(8, stop);
 
@@ -59,7 +62,7 @@ public class PortableSpeakerGui implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        if (!e.getView().title().equals(TITLE)) return;
+        if (!e.getView().title().equals(getTitle())) return;
 
         if (e.getClickedInventory() == e.getView().getTopInventory()) {
             if (e.getSlot() != 4) {
@@ -117,7 +120,7 @@ public class PortableSpeakerGui implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent e) {
-        if (e.getView().title().equals(TITLE)) {
+        if (e.getView().title().equals(getTitle())) {
             for (int slot : e.getRawSlots()) {
                 if (slot < 9 && slot != 4) {
                     e.setCancelled(true);
@@ -129,7 +132,7 @@ public class PortableSpeakerGui implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (!e.getView().title().equals(TITLE)) return;
+        if (!e.getView().title().equals(getTitle())) return;
 
         Inventory inv = e.getInventory();
         ItemStack disc = inv.getItem(4);

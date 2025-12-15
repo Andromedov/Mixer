@@ -8,6 +8,7 @@ import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
+import net.somewhatcity.mixer.core.listener.PlayerItemListener;
 import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
@@ -38,12 +39,19 @@ public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
+
+    // Карта для стаціонарних програвачів (Jukebox)
     private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+
+    // Карта для портативних програвачів (Entity/Player)
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
+
     private LocalizationManager localizationManager;
     private File dataFile;
     private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
+
+    // GUI для портативної колонки
     private PortableSpeakerGui portableSpeakerGui;
 
     // Config
@@ -55,6 +63,11 @@ public class MixerPlugin extends JavaPlugin {
     private int audioBufferSize;
     private int audioFrameBufferDuration;
     private String language;
+
+    // Portable Speaker Config
+    private boolean portableSpeakerEnabled;
+    private int portableSpeakerRange;
+    private String portableSpeakerItemMaterial;
 
     @Override
     public void onEnable() {
@@ -83,10 +96,14 @@ public class MixerPlugin extends JavaPlugin {
 
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
+
+        // Реєстрація слухачів
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
-        pm.registerEvents(new PlayerQuitListener(), this);
+        pm.registerEvents(new PlayerQuitListener(), this); // Очищення портативних колонок при виході
+        pm.registerEvents(new PlayerItemListener(), this); // Зупинка музики при викиданні колонки
 
+        // Ініціалізація та реєстрація GUI
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
 
@@ -156,6 +173,11 @@ public class MixerPlugin extends JavaPlugin {
         audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
         language = config.getString("lang", "en");
 
+        // Portable Speakers config loading
+        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
+        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
+        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
+
         if (volumePercent < 0 || volumePercent > 200) {
             getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
             volumePercent = 50;
@@ -183,11 +205,18 @@ public class MixerPlugin extends JavaPlugin {
 
         // Language
         config.addDefault("lang", "en");
+
+        // Portable Speakers Defaults
+        config.addDefault("portableSpeakers.portableSpeaker", true);
+        config.addDefault("portableSpeakers.portableSpeakerRange", 100);
+        config.addDefault("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
+
         return config;
     }
 
     @Override
     public void onDisable() {
+        // Зупинка стаціонарних програвачів
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try {
                 player.stop();
@@ -196,6 +225,7 @@ public class MixerPlugin extends JavaPlugin {
             }
         });
 
+        // Зупинка портативних програвачів
         new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
             try {
                 player.stop();
@@ -221,6 +251,11 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioBufferSize() { return audioBufferSize; }
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
+
+    // Getters for Portable Speaker config
+    public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
+    public int getPortableSpeakerRange() { return portableSpeakerRange; }
+    public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
 
     public FileConfiguration getMixersConfig() { return mixersConfig; }
     public static MixerPlugin getPlugin() { return plugin; }

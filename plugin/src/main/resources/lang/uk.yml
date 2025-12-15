@@ -23,6 +23,11 @@ messages:
     bassboost_disabled: "<blue>бас-буст вимкнено"
     bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
     failed_to_start: "<red>Не вдалось розпочати відтворення"
+  portableSpeaker:
+    portable_speaker_item_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
+    portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
+    portable_speaker_start_button: "<green>Старт</green>"
+    portable_speaker_stop_button: "<red>Стоп</red>"
 
 # DO NOT CHANGE
 lang-version: 1

@@ -23,6 +23,11 @@ messages:
     bassboost_disabled: "<blue>bassboost disabled"
     bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
     failed_to_start: "<red>Failed to start playback"
+  portableSpeaker:
+    portable_speaker_item_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
+    portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
+    portable_speaker_start_button: "<green>Start</green>"
+    portable_speaker_stop_button: "<red>Stop</red>"
 
 # DO NOT CHANGE
 lang-version: 1
