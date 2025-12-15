@@ -19,8 +19,7 @@ messages:
     speaker_received: "%s отримано!"
   actionBar:
     playback_stop: "<red>відтворення зупинено"
-    portable_speaker_disabled: "<red>портативний динамік зупинено"
-    portable_speaker_enabled: "<green>портативний динамік запущено"
+    playback_start: "<green>відтворення запущено"
     bassboost_disabled: "<blue>бас-буст вимкнено"
     bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
     failed_to_start: "<red>Не вдалось розпочати відтворення"

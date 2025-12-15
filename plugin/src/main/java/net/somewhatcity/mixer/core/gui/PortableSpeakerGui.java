@@ -98,7 +98,7 @@ public class PortableSpeakerGui implements Listener {
                 EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
                 portablePlayer.load(url);
                 MixerPlugin.getPlugin().getPortablePlayerMap().put(player.getUniqueId(), portablePlayer);
-                MessageUtil.sendActionBarMsg(player, "loading_track");
+                MessageUtil.sendActionBarMsg(player, "playback_start");
 
                 player.closeInventory();
             }
