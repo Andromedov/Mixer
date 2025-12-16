@@ -40,10 +40,10 @@ public class MixerPlugin extends JavaPlugin {
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
 
-    // Карта для стаціонарних програвачів (Jukebox)
+    // Jukebox Map
     private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
 
-    // Карта для портативних програвачів (Entity/Player)
+    // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
 
     private LocalizationManager localizationManager;
@@ -51,7 +51,7 @@ public class MixerPlugin extends JavaPlugin {
     private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
 
-    // GUI для портативної колонки
+    // GUI for potable speaker
     private PortableSpeakerGui portableSpeakerGui;
 
     // Config
@@ -97,19 +97,71 @@ public class MixerPlugin extends JavaPlugin {
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
 
-        // Реєстрація слухачів
+        // Listener registration
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
         pm.registerEvents(new PlayerQuitListener(), this); // Очищення портативних колонок при виході
         pm.registerEvents(new PlayerItemListener(), this); // Зупинка музики при викиданні колонки
 
-        // Ініціалізація та реєстрація GUI
+        // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
+        setupLogFilters();
+    }
+
+    private void initializeConfig() {
+        saveDefaultConfig();
+
+        FileConfiguration config = getConfig();
+
+        // Main settings
+        config.addDefault("mixer.youtube.enabled", false);
+        config.addDefault("mixer.youtube.useOAuth", false);
+        config.addDefault("mixer.youtube.refreshToken", "");
+        config.addDefault("mixer.volume", 50);
+        config.addDefault("mixer.audio.sampleRate", 48000);
+        config.addDefault("mixer.audio.bufferSize", 960);
+        config.addDefault("mixer.audio.frameBufferDuration", 100);
+        config.addDefault("lang", "en");
+
+        // Portable Speakers settings
+        config.addDefault("portableSpeakers.portableSpeaker", true);
+        config.addDefault("portableSpeakers.portableSpeakerRange", 100);
+        config.addDefault("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
+
+        config.options().copyDefaults(true);
+        saveConfig();
+        loadConfigValues(config);
+    }
+
+    private void loadConfigValues(FileConfiguration config) {
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
+        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        volumePercent = config.getInt("mixer.volume");
+        audioSampleRate = config.getInt("mixer.audio.sampleRate");
+        audioBufferSize = config.getInt("mixer.audio.bufferSize");
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
+        language = config.getString("lang", "en");
+
+        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker");
+        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange");
+        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial");
+
+        // Volume validation
+        if (volumePercent < 0 || volumePercent > 200) {
+            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            volumePercent = 50;
+            config.set("mixer.volume", 50);
+            saveConfig();
+        }
+    }
+
+    private void setupLogFilters() {
         ((Logger) LogManager.getRootLogger()).addFilter(new AbstractFilter() {
             @Override
             public Result filter(LogEvent event) {
@@ -155,68 +207,9 @@ public class MixerPlugin extends JavaPlugin {
         getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
     }
 
-    private void initializeConfig() {
-        saveDefaultConfig();
-        FileConfiguration config = getFileConfiguration();
-        config.options().copyDefaults(true);
-    }
-
-    private @NotNull FileConfiguration getFileConfiguration() {
-        FileConfiguration config = getConfiguration();
-
-        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
-        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
-        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
-        volumePercent = config.getInt("mixer.volume");
-        audioSampleRate = config.getInt("mixer.audio.sampleRate");
-        audioBufferSize = config.getInt("mixer.audio.bufferSize");
-        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
-        language = config.getString("lang", "en");
-
-        // Portable Speakers config loading
-        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
-        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
-        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
-
-        if (volumePercent < 0 || volumePercent > 200) {
-            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
-            volumePercent = 50;
-            config.set("mixer.volume", 50);
-        }
-
-        return config;
-    }
-
-    private @NotNull FileConfiguration getConfiguration() {
-        FileConfiguration config = getConfig();
-
-        // YouTube
-        config.addDefault("mixer.youtube.enabled", false);
-        config.addDefault("mixer.youtube.useOAuth", false);
-        config.addDefault("mixer.youtube.refreshToken", "");
-
-        // Volume
-        config.addDefault("mixer.volume", 50);
-
-        // Audio
-        config.addDefault("mixer.audio.sampleRate", 48000);
-        config.addDefault("mixer.audio.bufferSize", 960);
-        config.addDefault("mixer.audio.frameBufferDuration", 100);
-
-        // Language
-        config.addDefault("lang", "en");
-
-        // Portable Speakers Defaults
-        config.addDefault("portableSpeakers.portableSpeaker", true);
-        config.addDefault("portableSpeakers.portableSpeakerRange", 100);
-        config.addDefault("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
-
-        return config;
-    }
-
     @Override
     public void onDisable() {
-        // Зупинка стаціонарних програвачів
+        // Stop audio players
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try {
                 player.stop();
@@ -225,7 +218,7 @@ public class MixerPlugin extends JavaPlugin {
             }
         });
 
-        // Зупинка портативних програвачів
+        // Stop portable audio players
         new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
             try {
                 player.stop();
@@ -252,7 +245,6 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
 
-    // Getters for Portable Speaker config
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }
     public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
