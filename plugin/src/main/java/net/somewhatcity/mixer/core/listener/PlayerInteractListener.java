@@ -41,14 +41,23 @@ public class PlayerInteractListener implements Listener {
 
                         // Ensure item has a unique ID
                         NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
+                        UUID speakerId;
+
                         if (!item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
+                            speakerId = UUID.randomUUID();
                             ItemMeta meta = item.getItemMeta();
                             meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
                             item.setItemMeta(meta);
+                        } else {
+                            try {
+                                speakerId = UUID.fromString(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING));
+                            } catch (Exception ex) {
+                                speakerId = UUID.randomUUID();
+                            }
                         }
 
                         e.setCancelled(true);
-                        MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer());
+                        MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer(), speakerId);
                         return;
                     }
                 }

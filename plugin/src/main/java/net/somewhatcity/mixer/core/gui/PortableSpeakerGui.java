@@ -1,7 +1,6 @@
 package net.somewhatcity.mixer.core.gui;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
@@ -22,16 +21,20 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class PortableSpeakerGui implements Listener {
+
+    private final Map<UUID, UUID> openSpeakers = new HashMap<>();
 
     private Component getTitle() {
         String title = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_gui_name");
         return MiniMessage.miniMessage().deserialize(title);
     }
 
-    public void open(Player player) {
+    public void open(Player player, UUID speakerId) {
+        openSpeakers.put(player.getUniqueId(), speakerId); // Зберігаємо ID
         Inventory inv = Bukkit.createInventory(null, 9, getTitle());
 
         // Fillers
@@ -103,16 +106,11 @@ public class PortableSpeakerGui implements Listener {
 
                 EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
 
-                // Get UUID from the held item (which was used to open the GUI)
-                ItemStack speakerItem = player.getInventory().getItemInMainHand();
-                NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
-                if (speakerItem != null && speakerItem.hasItemMeta() && speakerItem.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
-                    String uuidStr = speakerItem.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
-                    try {
-                        portablePlayer.setSourceItemId(UUID.fromString(uuidStr));
-                    } catch (Exception ex) {
-                        MixerPlugin.getPlugin().getLogger().warning("Invalid speaker UUID: " + uuidStr);
-                    }
+                UUID speakerId = openSpeakers.get(player.getUniqueId());
+                if (speakerId != null) {
+                    portablePlayer.setSourceItemId(speakerId);
+                } else {
+                    MixerPlugin.getPlugin().getLogger().warning("Speaker UUID missing for player " + player.getName());
                 }
 
                 portablePlayer.load(url);
@@ -149,6 +147,7 @@ public class PortableSpeakerGui implements Listener {
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
         if (!e.getView().title().equals(getTitle())) return;
+        openSpeakers.remove(e.getPlayer().getUniqueId());
 
         Inventory inv = e.getInventory();
         ItemStack disc = inv.getItem(4);
