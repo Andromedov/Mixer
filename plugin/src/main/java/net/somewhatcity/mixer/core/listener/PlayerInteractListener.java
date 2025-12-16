@@ -12,9 +12,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerInteractListener implements Listener {
@@ -36,6 +38,15 @@ public class PlayerInteractListener implements Listener {
                 if (item != null && item.getType() == mat) {
                     NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
                     if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
+
+                        // Ensure item has a unique ID
+                        NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
+                        if (!item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
+                            ItemMeta meta = item.getItemMeta();
+                            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
+                            item.setItemMeta(meta);
+                        }
+
                         e.setCancelled(true);
                         MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer());
                         return;

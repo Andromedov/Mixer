@@ -16,6 +16,7 @@ import java.util.UUID;
 public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private final Player owner;
     private EntityAudioChannel channel;
+    private UUID sourceItemId;
 
     public EntityMixerAudioPlayer(Player player) {
         super();
@@ -37,6 +38,14 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
         }
 
         initializeAsync();
+    }
+
+    public void setSourceItemId(UUID sourceItemId) {
+        this.sourceItemId = sourceItemId;
+    }
+
+    public UUID getSourceItemId() {
+        return sourceItemId;
     }
 
     @Override

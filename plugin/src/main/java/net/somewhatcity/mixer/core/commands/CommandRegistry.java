@@ -46,6 +46,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -475,6 +476,10 @@ public class CommandRegistry {
             meta.displayName(MM.deserialize(name).decoration(TextDecoration.ITALIC, false));
             NamespacedKey key = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
             meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
+
+            // Generate unique ID for this speaker
+            NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
+            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
         });
 
         player.getInventory().addItem(speaker);

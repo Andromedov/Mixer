@@ -22,6 +22,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
+import java.util.UUID;
 
 public class PortableSpeakerGui implements Listener {
 
@@ -101,6 +102,19 @@ public class PortableSpeakerGui implements Listener {
                 }
 
                 EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
+
+                // Get UUID from the held item (which was used to open the GUI)
+                ItemStack speakerItem = player.getInventory().getItemInMainHand();
+                NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
+                if (speakerItem != null && speakerItem.hasItemMeta() && speakerItem.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
+                    String uuidStr = speakerItem.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
+                    try {
+                        portablePlayer.setSourceItemId(UUID.fromString(uuidStr));
+                    } catch (Exception ex) {
+                        MixerPlugin.getPlugin().getLogger().warning("Invalid speaker UUID: " + uuidStr);
+                    }
+                }
+
                 portablePlayer.load(url);
                 MixerPlugin.getPlugin().getPortablePlayerMap().put(player.getUniqueId(), portablePlayer);
                 MessageUtil.sendActionBarMsg(player, "playback_start");
