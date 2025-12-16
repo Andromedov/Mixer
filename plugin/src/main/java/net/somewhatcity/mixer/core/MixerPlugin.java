@@ -25,14 +25,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MixerPlugin extends JavaPlugin {
@@ -100,8 +98,8 @@ public class MixerPlugin extends JavaPlugin {
         // Listener registration
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
-        pm.registerEvents(new PlayerQuitListener(), this); // Очищення портативних колонок при виході
-        pm.registerEvents(new PlayerItemListener(), this); // Зупинка музики при викиданні колонки
+        pm.registerEvents(new PlayerQuitListener(), this);
+        pm.registerEvents(new PlayerItemListener(), this);
 
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
@@ -114,43 +112,110 @@ public class MixerPlugin extends JavaPlugin {
     }
 
     private void initializeConfig() {
-        saveDefaultConfig();
+        File configFile = new File(getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            saveDefaultConfig();
+        } else {
+            updateConfig();
+        }
 
+        reloadConfig();
         FileConfiguration config = getConfig();
-
-        // Main settings
-        config.addDefault("mixer.youtube.enabled", false);
-        config.addDefault("mixer.youtube.useOAuth", false);
-        config.addDefault("mixer.youtube.refreshToken", "");
-        config.addDefault("mixer.volume", 50);
-        config.addDefault("mixer.audio.sampleRate", 48000);
-        config.addDefault("mixer.audio.bufferSize", 960);
-        config.addDefault("mixer.audio.frameBufferDuration", 100);
-        config.addDefault("lang", "en");
-
-        // Portable Speakers settings
-        config.addDefault("portableSpeakers.portableSpeaker", true);
-        config.addDefault("portableSpeakers.portableSpeakerRange", 100);
-        config.addDefault("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
-
-        config.options().copyDefaults(true);
-        saveConfig();
         loadConfigValues(config);
     }
 
+    /**
+     * Reads the default config from JAR (with comments) and merges user values into it.
+     * This preserves new comments/structure while keeping user settings.
+     */
+    private void updateConfig() {
+        try {
+            File configFile = new File(getDataFolder(), "config.yml");
+            FileConfiguration currentConfig = YamlConfiguration.loadConfiguration(configFile);
+
+            // Read lines from the internal resource (JAR)
+            List<String> templateLines = new ArrayList<>();
+            try (java.io.InputStream is = getResource("config.yml");
+                 java.util.Scanner scanner = new java.util.Scanner(is, StandardCharsets.UTF_8)) {
+                while (scanner.hasNextLine()) {
+                    templateLines.add(scanner.nextLine());
+                }
+            }
+
+            List<String> newLines = new ArrayList<>();
+            Map<Integer, String> context = new HashMap<>(); // To track YAML indentation path
+
+            for (String line : templateLines) {
+                String trimmed = line.trim();
+
+                if (trimmed.startsWith("#") || trimmed.isEmpty()) {
+                    newLines.add(line);
+                    continue;
+                }
+
+                if (line.contains(":")) {
+                    String[] parts = line.split(":", 2);
+                    String keyPart = parts[0];
+
+                    int indentation = 0;
+                    while (indentation < keyPart.length() && keyPart.charAt(indentation) == ' ') {
+                        indentation++;
+                    }
+
+                    String keyName = keyPart.trim();
+                    context.put(indentation, keyName);
+                    int finalIndentation = indentation;
+                    context.keySet().removeIf(k -> k > finalIndentation);
+
+                    StringBuilder fullKeyBuilder = new StringBuilder();
+                    for (int i = 0; i <= indentation; i++) {
+                        if (context.containsKey(i)) {
+                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            fullKeyBuilder.append(context.get(i));
+                        }
+                    }
+                    String fullKey = fullKeyBuilder.toString();
+
+                    if (currentConfig.contains(fullKey) && !currentConfig.isConfigurationSection(fullKey)) {
+                        Object userValue = currentConfig.get(fullKey);
+                        String valueStr;
+
+                        if (userValue instanceof String) {
+                            valueStr = "\"" + userValue.toString() + "\"";
+                        } else {
+                            valueStr = userValue.toString();
+                        }
+
+                        newLines.add(keyPart + ": " + valueStr);
+                    } else {
+                        newLines.add(line);
+                    }
+                } else {
+                    newLines.add(line);
+                }
+            }
+
+            // Write the merged content back to disk
+            Files.write(configFile.toPath(), newLines, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            getLogger().warning("Failed to update config.yml structure: " + e.getMessage());
+        }
+    }
+
     private void loadConfigValues(FileConfiguration config) {
-        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
-        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled", false);
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth", false);
         youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
-        volumePercent = config.getInt("mixer.volume");
-        audioSampleRate = config.getInt("mixer.audio.sampleRate");
-        audioBufferSize = config.getInt("mixer.audio.bufferSize");
-        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
+        volumePercent = config.getInt("mixer.volume", 50);
+        audioSampleRate = config.getInt("mixer.audio.sampleRate", 48000);
+        audioBufferSize = config.getInt("mixer.audio.bufferSize", 960);
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
         language = config.getString("lang", "en");
 
-        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker");
-        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange");
-        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial");
+        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
+        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
+        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
 
         // Volume validation
         if (volumePercent < 0 || volumePercent > 200) {

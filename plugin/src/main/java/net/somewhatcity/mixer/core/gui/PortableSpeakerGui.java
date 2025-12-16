@@ -44,16 +44,16 @@ public class PortableSpeakerGui implements Listener {
         // Start button
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         ItemMeta startMeta = start.getItemMeta();
-        String startName = "<reset>" + MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
-        startMeta.displayName(MiniMessage.miniMessage().deserialize(startName));
+        String startName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
+        startMeta.displayName(MiniMessage.miniMessage().deserialize("<reset>" + startName));
         start.setItemMeta(startMeta);
         inv.setItem(0, start);
 
         // Stop button
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         ItemMeta stopMeta = stop.getItemMeta();
-        String stopName = "<reset>" + MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
-        stopMeta.displayName(MiniMessage.miniMessage().deserialize(stopName));
+        String stopName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
+        stopMeta.displayName(MiniMessage.miniMessage().deserialize("<reset>" + stopName));
         stop.setItemMeta(stopMeta);
         inv.setItem(8, stop);
 

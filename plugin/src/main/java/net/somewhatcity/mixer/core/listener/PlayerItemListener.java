@@ -26,7 +26,7 @@ public class PlayerItemListener implements Listener {
             if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
                 if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(e.getPlayer().getUniqueId())) {
                     MixerPlugin.getPlugin().getPortablePlayerMap().get(e.getPlayer().getUniqueId()).stop();
-                    MessageUtil.sendActionBarMsg(e.getPlayer(), "portable_stop");
+                    MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
                 }
             }
         }
