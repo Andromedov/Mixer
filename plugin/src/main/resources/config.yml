@@ -36,3 +36,15 @@ mixer:
     bufferSize: 960
     # Frame buffer duration (ms)
     frameBufferDuration: 100
+
+# ===========================================
+# PORTABLE SPEAKER SETTINGS
+# ===========================================
+portableSpeakers:
+  # Should the plugin enable the portable speakers feature?
+  portableSpeaker: true
+  # The range in blocks where portable speakers will work.
+  portableSpeakerRange: 100
+  # The block that will be used as a portable speaker.
+  # Supported materials: https://jd.papermc.io/paper/1.21.11/org/bukkit/Material.html
+  portableSpeakerItemMaterial: "NOTE_BLOCK"
