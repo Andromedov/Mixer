@@ -26,13 +26,20 @@ public class PlayerInteractListener implements Listener {
     public void onInteract(PlayerInteractEvent e) {
         // --- Portable Speaker Mechanic ---
         if (e.getAction().toString().contains("RIGHT_CLICK")) {
-            ItemStack item = e.getItem();
-            if (item != null && item.getType() == Material.NOTE_BLOCK) {
-                NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
-                if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
-                    e.setCancelled(true);
-                    MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer());
-                    return;
+            if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
+                ItemStack item = e.getItem();
+
+                String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
+                Material mat = Material.getMaterial(matName);
+                if (mat == null) mat = Material.NOTE_BLOCK; // Fallback
+
+                if (item != null && item.getType() == mat) {
+                    NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
+                    if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
+                        e.setCancelled(true);
+                        MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer());
+                        return;
+                    }
                 }
             }
         }

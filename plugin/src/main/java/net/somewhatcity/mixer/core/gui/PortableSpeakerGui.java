@@ -1,6 +1,8 @@
 package net.somewhatcity.mixer.core.gui;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
@@ -45,7 +47,7 @@ public class PortableSpeakerGui implements Listener {
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         ItemMeta startMeta = start.getItemMeta();
         String startName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_start_button");
-        startMeta.displayName(MiniMessage.miniMessage().deserialize("<reset>" + startName));
+        startMeta.displayName(MiniMessage.miniMessage().deserialize(startName).decoration(TextDecoration.ITALIC, false));
         start.setItemMeta(startMeta);
         inv.setItem(0, start);
 
@@ -53,7 +55,7 @@ public class PortableSpeakerGui implements Listener {
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         ItemMeta stopMeta = stop.getItemMeta();
         String stopName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_stop_button");
-        stopMeta.displayName(MiniMessage.miniMessage().deserialize("<reset>" + stopName));
+        stopMeta.displayName(MiniMessage.miniMessage().deserialize(stopName).decoration(TextDecoration.ITALIC, false));
         stop.setItemMeta(stopMeta);
         inv.setItem(8, stop);
 
