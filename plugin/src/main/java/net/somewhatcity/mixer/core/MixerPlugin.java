@@ -3,9 +3,13 @@ package net.somewhatcity.mixer.core;
 import de.maxhenkel.voicechat.api.BukkitVoicechatService;
 import net.somewhatcity.mixer.api.MixerApi;
 import net.somewhatcity.mixer.core.api.ImplMixerApi;
+import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
+import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
+import net.somewhatcity.mixer.core.listener.PlayerItemListener;
+import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
@@ -21,22 +25,32 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
+
+    // Jukebox Map
     private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+
+    // Entity/Player Map
+    private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
+
     private LocalizationManager localizationManager;
     private File dataFile;
     private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
+
+    // GUI for potable speaker
+    private PortableSpeakerGui portableSpeakerGui;
 
     // Config
     private boolean youtubeEnabled;
@@ -47,6 +61,11 @@ public class MixerPlugin extends JavaPlugin {
     private int audioBufferSize;
     private int audioFrameBufferDuration;
     private String language;
+
+    // Portable Speaker Config
+    private boolean portableSpeakerEnabled;
+    private int portableSpeakerRange;
+    private String portableSpeakerItemMaterial;
 
     @Override
     public void onEnable() {
@@ -75,12 +94,139 @@ public class MixerPlugin extends JavaPlugin {
 
         playerInteractListener = new PlayerInteractListener();
         PluginManager pm = getServer().getPluginManager();
+
+        // Listener registration
         pm.registerEvents(playerInteractListener, this);
         pm.registerEvents(new RedstoneListener(), this);
+        pm.registerEvents(new PlayerQuitListener(), this);
+        pm.registerEvents(new PlayerItemListener(), this);
+
+        // GUI registration
+        portableSpeakerGui = new PortableSpeakerGui();
+        pm.registerEvents(portableSpeakerGui, this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
+        setupLogFilters();
+    }
+
+    private void initializeConfig() {
+        File configFile = new File(getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            saveDefaultConfig();
+        } else {
+            updateConfig();
+        }
+
+        reloadConfig();
+        FileConfiguration config = getConfig();
+        loadConfigValues(config);
+    }
+
+    /**
+     * Reads the default config from JAR (with comments) and merges user values into it.
+     * This preserves new comments/structure while keeping user settings.
+     */
+    private void updateConfig() {
+        try {
+            File configFile = new File(getDataFolder(), "config.yml");
+            FileConfiguration currentConfig = YamlConfiguration.loadConfiguration(configFile);
+
+            // Read lines from the internal resource (JAR)
+            List<String> templateLines = new ArrayList<>();
+            try (java.io.InputStream is = getResource("config.yml");
+                 java.util.Scanner scanner = new java.util.Scanner(is, StandardCharsets.UTF_8)) {
+                while (scanner.hasNextLine()) {
+                    templateLines.add(scanner.nextLine());
+                }
+            }
+
+            List<String> newLines = new ArrayList<>();
+            Map<Integer, String> context = new HashMap<>(); // To track YAML indentation path
+
+            for (String line : templateLines) {
+                String trimmed = line.trim();
+
+                if (trimmed.startsWith("#") || trimmed.isEmpty()) {
+                    newLines.add(line);
+                    continue;
+                }
+
+                if (line.contains(":")) {
+                    String[] parts = line.split(":", 2);
+                    String keyPart = parts[0];
+
+                    int indentation = 0;
+                    while (indentation < keyPart.length() && keyPart.charAt(indentation) == ' ') {
+                        indentation++;
+                    }
+
+                    String keyName = keyPart.trim();
+                    context.put(indentation, keyName);
+                    int finalIndentation = indentation;
+                    context.keySet().removeIf(k -> k > finalIndentation);
+
+                    StringBuilder fullKeyBuilder = new StringBuilder();
+                    for (int i = 0; i <= indentation; i++) {
+                        if (context.containsKey(i)) {
+                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            fullKeyBuilder.append(context.get(i));
+                        }
+                    }
+                    String fullKey = fullKeyBuilder.toString();
+
+                    if (currentConfig.contains(fullKey) && !currentConfig.isConfigurationSection(fullKey)) {
+                        Object userValue = currentConfig.get(fullKey);
+                        String valueStr;
+
+                        if (userValue instanceof String) {
+                            valueStr = "\"" + userValue.toString() + "\"";
+                        } else {
+                            valueStr = userValue.toString();
+                        }
+
+                        newLines.add(keyPart + ": " + valueStr);
+                    } else {
+                        newLines.add(line);
+                    }
+                } else {
+                    newLines.add(line);
+                }
+            }
+
+            // Write the merged content back to disk
+            Files.write(configFile.toPath(), newLines, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            getLogger().warning("Failed to update config.yml structure: " + e.getMessage());
+        }
+    }
+
+    private void loadConfigValues(FileConfiguration config) {
+        youtubeEnabled = config.getBoolean("mixer.youtube.enabled", false);
+        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth", false);
+        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        volumePercent = config.getInt("mixer.volume", 50);
+        audioSampleRate = config.getInt("mixer.audio.sampleRate", 48000);
+        audioBufferSize = config.getInt("mixer.audio.bufferSize", 960);
+        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
+        language = config.getString("lang", "en");
+
+        portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
+        portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
+        portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
+
+        // Volume validation
+        if (volumePercent < 0 || volumePercent > 200) {
+            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            volumePercent = 50;
+            config.set("mixer.volume", 50);
+            saveConfig();
+        }
+    }
+
+    private void setupLogFilters() {
         ((Logger) LogManager.getRootLogger()).addFilter(new AbstractFilter() {
             @Override
             public Result filter(LogEvent event) {
@@ -126,56 +272,9 @@ public class MixerPlugin extends JavaPlugin {
         getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
     }
 
-    private void initializeConfig() {
-        saveDefaultConfig();
-        FileConfiguration config = getFileConfiguration();
-        config.options().copyDefaults(true);
-    }
-
-    private @NotNull FileConfiguration getFileConfiguration() {
-        FileConfiguration config = getConfiguration();
-
-        youtubeEnabled = config.getBoolean("mixer.youtube.enabled");
-        youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth");
-        youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
-        volumePercent = config.getInt("mixer.volume");
-        audioSampleRate = config.getInt("mixer.audio.sampleRate");
-        audioBufferSize = config.getInt("mixer.audio.bufferSize");
-        audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration");
-        language = config.getString("lang", "en");
-
-        if (volumePercent < 0 || volumePercent > 200) {
-            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
-            volumePercent = 50;
-            config.set("mixer.volume", 50);
-        }
-
-        return config;
-    }
-
-    private @NotNull FileConfiguration getConfiguration() {
-        FileConfiguration config = getConfig();
-
-        // YouTube
-        config.addDefault("mixer.youtube.enabled", false);
-        config.addDefault("mixer.youtube.useOAuth", false);
-        config.addDefault("mixer.youtube.refreshToken", "");
-
-        // Volume
-        config.addDefault("mixer.volume", 50);
-
-        // Audio
-        config.addDefault("mixer.audio.sampleRate", 48000);
-        config.addDefault("mixer.audio.bufferSize", 960);
-        config.addDefault("mixer.audio.frameBufferDuration", 100);
-
-        // Language
-        config.addDefault("lang", "en");
-        return config;
-    }
-
     @Override
     public void onDisable() {
+        // Stop audio players
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try {
                 player.stop();
@@ -183,9 +282,22 @@ public class MixerPlugin extends JavaPlugin {
                 getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
             }
         });
+
+        // Stop portable audio players
+        new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
+            try {
+                player.stop();
+            } catch (Exception e) {
+                getLogger().warning("Error stopping portable audio player during shutdown: " + e.getMessage());
+            }
+        });
+        portablePlayerMap.clear();
     }
 
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
+    public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
+    public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
+
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
@@ -197,6 +309,10 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioBufferSize() { return audioBufferSize; }
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
+
+    public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
+    public int getPortableSpeakerRange() { return portableSpeakerRange; }
+    public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
 
     public FileConfiguration getMixersConfig() { return mixersConfig; }
     public static MixerPlugin getPlugin() { return plugin; }
@@ -216,6 +332,9 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager.setLanguage(language);
 
         for (IMixerAudioPlayer player : playerHashMap.values()) {
+            player.updateVolume();
+        }
+        for (EntityMixerAudioPlayer player : portablePlayerMap.values()) {
             player.updateVolume();
         }
     }

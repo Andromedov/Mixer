@@ -46,6 +46,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,6 +69,7 @@ public class CommandRegistry {
                     .then(registerLinkCommand())
                     .then(registerRedstoneCommand())
                     .then(registerDspCommand())
+                    .then(registerSpeakerCommand())
                     .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
@@ -439,6 +441,50 @@ public class CommandRegistry {
         obj.add("flangerEffect", settings);
         Utils.saveNbtData(location, "mixer_dsp", obj);
         ctx.getSource().getSender().sendMessage(MM.deserialize("<green>Flanger effect updated"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // --- /mixer speaker ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerSpeakerCommand() {
+        return Commands.literal("speaker")
+                .requires(source -> source.getSender().hasPermission("mixer.command.speaker"))
+                .executes(this::executeSpeaker);
+    }
+
+    private int executeSpeaker(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+
+        if (!MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
+            MessageUtil.sendErrMsg(sender, "feature_disabled");
+            return 0;
+        }
+
+        String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
+        Material mat = Material.getMaterial(matName);
+        if (mat == null) {
+            mat = Material.NOTE_BLOCK;
+            MixerPlugin.getPlugin().getLogger().warning("Invalid material for portable speaker: " + matName + ". Using NOTE_BLOCK instead.");
+        }
+
+        ItemStack speaker = new ItemStack(mat);
+        speaker.editMeta(meta -> {
+            String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
+            meta.displayName(MM.deserialize(name).decoration(TextDecoration.ITALIC, false));
+            NamespacedKey key = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
+            meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
+
+            // Generate unique ID for this speaker
+            NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
+            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
+        });
+
+        player.getInventory().addItem(speaker);
+        String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
+        MessageUtil.sendMsg(player, "speaker_received", name);
         return Command.SINGLE_SUCCESS;
     }
 
