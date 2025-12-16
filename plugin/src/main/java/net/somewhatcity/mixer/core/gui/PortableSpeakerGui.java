@@ -82,15 +82,13 @@ public class PortableSpeakerGui implements Listener {
             if (e.getSlot() == 0) {
                 ItemStack disc = e.getView().getTopInventory().getItem(4);
                 if (disc == null || disc.getType() == Material.AIR) {
-                    // TODO: add message to language file
-                    player.sendMessage(MiniMessage.miniMessage().deserialize("<red>No disc inserted!</red>"));
+                    MessageUtil.sendActionBarMsg(player, "no_disc_inserted");
                     return;
                 }
 
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
                 if (!disc.hasItemMeta() || !disc.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) {
-                    // TODO: add message to language file
-                    player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Not a valid Mixer disc!</red>"));
+                    MessageUtil.sendActionBarMsg(player, "not_a_valid_disc");
                     return;
                 }
 
@@ -113,8 +111,7 @@ public class PortableSpeakerGui implements Listener {
                     MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();
                     MessageUtil.sendActionBarMsg(player, "playback_stop");
                 } else {
-                    // TODO: add message to language file
-                    player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Nothing is playing!</red>"));
+                    MessageUtil.sendActionBarMsg(player, "failed_to_stop");
                 }
                 player.closeInventory();
             }
