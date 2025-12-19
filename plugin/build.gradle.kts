@@ -48,6 +48,9 @@ tasks {
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
         }
+
+        relocate("de.maxhenkel.opus4j", "net.somewhatcity.mixer.libs.opus4j")
+
         doLast {
             println("ShadowJar output file: " + archiveFile.get().asFile.absolutePath)
         }
@@ -61,7 +64,7 @@ tasks {
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
     apiVersion = "1.20.6"
-    authors = listOf("mrmrmystery", "Andromedov")
+    authors = listOf("Andromedov", "mrmrmystery")
     name = rootProject.name
     depend = listOf("voicechat")
     version = rootProject.version.toString()
