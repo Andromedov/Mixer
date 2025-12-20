@@ -25,12 +25,12 @@ public class InventoryListener implements Listener {
         ItemStack currentItem = e.getCurrentItem();
         ItemStack cursorItem = e.getCursor();
 
-        checkAndStop(e.getWhoClicked().getUniqueId(), currentItem, Objects.requireNonNull(e.getClickedInventory()).getType());
-        checkAndStop(e.getWhoClicked().getUniqueId(), cursorItem, e.getClickedInventory().getType());
+        checkAndStop(e.getWhoClicked().getUniqueId(), currentItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
+        checkAndStop(e.getWhoClicked().getUniqueId(), cursorItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
 
         if (e.getClick().isKeyboardClick()) {
             ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
-            checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory().getType());
+            checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
         }
     }
 
