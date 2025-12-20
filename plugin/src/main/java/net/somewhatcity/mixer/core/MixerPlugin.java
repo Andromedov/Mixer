@@ -10,6 +10,7 @@ import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
 import net.somewhatcity.mixer.core.listener.PlayerItemListener;
 import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
+import net.somewhatcity.mixer.core.listener.InventoryListener;
 import net.somewhatcity.mixer.core.listener.RedstoneListener;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
@@ -100,6 +101,7 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(new RedstoneListener(), this);
         pm.registerEvents(new PlayerQuitListener(), this);
         pm.registerEvents(new PlayerItemListener(), this);
+        pm.registerEvents(new InventoryListener(), this);
 
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();

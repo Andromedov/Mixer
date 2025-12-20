@@ -30,7 +30,7 @@ mixer:
 # AUDIO SETTINGS | CHANGE ONLY OF YOU KNOW WHAT YOU'RE DOING
 # ===========================================
   audio:
-    # Sample rate (Hz). 48000 is standard.
+    # Sample rate (Hz). 48000 is the standard.
     sampleRate: 48000
     # Buffer size
     bufferSize: 960
