@@ -7,13 +7,14 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.Objects;
 import java.util.UUID;
 
 public class InventoryListener implements Listener {
@@ -22,15 +23,20 @@ public class InventoryListener implements Listener {
     public void onInventoryClick(InventoryClickEvent e) {
         if (!MixerPlugin.getPlugin().isPortableSpeakerEnabled()) return;
 
+        if (e.getClickedInventory() == null) return;
+
         ItemStack currentItem = e.getCurrentItem();
         ItemStack cursorItem = e.getCursor();
 
-        checkAndStop(e.getWhoClicked().getUniqueId(), currentItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
-        checkAndStop(e.getWhoClicked().getUniqueId(), cursorItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
+        checkAndStop(e.getWhoClicked().getUniqueId(), currentItem, e.getClickedInventory().getType());
+        checkAndStop(e.getWhoClicked().getUniqueId(), cursorItem, e.getClickedInventory().getType());
 
-        if (e.getClick().isKeyboardClick()) {
-            ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(e.getHotbarButton());
-            checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory() != null ? e.getClickedInventory().getType() : InventoryType.PLAYER);
+        if (e.getClick() == ClickType.NUMBER_KEY) {
+            int hotbarButton = e.getHotbarButton();
+            if (hotbarButton >= 0 && hotbarButton <= 8) {
+                ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(hotbarButton);
+                checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory().getType());
+            }
         }
     }
 
@@ -64,7 +70,7 @@ public class InventoryListener implements Listener {
 
                 if (item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
                     try {
-                        itemId = UUID.fromString(Objects.requireNonNull(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING)));
+                        itemId = UUID.fromString(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING));
                     } catch (Exception ex) {
                         return;
                     }
