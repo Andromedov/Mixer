@@ -27,10 +27,8 @@ public class PlayerInteractListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
-        if (e.getHand() != EquipmentSlot.HAND) return;
-
         // --- Portable Speaker Mechanic ---
-        if (e.getAction().toString().contains("RIGHT_CLICK")) {
+        if (e.getHand() == EquipmentSlot.HAND && e.getAction().toString().contains("RIGHT_CLICK")) {
             if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
                 ItemStack item = e.getItem();
 
@@ -110,7 +108,7 @@ public class PlayerInteractListener implements Listener {
             }
             if (e.getItem() == null) return;
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) return;
+            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().getKeys().contains(mixerData)) return;
             String url = e.getItem().getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
             e.setCancelled(true);
 
