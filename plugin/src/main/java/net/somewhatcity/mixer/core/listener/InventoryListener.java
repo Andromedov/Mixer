@@ -11,7 +11,6 @@ import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -35,7 +34,8 @@ public class InventoryListener implements Listener {
             int hotbarButton = e.getHotbarButton();
             if (hotbarButton >= 0 && hotbarButton <= 8) {
                 ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(hotbarButton);
-                checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory().getType());
+                InventoryType type = e.getClickedInventory().getType();
+                checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, type);
             }
         }
     }
