@@ -71,6 +71,9 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
+
+        cleanupOpusTemp();
+
         initializeConfig();
 
         localizationManager = new LocalizationManager(this);
@@ -111,6 +114,33 @@ public class MixerPlugin extends JavaPlugin {
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
         setupLogFilters();
+    }
+
+    private void cleanupOpusTemp() {
+        try {
+            String tempDir = System.getProperty("java.io.tmpdir");
+            File dir = new File(tempDir);
+            File[] files = dir.listFiles((d, name) -> name.startsWith("opus4j-"));
+            if (files != null) {
+                for (File f : files) {
+                    deleteRecursively(f);
+                }
+            }
+        } catch (Exception e) {
+            getLogger().warning("Failed to cleanup opus4j temp files: " + e.getMessage());
+        }
+    }
+
+    private void deleteRecursively(File file) {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File c : files) {
+                    deleteRecursively(c);
+                }
+            }
+        }
+        file.delete();
     }
 
     private void initializeConfig() {

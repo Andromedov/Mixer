@@ -5,6 +5,10 @@ on:
     branches:
       - "dev/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build_dev:
     if: "!contains(github.event.head_commit.message, '[release]') && !contains(github.event.head_commit.message, '[pre-release]') && !contains(github.event.head_commit.message, '[ci skip]')"
@@ -14,20 +18,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
+
+      - name: Generate Short SHA
+        id: vars
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
       - name: Build project
-        run: ./gradlew build
+        run: ./gradlew build --no-daemon
+
+      - name: Rename Artifact with DEV suffix
+        id: rename
+        run: |
+          cd build/libs
+          for file in *.jar; do
+            if [[ "$file" != *"-plain.jar"* && "$file" != *"-sources.jar"* && "$file" != *"-javadoc.jar"* ]]; then
+              mv "$file" "${file%.jar}-DEV.jar"
+              echo "Renamed $file to ${file%.jar}-DEV.jar"
+            fi
+          done
 
       - name: Upload Dev Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mixer-DevBuild-${{ github.sha }}
-          path: build/libs/*.jar
+          name: Mixer-Dev-${{ steps.vars.outputs.SHORT_SHA }}
+          path: build/libs/*-DEV.jar
+          retention-days: 7
