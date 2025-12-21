@@ -11,6 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -26,6 +27,8 @@ public class PlayerInteractListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
+        if (e.getHand() != EquipmentSlot.HAND) return;
+
         // --- Portable Speaker Mechanic ---
         if (e.getAction().toString().contains("RIGHT_CLICK")) {
             if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
@@ -107,7 +110,7 @@ public class PlayerInteractListener implements Listener {
             }
             if (e.getItem() == null) return;
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().getKeys().contains(mixerData)) return;
+            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) return;
             String url = e.getItem().getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
             e.setCancelled(true);
 

@@ -67,7 +67,7 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
             });
         }
 
-        this.dspSettings = Utils.loadNbtData(location, "mixerdsp");
+        this.dspSettings = Utils.loadNbtData(location, "mixer_dsp");
         if (this.dspSettings == null) this.dspSettings = new JsonObject();
 
         speakers.forEach(speaker -> {
