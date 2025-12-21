@@ -38,9 +38,20 @@ jobs:
       - name: Build project
         run: ./gradlew build --no-daemon
 
+      - name: Rename Artifact with DEV suffix
+        id: rename
+        run: |
+          cd build/libs
+          for file in *.jar; do
+            if [[ "$file" != *"-plain.jar"* && "$file" != *"-sources.jar"* && "$file" != *"-javadoc.jar"* ]]; then
+              mv "$file" "${file%.jar}-DEV.jar"
+              echo "Renamed $file to ${file%.jar}-DEV.jar"
+            fi
+          done
+
       - name: Upload Dev Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Mixer-Dev-${{ steps.vars.outputs.SHORT_SHA }}
-          path: build/libs/*.jar
+          path: build/libs/*-DEV.jar
           retention-days: 7
