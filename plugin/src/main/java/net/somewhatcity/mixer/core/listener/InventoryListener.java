@@ -111,7 +111,7 @@ public class InventoryListener implements Listener {
                     if (player.getSourceItemId() != null && itemId != null && player.getSourceItemId().equals(itemId)) {
                         player.stop();
                         if (org.bukkit.Bukkit.getPlayer(playerId) != null) {
-                            MessageUtil.sendActionBarMsg(org.bukkit.Bukkit.getPlayer(playerId), "portable_stop");
+                            MessageUtil.sendActionBarMsg(org.bukkit.Bukkit.getPlayer(playerId), "playback_stop");
                         }
                     }
                 }
