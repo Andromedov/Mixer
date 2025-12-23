@@ -2,6 +2,8 @@
 messages:
   plugin:
     prefix: "<gradient:#7277D8:#4851F5>[Mixer]</gradient> "
+    update_available: "A new version of Mixer is available: <green>%s</green> (Current: <yellow>%s</yellow>)"
+    click_to_download: "<click:open_url:'https://modrinth.com/plugin/mixer/version/%s'><blue><u>Click to download on Modrinth</u></blue></click>"
   errors:
     no_disc: "You must be holding a music disc!"
     no_jukebox: "No jukebox found at location"
@@ -33,4 +35,4 @@ messages:
     portable_speaker_stop_button: "<red>Stop</red>"
 
 # DO NOT CHANGE
-lang-version: 1
+lang-version: 2

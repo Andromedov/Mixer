@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class LocalizationManager {
-    private static final int latestLangVersion = 1;
+    private static final int latestLangVersion = 2;
     private final JavaPlugin plugin;
     private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
     private String currentLanguage = "en";
