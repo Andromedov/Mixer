@@ -28,23 +28,7 @@ body:
         3. ...
         4. ...
     validations:
-      required: true
-
-  - type: textarea
-    id: expected-behavior
-    attributes:
-      label: Expected Behavior
-      description: A clear and concise description of what you expected to happen.
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual-behavior
-    attributes:
-      label: Actual Behavior
-      description: What actually happened?
-    validations:
-      required: true
+      required: false
 
   - type: input
     id: logs
@@ -53,7 +37,7 @@ body:
       description: Please paste the link from [https://mclo.gs/](https://mclo.gs/) of full error from your console or `latest.log` file.
       placeholder: "https://mclo.gs/"
     validations:
-      required: true
+      required: false
 
   - type: input
     id: server-version
