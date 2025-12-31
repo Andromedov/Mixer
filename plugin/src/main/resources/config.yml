@@ -8,6 +8,15 @@
 lang: "en"
 
 # ===========================================
+# UPDATE NOTIFIER
+# ===========================================
+updateNotifier:
+  # Check for updates on startup and display in console?
+  enabled: true
+  # Notify players with 'mixer.update-notify' permission (and OPs) on join?
+  on-join: true
+
+# ===========================================
 # PLUGIN SETTINGS
 # ===========================================
 mixer:

@@ -7,13 +7,10 @@ import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
-import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
-import net.somewhatcity.mixer.core.listener.PlayerItemListener;
-import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
-import net.somewhatcity.mixer.core.listener.InventoryListener;
-import net.somewhatcity.mixer.core.listener.RedstoneListener;
+import net.somewhatcity.mixer.core.listener.*;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
+import net.somewhatcity.mixer.core.util.UpdateChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LogEvent;
@@ -68,6 +65,10 @@ public class MixerPlugin extends JavaPlugin {
     private int portableSpeakerRange;
     private String portableSpeakerItemMaterial;
 
+    // Update Notifier Config
+    private boolean updateNotifierEnabled;
+    private boolean updateNotifierJoin;
+
     @Override
     public void onEnable() {
         plugin = this;
@@ -106,6 +107,10 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(new PlayerItemListener(), this);
         pm.registerEvents(new InventoryListener(), this);
 
+        // Update Notifier Listener
+        UpdateNotifyListener updateNotifyListener = new UpdateNotifyListener(this);
+        pm.registerEvents(updateNotifyListener, this);
+
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
@@ -114,6 +119,11 @@ public class MixerPlugin extends JavaPlugin {
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
         setupLogFilters();
+
+        // Check for updates
+        new UpdateChecker(this).check((version, id) -> {
+            updateNotifyListener.setNewVersion(version, id);
+        });
     }
 
     private void cleanupOpusTemp() {
@@ -249,6 +259,9 @@ public class MixerPlugin extends JavaPlugin {
         portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
         portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
 
+        updateNotifierEnabled = config.getBoolean("updateNotifier.enabled", true);
+        updateNotifierJoin = config.getBoolean("updateNotifier.on-join", true);
+
         // Volume validation
         if (volumePercent < 0 || volumePercent > 200) {
             getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
@@ -332,6 +345,7 @@ public class MixerPlugin extends JavaPlugin {
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
+
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
     public String getYoutubeRefreshToken() { return youtubeRefreshToken; }
@@ -345,6 +359,9 @@ public class MixerPlugin extends JavaPlugin {
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }
     public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
+
+    public boolean isUpdateNotifierEnabled() { return updateNotifierEnabled; }
+    public boolean isUpdateNotifierJoin() { return updateNotifierJoin; }
 
     public FileConfiguration getMixersConfig() { return mixersConfig; }
     public static MixerPlugin getPlugin() { return plugin; }
