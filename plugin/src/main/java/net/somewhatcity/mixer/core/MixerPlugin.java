@@ -133,7 +133,11 @@ public class MixerPlugin extends JavaPlugin {
             File[] files = dir.listFiles((d, name) -> name.startsWith("opus4j-"));
             if (files != null) {
                 for (File f : files) {
-                    deleteRecursively(f);
+                    if (!deleteRecursively(f)) {
+                        getLogger().warning("Couldn't delete temp file: " + f.getAbsolutePath());
+                    } else {
+                        getLogger().info("Cleaned up old opus4j temp files: " + f.getName());
+                    }
                 }
             }
         } catch (Exception e) {
@@ -141,7 +145,7 @@ public class MixerPlugin extends JavaPlugin {
         }
     }
 
-    private void deleteRecursively(File file) {
+    private boolean deleteRecursively(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             if (files != null) {
@@ -150,7 +154,7 @@ public class MixerPlugin extends JavaPlugin {
                 }
             }
         }
-        file.delete();
+        return file.delete();
     }
 
     private void initializeConfig() {
