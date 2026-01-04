@@ -34,7 +34,7 @@ dependencies {
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")
     implementation("be.tarsos.dsp:jvm:2.5")
-    implementation("de.maxhenkel.opus4j:opus4j:2.0.2")
+    implementation("de.maxhenkel.opus4j:opus4j:2.1.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     api(project(":api"))
