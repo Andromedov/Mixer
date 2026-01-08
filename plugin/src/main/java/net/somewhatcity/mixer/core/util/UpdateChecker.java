@@ -50,7 +50,7 @@ public class UpdateChecker {
                     plugin.getLogger().info("Mixer update available!");
                     plugin.getLogger().info("Current: " + currentVersion);
                     plugin.getLogger().info("New: " + latestVersion);
-                    plugin.getLogger().info("Download: https://modrinth.com/plugin/mixer/version/" + versionId);
+                    plugin.getLogger().info("Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId);
                     plugin.getLogger().info("========================================");
 
                     Bukkit.getScheduler().runTask(plugin, () -> onSuccess.accept(latestVersion, versionId));
@@ -68,7 +68,6 @@ public class UpdateChecker {
         String c = current.replaceAll("[^0-9.]", "");
         String r = remote.replaceAll("[^0-9.]", "");
 
-        // Simple string inequality check for now
-        return !current.equalsIgnoreCase(remote);
+        return !c.equalsIgnoreCase(r);
     }
 }
