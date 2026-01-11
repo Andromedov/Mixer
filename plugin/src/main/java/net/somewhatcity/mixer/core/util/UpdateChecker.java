@@ -2,6 +2,7 @@ package net.somewhatcity.mixer.core.util;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import okhttp3.Request;
@@ -41,19 +42,28 @@ public class UpdateChecker {
 
                 if (versions.isEmpty()) return;
 
-                // Modrinth returns versions sorted by date (newest first)
-                String latestVersion = versions.get(0).getAsJsonObject().get("version_number").getAsString();
-                String versionId = versions.get(0).getAsJsonObject().get("id").getAsString();
+                for (JsonElement verElement : versions) {
+                    JsonObject versionObj = verElement.getAsJsonObject();
 
-                if (isNewer(currentVersion, latestVersion)) {
-                    plugin.getLogger().info("========================================");
-                    plugin.getLogger().info("Mixer update available!");
-                    plugin.getLogger().info("Current: " + currentVersion);
-                    plugin.getLogger().info("New: " + latestVersion);
-                    plugin.getLogger().info("Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId);
-                    plugin.getLogger().info("========================================");
+                    String versionType = versionObj.get("version_type").getAsString();
+                    if (!versionType.equalsIgnoreCase("release")) {
+                        continue;
+                    }
 
-                    Bukkit.getScheduler().runTask(plugin, () -> onSuccess.accept(latestVersion, versionId));
+                    String latestVersion = versionObj.get("version_number").getAsString();
+                    String versionId = versionObj.get("id").getAsString();
+
+                    if (isNewer(currentVersion, latestVersion)) {
+                        plugin.getLogger().info("========================================");
+                        plugin.getLogger().info("Mixer update available!");
+                        plugin.getLogger().info("Current: " + currentVersion);
+                        plugin.getLogger().info("New: " + latestVersion);
+                        plugin.getLogger().info("Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId);
+                        plugin.getLogger().info("========================================");
+
+                        Bukkit.getScheduler().runTask(plugin, () -> onSuccess.accept(latestVersion, versionId));
+                    }
+                    break;
                 }
 
             } catch (IOException e) {
@@ -64,10 +74,31 @@ public class UpdateChecker {
         });
     }
 
+    /**
+     * @param current Current Version (e.g., 2.2.0)
+     * @param remote Modrinth Version (e.g., v2.1.2)
+     * @return true, only if remote > current
+     */
     private boolean isNewer(String current, String remote) {
         String c = current.replaceAll("[^0-9.]", "");
         String r = remote.replaceAll("[^0-9.]", "");
 
-        return !c.equalsIgnoreCase(r);
+        String[] cParts = c.split("\\.");
+        String[] rParts = r.split("\\.");
+
+        int length = Math.max(cParts.length, rParts.length);
+
+        for (int i = 0; i < length; i++) {
+            int cPart = i < cParts.length && !cParts[i].isEmpty() ? Integer.parseInt(cParts[i]) : 0;
+            int rPart = i < rParts.length && !rParts[i].isEmpty() ? Integer.parseInt(rParts[i]) : 0;
+
+            if (rPart > cPart) {
+                return true;
+            } else if (rPart < cPart) {
+                return false;
+            }
+        }
+
+        return false;
     }
 }
