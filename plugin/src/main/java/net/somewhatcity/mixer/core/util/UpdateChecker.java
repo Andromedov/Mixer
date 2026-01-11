@@ -45,12 +45,10 @@ public class UpdateChecker {
                 for (JsonElement verElement : versions) {
                     JsonObject versionObj = verElement.getAsJsonObject();
 
-                    /*
                     String versionType = versionObj.get("version_type").getAsString();
                     if (!versionType.equalsIgnoreCase("release")) {
                         continue;
                     }
-                     */
 
                     String latestVersion = versionObj.get("version_number").getAsString();
                     String versionId = versionObj.get("id").getAsString();
