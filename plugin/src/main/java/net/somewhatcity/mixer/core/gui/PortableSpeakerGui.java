@@ -23,6 +23,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class PortableSpeakerGui implements Listener {
 
@@ -110,7 +111,7 @@ public class PortableSpeakerGui implements Listener {
                 if (speakerId != null) {
                     portablePlayer.setSourceItemId(speakerId);
                 } else {
-                    MixerPlugin.getPlugin().getLogger().warning("Speaker UUID missing for player " + player.getName());
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Speaker UUID missing for player " + player.getName(), null);
                 }
 
                 portablePlayer.load(url);

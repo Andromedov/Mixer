@@ -96,7 +96,7 @@ public class MixerPlugin extends JavaPlugin {
             MixerVoicechatPlugin voicechatPlugin = new MixerVoicechatPlugin();
             vcService.registerPlugin(voicechatPlugin);
         } else {
-            getLogger().info("VoiceChat not found");
+            logDebug(Level.INFO, "VoiceChat not found", null);
         }
 
         playerInteractListener = new PlayerInteractListener();
@@ -136,9 +136,9 @@ public class MixerPlugin extends JavaPlugin {
             if (files != null) {
                 for (File f : files) {
                     if (!deleteRecursively(f)) {
-                        getLogger().warning("Couldn't delete temp file: " + f.getAbsolutePath());
+                        logDebug(Level.WARNING, "Couldn't delete temp file: " + f.getAbsolutePath(), null);
                     } else {
-                        getLogger().info("Cleaned up old opus4j temp files: " + f.getName());
+                        logDebug(Level.INFO, "Cleaned up old opus4j temp files: " + f.getName(), null);
                     }
                 }
             }
@@ -273,7 +273,7 @@ public class MixerPlugin extends JavaPlugin {
 
         // Volume validation
         if (volumePercent < 0 || volumePercent > 200) {
-            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            logDebug(Level.WARNING, "Invalid volume percentage: " + volumePercent + ". Setting to 50%", null);
             volumePercent = 50;
             config.set("mixer.volume", 50);
             saveConfig();
@@ -323,17 +323,21 @@ public class MixerPlugin extends JavaPlugin {
             }
         });
 
-        getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
+        logDebug(Level.INFO, "Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.", null);
     }
 
     /**
      * Smart logging method based on configured debug level.
-     * @param level The severity level (usually Level.SEVERE or Level.WARNING)
+     * @param level The severity level (Level.INFO, Level.WARNING, or Level.SEVERE)
      * @param message The message to log
      * @param e The exception that occurred (nullable)
      */
     public void logDebug(Level level, String message, Throwable e) {
         if ("NONE".equals(debugLevel)) {
+            if (level == Level.INFO) {
+                getLogger().log(level, message);
+                return;
+            }
             return;
         }
 
@@ -341,9 +345,14 @@ public class MixerPlugin extends JavaPlugin {
             // Full stack trace
             getLogger().log(level, message, e);
         } else {
-            // "WARNING" (default) - Only message
-            if (e != null) { getLogger().log(level, message + ": " + e.getMessage()); }
-            else { getLogger().log(level, message); }
+            // "WARNING" (default) - Only message, but always show INFO
+            if (level == Level.INFO) {
+                getLogger().log(level, message);
+            } else if (e != null) {
+                getLogger().log(level, message + ": " + e.getMessage());
+            } else {
+                getLogger().log(level, message);
+            }
         }
     }
 
@@ -402,7 +411,7 @@ public class MixerPlugin extends JavaPlugin {
         try {
             mixersConfig.save(dataFile);
         } catch (IOException e) {
-            getLogger().warning("Could not save data.yml: " + e.getMessage());
+            logDebug(Level.WARNING, "Could not save data.yml: " + e.getMessage(), null);
         }
     }
 

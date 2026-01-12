@@ -2,18 +2,19 @@ package net.somewhatcity.mixer.core.util;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
+import net.somewhatcity.mixer.core.MixerPlugin;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 
 public class LocalizationManager {
     private static final int latestLangVersion = 2;
-    private final JavaPlugin plugin;
+    private final MixerPlugin plugin;
     private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
     private String currentLanguage = "en";
 
-    public LocalizationManager(JavaPlugin plugin) {
+    public LocalizationManager(MixerPlugin plugin) {
         this.plugin = plugin;
         loadLanguages();
     }
@@ -54,12 +55,12 @@ public class LocalizationManager {
             }
 
             langFile.renameTo(oldFile);
-            plugin.getLogger().warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            plugin.getLogger().warning("Your language file '" + langCode + ".yml' is outdated!");
-            plugin.getLogger().warning("A new file with version " + latestVersion + " will be created.");
-            plugin.getLogger().warning("Your old file has been backed up to: " + oldFile.getName());
-            plugin.getLogger().warning("Please update your custom messages from the old file.");
-            plugin.getLogger().warning("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            plugin.logDebug(Level.WARNING, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", null);
+            plugin.logDebug(Level.WARNING, "Your language file '" + langCode + ".yml' is outdated!", null);
+            plugin.logDebug(Level.WARNING, "A new file with version " + latestVersion + " will be created.", null);
+            plugin.logDebug(Level.WARNING, "Your old file has been backed up to: " + oldFile.getName(), null);
+            plugin.logDebug(Level.WARNING, "Please update your custom messages from the old file.", null);
+            plugin.logDebug(Level.WARNING, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", null);
         }
 
         plugin.saveResource("lang/" + langCode + ".yml", false);
@@ -69,7 +70,7 @@ public class LocalizationManager {
         if (languageConfigs.containsKey(langCode)) {
             this.currentLanguage = langCode;
         } else {
-            plugin.getLogger().warning("Language " + langCode + " not found, using default (en)");
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Language " + langCode + " not found, using default (en)", null);
             this.currentLanguage = "en";
         }
     }
