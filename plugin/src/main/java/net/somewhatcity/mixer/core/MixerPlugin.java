@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
@@ -59,6 +60,7 @@ public class MixerPlugin extends JavaPlugin {
     private int audioBufferSize;
     private int audioFrameBufferDuration;
     private String language;
+    private String debugLevel; // "NONE", "WARNING", "ALL"
 
     // Portable Speaker Config
     private boolean portableSpeakerEnabled;
@@ -259,6 +261,9 @@ public class MixerPlugin extends JavaPlugin {
         audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
         language = config.getString("lang", "en");
 
+        // Load debug level
+        debugLevel = config.getString("system.debugLevel", "WARNING").toUpperCase();
+
         portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
         portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
         portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
@@ -321,6 +326,27 @@ public class MixerPlugin extends JavaPlugin {
         getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
     }
 
+    /**
+     * Smart logging method based on configured debug level.
+     * @param level The severity level (usually Level.SEVERE or Level.WARNING)
+     * @param message The message to log
+     * @param e The exception that occurred
+     */
+    public void logDebug(Level level, String message, Throwable e) {
+        if ("NONE".equals(debugLevel)) {
+            return;
+        }
+
+        if ("ALL".equals(debugLevel)) {
+            // Full stack trace
+            getLogger().log(level, message, e);
+        } else {
+            // "WARNING" (default) - Only message
+            String errorMsg = (e != null) ? e.getMessage() : "Unknown error";
+            getLogger().log(level, message + ": " + errorMsg);
+        }
+    }
+
     @Override
     public void onDisable() {
         // Stop audio players
@@ -359,6 +385,7 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioBufferSize() { return audioBufferSize; }
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
+    public String getDebugLevel() { return debugLevel; }
 
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }

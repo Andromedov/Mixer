@@ -8,6 +8,16 @@
 lang: "en"
 
 # ===========================================
+# SYSTEM SETTINGS
+# ===========================================
+system:
+  # Debug level for console logging.
+  # "NONE"    - Suppress errors (not recommended).
+  # "WARNING" - (Default) Print error messages without stack traces.
+  # "ALL"     - Print full stack traces (useful for dev/debugging).
+  debugLevel: "WARNING"
+
+# ===========================================
 # UPDATE NOTIFIER
 # ===========================================
 updateNotifier:
