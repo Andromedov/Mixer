@@ -28,6 +28,7 @@ import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
 
 public class Utils {
     public static boolean isDisc(ItemStack item) {
@@ -162,7 +163,7 @@ public class Utils {
                 return null;
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error requesting Cobalt media URL", e);
             return null;
         }
     }

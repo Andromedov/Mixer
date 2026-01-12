@@ -143,7 +143,7 @@ public class MixerPlugin extends JavaPlugin {
                 }
             }
         } catch (Exception e) {
-            getLogger().warning("Failed to cleanup opus4j temp files: " + e.getMessage());
+            logDebug(Level.WARNING, "Failed to cleanup opus4j temp files", e);
         }
     }
 
@@ -247,7 +247,7 @@ public class MixerPlugin extends JavaPlugin {
             Files.write(configFile.toPath(), newLines, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            getLogger().warning("Failed to update config.yml structure: " + e.getMessage());
+            logDebug(Level.WARNING, "Failed to update config.yml structure", e);
         }
     }
 
@@ -330,7 +330,7 @@ public class MixerPlugin extends JavaPlugin {
      * Smart logging method based on configured debug level.
      * @param level The severity level (usually Level.SEVERE or Level.WARNING)
      * @param message The message to log
-     * @param e The exception that occurred
+     * @param e The exception that occurred (nullable)
      */
     public void logDebug(Level level, String message, Throwable e) {
         if ("NONE".equals(debugLevel)) {
@@ -342,8 +342,8 @@ public class MixerPlugin extends JavaPlugin {
             getLogger().log(level, message, e);
         } else {
             // "WARNING" (default) - Only message
-            String errorMsg = (e != null) ? e.getMessage() : "Unknown error";
-            getLogger().log(level, message + ": " + errorMsg);
+            if (e != null) { getLogger().log(level, message + ": " + e.getMessage()); }
+            else { getLogger().log(level, message); }
         }
     }
 
@@ -354,7 +354,7 @@ public class MixerPlugin extends JavaPlugin {
             try {
                 player.stop();
             } catch (Exception e) {
-                getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
+                logDebug(Level.WARNING, "Error stopping audio player during shutdown", e);
             }
         });
 
@@ -363,7 +363,7 @@ public class MixerPlugin extends JavaPlugin {
             try {
                 player.stop();
             } catch (Exception e) {
-                getLogger().warning("Error stopping portable audio player during shutdown: " + e.getMessage());
+                logDebug(Level.WARNING, "Error stopping portable audio player during shutdown", e);
             }
         });
         portablePlayerMap.clear();

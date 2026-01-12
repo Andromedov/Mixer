@@ -49,6 +49,7 @@ import java.io.File;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
 
 public class CommandRegistry {
 
@@ -170,7 +171,7 @@ public class CommandRegistry {
             try {
                 playableComponent.setSongKey(getVanillaSongKey(item.getType()));
             } catch (Exception e) {
-                MixerPlugin.getPlugin().getLogger().warning("Failed to set custom jukebox key " + e.getMessage());
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to set custom jukebox key", e);
             }
             meta.setJukeboxPlayable(playableComponent);
         });
@@ -467,7 +468,7 @@ public class CommandRegistry {
         Material mat = Material.getMaterial(matName);
         if (mat == null) {
             mat = Material.NOTE_BLOCK;
-            MixerPlugin.getPlugin().getLogger().warning("Invalid material for portable speaker: " + matName + ". Using NOTE_BLOCK instead.");
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Invalid material for portable speaker: " + matName + ". Using NOTE_BLOCK instead.", null);
         }
 
         ItemStack speaker = new ItemStack(mat);

@@ -19,6 +19,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class PlayerInteractListener implements Listener {
 
@@ -116,7 +117,7 @@ public class PlayerInteractListener implements Listener {
                 IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
                 audioPlayer.load(url);
             } catch (Exception ex) {
-                MixerPlugin.getPlugin().getLogger().warning("Failed to create audio player: " + ex.getMessage());
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to create audio player", ex);
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
             }
         }

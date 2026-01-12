@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 
 import java.io.IOException;
 import java.util.function.BiConsumer;
+import java.util.logging.Level;
 
 public class UpdateChecker {
     private final MixerPlugin plugin;
@@ -67,9 +68,9 @@ public class UpdateChecker {
                 }
 
             } catch (IOException e) {
-                plugin.getLogger().warning("Failed to check for updates: " + e.getMessage());
+                plugin.logDebug(Level.WARNING, "Failed to check for updates", e);
             } catch (Exception e) {
-                plugin.getLogger().warning("Unexpected error during update check: " + e.getMessage());
+                plugin.logDebug(Level.WARNING, "Unexpected error during update check", e);
             }
         });
     }

@@ -22,6 +22,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Level;
 
 public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private static final VoicechatServerApi API = (VoicechatServerApi) MixerVoicechatPlugin.api;
@@ -98,7 +99,7 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
                 ch.send(data);
             } catch (Exception e) {
                 if (running) {
-                    MixerPlugin.getPlugin().getLogger().warning("Error sending audio to channel: " + e.getMessage());
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error sending audio to channel", e);
                 }
             }
         });
