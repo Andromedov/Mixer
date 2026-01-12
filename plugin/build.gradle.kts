@@ -9,6 +9,7 @@ repositories {
     maven ("https://repo.codemc.io/repository/maven-public/")
     maven ("https://jitpack.io")
     maven ("https://maven.lavalink.dev/releases")
+    maven ("https://repo.extendedclip.com/releases/")
     maven {
         name = "arbjergDevSnapshots"
         url = uri("https://maven.lavalink.dev/snapshots")
@@ -25,8 +26,11 @@ repositories {
 
 dependencies {
     library("com.google.code.gson", "gson", "2.13.2")
+
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
-    compileOnly("org.apache.logging.log4j:log4j-core:2.17.1")
+    compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
+    compileOnly("me.clip:placeholderapi:2.11.7")
+
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
     implementation("dev.arbjerg:lavaplayer:2.2.4")
     implementation("dev.lavalink.youtube:v2:1.14.0")
@@ -65,6 +69,7 @@ bukkit {
     authors = listOf("Andromedov", "mrmrmystery")
     name = rootProject.name
     depend = listOf("voicechat")
+    softDepend = listOf("PlaceholderAPI")
     version = rootProject.version.toString()
 }
 

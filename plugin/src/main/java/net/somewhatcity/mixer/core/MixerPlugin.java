@@ -8,6 +8,7 @@ import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.*;
+import net.somewhatcity.mixer.core.papi.MixerPapiExpansion;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
 import net.somewhatcity.mixer.core.util.UpdateChecker;
@@ -121,6 +122,14 @@ public class MixerPlugin extends JavaPlugin {
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
         setupLogFilters();
+
+        // Register PlaceholderAPI expansion
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new MixerPapiExpansion(this).register();
+            logDebug(Level.INFO, "PlaceholderAPI expansion registered!", null);
+        } else {
+            logDebug(Level.INFO, "PlaceholderAPI not found. Placeholders will not work.", null);
+        }
 
         // Check for updates
         new UpdateChecker(this).check((version, id) -> {
@@ -327,7 +336,7 @@ public class MixerPlugin extends JavaPlugin {
     }
 
     /**
-     * Smart logging method based on configured debug level.
+     * Smart logging method based on the configured debug level.
      * @param level The severity level (Level.INFO, Level.WARNING, or Level.SEVERE)
      * @param message The message to log
      * @param e The exception that occurred (nullable)
