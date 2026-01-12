@@ -46,6 +46,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.logging.Level;
 
 public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
@@ -190,7 +191,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                                 processAudioFrame();
                             } catch (Exception e) {
                                 if (running) {
-                                    MixerPlugin.getPlugin().getLogger().severe("Critical error in audio timer: " + e.getMessage());
+                                    MixerPlugin.getPlugin().getLogger().log(Level.SEVERE, "Critical error in audio timer task", e);
                                     stop();
                                 }
                             }
@@ -206,7 +207,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                         loadNextFromQueue();
                     }
                 } catch (Exception e) {
-                    MixerPlugin.getPlugin().getLogger().severe("Failed to initialize audio player: " + e.getMessage());
+                    MixerPlugin.getPlugin().getLogger().log(Level.SEVERE, "Failed to initialize audio player", e);
                     e.printStackTrace();
                 }
             }
@@ -218,31 +219,40 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected abstract void notifyUser(String message);
 
     protected void processAudioFrame() {
-        AudioFrame frame = lavaplayer.provide();
-        if (frame != null && running) {
-            byte[] data = frame.getData();
-            byte[] decoded;
-            if (data.length >= 1500) {
-                decoded = data;
-            } else if (decoder != null && !decoder.isClosed()) {
-                decoded = Utils.shortToByte(decoder.decode(data));
-            } else {
-                decoded = new byte[0];
-            }
+        try {
+            AudioFrame frame = lavaplayer.provide();
+            if (frame != null && running) {
+                byte[] data = frame.getData();
+                byte[] decoded;
+                if (data.length >= 1500) {
+                    decoded = data;
+                } else if (decoder != null && !decoder.isClosed()) {
+                    decoded = Utils.shortToByte(decoder.decode(data));
+                } else {
+                    decoded = new byte[0];
+                }
 
-            if (audioStream != null && decoded.length > 0) {
-                try {
-                    audioStream.appendData(decoded);
-                } catch (Exception ex) {
-                    if (running) { MixerPlugin.getPlugin().getLogger().warning("Error appending audio data: " + ex.getMessage()); }
+                if (audioStream != null && decoded.length > 0) {
+                    try {
+                        audioStream.appendData(decoded);
+                    } catch (Exception ex) {
+                        if (running) {
+                            // Оновлено: повний стек-трейс
+                            MixerPlugin.getPlugin().getLogger().log(Level.WARNING, "Error appending audio data to stream", ex);
+                        }
+                    }
                 }
             }
-        }
 
-        if (!audioQueue.isEmpty() && running) {
-            byte[] data = audioQueue.poll();
-            if (data != null) {
-                broadcastAudio(data);
+            if (!audioQueue.isEmpty() && running) {
+                byte[] data = audioQueue.poll();
+                if (data != null) {
+                    broadcastAudio(data);
+                }
+            }
+        } catch (Exception e) {
+            if (running) {
+                MixerPlugin.getPlugin().getLogger().log(Level.SEVERE, "Unexpected error in processAudioFrame", e);
             }
         }
     }
@@ -457,7 +467,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
                 dispatcher.run();
             } catch (Exception e) {
-                MixerPlugin.getPlugin().getLogger().warning("Error in DSP processing: " + e.getMessage());
+                MixerPlugin.getPlugin().getLogger().log(Level.WARNING, "Error in DSP processing", e);
             }
         });
     }
@@ -465,6 +475,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void handlePlaybackException(AudioTrack track, FriendlyException exception) {
         String errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>";
         notifyUser(errorMessage);
+        MixerPlugin.getPlugin().getLogger().log(Level.WARNING, "FriendlyException in track playback", exception);
         if (!playlist.isEmpty()) { start(); }
     }
 }
