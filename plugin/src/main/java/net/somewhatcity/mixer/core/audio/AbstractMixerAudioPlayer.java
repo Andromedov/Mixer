@@ -89,9 +89,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         APM.setFrameBufferDuration(frameBufferDuration);
     }
 
-    protected static class TrackContext {
-        String originalUrl;
-        int retries;
+    public static class TrackContext {
+        public String originalUrl;
+        public int retries;
 
         public TrackContext(String originalUrl, int retries) {
             this.originalUrl = originalUrl;
@@ -257,6 +257,15 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     @Override
     public MixerDsp dsp() { return dsp; }
+
+    /**
+     * Helper method for PlaceholderAPI or other integrations
+     * to get the current track being played by this player.
+     * @return The currently playing AudioTrack, or null if none.
+     */
+    public AudioTrack getPlayingTrack() {
+        return lavaplayer != null ? lavaplayer.getPlayingTrack() : null;
+    }
 
     @Override
     public void load(String... url) {
