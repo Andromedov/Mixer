@@ -21,7 +21,7 @@ system:
 # UPDATE NOTIFIER
 # ===========================================
 updateNotifier:
-  # Check for updates on startup and display in console?
+  # Check for updates on startup and display in the console?
   enabled: true
   # Notify players with 'mixer.update-notify' permission (and OPs) on join?
   on-join: true
@@ -49,7 +49,7 @@ mixer:
 # AUDIO SETTINGS | CHANGE ONLY OF YOU KNOW WHAT YOU'RE DOING
 # ===========================================
   audio:
-    # Sample rate (Hz). 48000 is the standard.
+    # Sample rate (Hz). 48,000 is the standard.
     sampleRate: 48000
     # Buffer size
     bufferSize: 960
