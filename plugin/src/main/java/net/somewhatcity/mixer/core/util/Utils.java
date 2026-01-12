@@ -28,6 +28,7 @@ import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
 
 public class Utils {
     public static boolean isDisc(ItemStack item) {
@@ -128,14 +129,14 @@ public class Utils {
 
     public static void logAudioConfiguration() {
         MixerPlugin plugin = MixerPlugin.getPlugin();
-        plugin.getLogger().info("=== Audio Configuration ===");
-        plugin.getLogger().info("Sample Rate: " + plugin.getAudioSampleRate() + " Hz");
-        plugin.getLogger().info("Buffer Size: " + plugin.getAudioBufferSize() + " samples");
-        plugin.getLogger().info("Frame Buffer Duration: " + plugin.getAudioFrameBufferDuration() + " ms");
-        plugin.getLogger().info("Volume: " + plugin.getVolumePercent() + "% (" + plugin.getVolumeMultiplier() + "x)");
-        plugin.getLogger().info("YouTube Enabled: " + plugin.isYoutubeEnabled());
-        plugin.getLogger().info("Language: " + plugin.getLanguage());
-        plugin.getLogger().info("===========================");
+        plugin.logDebug(Level.INFO, "=== Audio Configuration ===", null);
+        plugin.logDebug(Level.INFO, "Sample Rate: " + plugin.getAudioSampleRate() + " Hz", null);
+        plugin.logDebug(Level.INFO, "Buffer Size: " + plugin.getAudioBufferSize() + " samples", null);
+        plugin.logDebug(Level.INFO, "Frame Buffer Duration: " + plugin.getAudioFrameBufferDuration() + " ms", null);
+        plugin.logDebug(Level.INFO, "Volume: " + plugin.getVolumePercent() + "% (" + plugin.getVolumeMultiplier() + "x)", null);
+        plugin.logDebug(Level.INFO, "YouTube Enabled: " + plugin.isYoutubeEnabled(), null);
+        plugin.logDebug(Level.INFO, "Language: " + plugin.getLanguage(), null);
+        plugin.logDebug(Level.INFO, "===========================", null);
     }
 
     public static String requestCobaltMediaUrl(String url) {
@@ -162,7 +163,7 @@ public class Utils {
                 return null;
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error requesting Cobalt media URL", e);
             return null;
         }
     }

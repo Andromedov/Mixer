@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 
 import java.io.IOException;
 import java.util.function.BiConsumer;
+import java.util.logging.Level;
 
 public class UpdateChecker {
     private final MixerPlugin plugin;
@@ -54,12 +55,12 @@ public class UpdateChecker {
                     String versionId = versionObj.get("id").getAsString();
 
                     if (isNewer(currentVersion, latestVersion)) {
-                        plugin.getLogger().info("========================================");
-                        plugin.getLogger().info("Mixer update available!");
-                        plugin.getLogger().info("Current: " + currentVersion);
-                        plugin.getLogger().info("New: " + latestVersion);
-                        plugin.getLogger().info("Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId);
-                        plugin.getLogger().info("========================================");
+                        plugin.logDebug(Level.INFO, "========================================", null);
+                        plugin.logDebug(Level.INFO, "Mixer update available!", null);
+                        plugin.logDebug(Level.INFO, "Current: " + currentVersion, null);
+                        plugin.logDebug(Level.INFO, "New: " + latestVersion, null);
+                        plugin.logDebug(Level.INFO, "Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId, null);
+                        plugin.logDebug(Level.INFO, "========================================", null);
 
                         Bukkit.getScheduler().runTask(plugin, () -> onSuccess.accept(latestVersion, versionId));
                     }
@@ -67,9 +68,9 @@ public class UpdateChecker {
                 }
 
             } catch (IOException e) {
-                plugin.getLogger().warning("Failed to check for updates: " + e.getMessage());
+                plugin.logDebug(Level.WARNING, "Failed to check for updates", e);
             } catch (Exception e) {
-                plugin.getLogger().warning("Unexpected error during update check: " + e.getMessage());
+                plugin.logDebug(Level.WARNING, "Unexpected error during update check", e);
             }
         });
     }

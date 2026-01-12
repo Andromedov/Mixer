@@ -168,7 +168,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
                         @Override
                         public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
-                            MixerPlugin.getPlugin().getLogger().warning("Track stuck: " + track.getInfo().title);
+                            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Track stuck: " + track.getInfo().title, null);
                             start();
                         }
                     });
@@ -354,7 +354,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void scheduleRetry(String url, int currentRetry, String reason) {
         int nextRetry = currentRetry + 1;
-        MixerPlugin.getPlugin().getLogger().warning("Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES);
+        MixerPlugin.getPlugin().logDebug(Level.WARNING, "Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES, null);
 
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
 
