@@ -18,6 +18,12 @@ public class MixerDatabase {
         this.plugin = plugin;
         File dbFile = new File(plugin.getDataFolder(), "database");
         this.connectionString = "jdbc:h2:" + dbFile.getAbsolutePath() + ";MODE=MySQL";
+
+        try {
+            Class.forName("org.h2.Driver");
+        } catch (ClassNotFoundException e) {
+            plugin.logDebug(Level.SEVERE, "H2 Driver not found!", e);
+        }
     }
 
     public void init() {
