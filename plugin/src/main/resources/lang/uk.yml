@@ -61,6 +61,3 @@ messages:
     reset_name: "<red>Скинути Всі Ефекти</red>"
     reset_lore:
       - "<red>Натисніть, щоб скинути всі налаштування"
-
-# DO NOT CHANGE
-lang-version: 3
