@@ -56,7 +56,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected static final long RETRY_DELAY_MS = 3000L;
 
     static {
-        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
+        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
