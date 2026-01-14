@@ -24,7 +24,7 @@ import java.util.logging.Level;
 public class PlayerInteractListener implements Listener {
 
     private final Map<Location, Long> lastInteractTime = new ConcurrentHashMap<>();
-    private static final long INTERACT_COOLDOWN = 1000; // 1 second
+    private static final long INTERACT_COOLDOWN = 500; // 0.5 second
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
@@ -66,7 +66,6 @@ public class PlayerInteractListener implements Listener {
             }
         }
 
-        // --- Original Jukebox Logic ---
         if (e.getClickedBlock() == null) return;
         if (!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
 
@@ -81,27 +80,24 @@ public class PlayerInteractListener implements Listener {
 
         lastInteractTime.put(location, currentTime);
 
+        // --- DSP GUI Trigger ---
+        if (e.getAction() == Action.RIGHT_CLICK_BLOCK && e.getPlayer().isSneaking()) {
+            if (e.getItem() == null || e.getItem().getType() == Material.AIR) {
+                e.setCancelled(true);
+                MixerPlugin.getPlugin().getDspGui().open(e.getPlayer(), location);
+                return;
+            }
+        }
+
+        // --- Original Jukebox Logic ---
         if (e.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
-            Location loc = e.getClickedBlock().getLocation();
-            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
+            if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
+                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
                 audioPlayer.stop();
             }
         } else if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
-            Location loc = e.getClickedBlock().getLocation();
-            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
-                if (e.getPlayer().isSneaking()) {
-                    int boost = e.getPlayer().getInventory().getHeldItemSlot() * 100;
-                    if (boost == 0) {
-                        // oldPlayer.resetFilters();
-                        MessageUtil.sendActionBarMsg(e.getPlayer(), "bassboost_disabled");
-                        return;
-                    }
-                    // oldPlayer.bassBoost(boost);
-                    MessageUtil.sendActionBarMsg(e.getPlayer(), "bassboost_set_to", boost);
-                    return;
-                }
+            if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
+                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
                 audioPlayer.stop();
                 e.setCancelled(true);
