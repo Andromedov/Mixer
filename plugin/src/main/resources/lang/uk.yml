@@ -33,6 +33,13 @@ messages:
     portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
     portable_speaker_start_button: "<green>Старт</green>"
     portable_speaker_stop_button: "<red>Стоп</red>"
+  dsp:
+    gui_title: "<gradient:#7277D8:#4851F5>Аудіо Ефекти (DSP)</gradient>"
+    gain_name: "<green>Гучність (Gain)</green>"
+    highpass_name: "<aqua>Фільтр Високих Частот (Зріз Басів)</aqua>"
+    lowpass_name: "<yellow>Фільтр Низьких Частот (Зріз ВЧ)</yellow>"
+    flanger_name: "<light_purple>Ефект Фланжера</light_purple>"
+    reset_name: "<red>Скинути Всі Ефекти</red>"
 
 # DO NOT CHANGE
-lang-version: 2
+lang-version: 3

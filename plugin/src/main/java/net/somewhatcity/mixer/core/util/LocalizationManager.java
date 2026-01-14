@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.logging.Level;
 
 public class LocalizationManager {
-    private static final int latestLangVersion = 2;
+    private static final int latestLangVersion = 3;
     private final MixerPlugin plugin;
     private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
     private String currentLanguage = "en";
