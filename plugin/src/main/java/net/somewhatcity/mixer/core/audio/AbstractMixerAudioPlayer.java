@@ -287,7 +287,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
-            attemptLoad(loadingQueue.poll(), 0);
+            String nextUrl = loadingQueue.poll();
+            CompletableFuture.runAsync(() -> attemptLoad(nextUrl, 0));
         }
     }
 
