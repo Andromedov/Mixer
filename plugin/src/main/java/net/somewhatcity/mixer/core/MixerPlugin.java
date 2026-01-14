@@ -6,6 +6,7 @@ import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
+import net.somewhatcity.mixer.core.gui.DspGui;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.*;
 import net.somewhatcity.mixer.core.papi.MixerPapiExpansion;
@@ -49,8 +50,9 @@ public class MixerPlugin extends JavaPlugin {
     private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
 
-    // GUI for potable speaker
+    // GUIs
     private PortableSpeakerGui portableSpeakerGui;
+    private DspGui dspGui;
 
     // Config
     private boolean youtubeEnabled;
@@ -117,6 +119,10 @@ public class MixerPlugin extends JavaPlugin {
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
+
+        // Register DSP GUI
+        dspGui = new DspGui();
+        pm.registerEvents(dspGui, this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
@@ -390,6 +396,7 @@ public class MixerPlugin extends JavaPlugin {
     public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
     public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
+    public DspGui getDspGui() { return dspGui; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }

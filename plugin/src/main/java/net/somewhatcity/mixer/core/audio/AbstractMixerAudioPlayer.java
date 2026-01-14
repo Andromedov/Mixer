@@ -32,12 +32,12 @@ import de.maxhenkel.opus4j.OpusEncoder;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.clients.*;
 import dev.lavalink.youtube.clients.skeleton.Client;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.api.MixerDsp;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import javax.sound.sampled.AudioFormat;
@@ -418,12 +418,22 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         this.gainProcessor.setGain(finalGain);
     }
 
+    public void reloadDspSettings() {
+        if (this instanceof IMixerAudioPlayer) {
+            Location loc = this.location();
+            this.dspSettings = Utils.loadNbtData(loc, "mixer_dsp");
+            if (this.dspSettings == null) this.dspSettings = new JsonObject();
+        }
+    }
+
     public void loadDsp() {
-        if (dispatcher != null && !dispatcher.isStopped()) return;
+        if (dispatcher != null && !dispatcher.isStopped()) {
+            dispatcher.stop();
+            dispatcher = null;
+        }
 
         CompletableFuture.runAsync(() -> {
-            if (dispatcher != null && !dispatcher.isStopped()) return;
-            try { Thread.sleep(500); } catch (InterruptedException e) { return; }
+            try { Thread.sleep(200); } catch (InterruptedException e) { return; }
             if (!running) return;
 
             try {
