@@ -4,7 +4,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import java.io.File;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 
@@ -91,6 +93,19 @@ public class LocalizationManager {
     public String getMessage(String key, Object... args) {
         String message = getMessage(key);
         return String.format(message, args);
+    }
+
+    public List<String> getMessageList(String key) {
+        FileConfiguration config = languageConfigs.get(currentLanguage);
+        if (config == null) {
+            config = languageConfigs.get("en"); // Fallback
+        }
+
+        if (config != null && config.contains("messages." + key)) {
+            return config.getStringList("messages." + key);
+        }
+
+        return Collections.singletonList("[Missing translation list: " + key + "]");
     }
 
     public String getPrefix() {

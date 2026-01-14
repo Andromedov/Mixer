@@ -49,12 +49,9 @@ public class DspGui implements Listener {
             gain = dspData.getAsJsonObject("gain").get("gain").getAsDouble();
         }
         ItemStack gainItem = createItem(Material.GOAT_HORN, "dsp.gain_name");
-        addLore(gainItem,
-                "<gray>Current: <yellow>" + Math.round(gain * 100) + "%",
-                "",
-                "<green>LMB: +10% <gray>| <green>Shift+LMB: +1%",
-                "<red>RMB: -10% <gray>| <red>Shift+RMB: -1%"
-        );
+        List<String> gainLore = MixerPlugin.getPlugin().getLocalizationManager().getMessageList("dsp.gain_lore");
+        replacePlaceholder(gainLore, "%gain%", String.valueOf(Math.round(gain * 100)));
+        addLore(gainItem, gainLore);
         inv.setItem(10, gainItem);
 
         // --- HighPass Filter (Bass Cut) ---
@@ -63,13 +60,10 @@ public class DspGui implements Listener {
             hpFreq = dspData.getAsJsonObject("highPassFilter").get("frequency").getAsFloat();
         }
         ItemStack hpItem = createItem(Material.IRON_BARS, "dsp.highpass_name");
-        addLore(hpItem,
-                "<gray>Frequency: <aqua>" + hpFreq + " Hz",
-                "<gray>Status: " + (hpFreq > 0 ? "<green>ON" : "<red>OFF"),
-                "",
-                "<green>LMB: +50 Hz",
-                "<red>RMB: -50 Hz"
-        );
+        List<String> hpLore = MixerPlugin.getPlugin().getLocalizationManager().getMessageList("dsp.highpass_lore");
+        replacePlaceholder(hpLore, "%freq%", String.valueOf(hpFreq));
+        replacePlaceholder(hpLore, "%status%", (hpFreq > 0 ? "<green>ON" : "<red>OFF"));
+        addLore(hpItem, hpLore);
         inv.setItem(12, hpItem);
 
         // --- LowPass Filter (Treble Cut) ---
@@ -79,28 +73,24 @@ public class DspGui implements Listener {
         }
         ItemStack lpItem = createItem(Material.SOUL_SOIL, "dsp.lowpass_name");
         String lpStatus = lpFreq < 20000 ? "<green>ON" : "<red>OFF";
-        addLore(lpItem,
-                "<gray>Frequency: <aqua>" + lpFreq + " Hz",
-                "<gray>Status: " + lpStatus,
-                "",
-                "<green>LMB: +500 Hz (Less Muffled)",
-                "<red>RMB: -500 Hz (More Muffled)"
-        );
+        List<String> lpLore = MixerPlugin.getPlugin().getLocalizationManager().getMessageList("dsp.lowpass_lore");
+        replacePlaceholder(lpLore, "%freq%", String.valueOf(lpFreq));
+        replacePlaceholder(lpLore, "%status%", lpStatus);
+        addLore(lpItem, lpLore);
         inv.setItem(14, lpItem);
 
         // --- Flanger ---
         boolean flangerOn = dspData.has("flangerEffect");
         ItemStack flangerItem = createItem(Material.AMETHYST_BLOCK, "dsp.flanger_name");
-        addLore(flangerItem,
-                "<gray>Status: " + (flangerOn ? "<green>ON" : "<red>OFF"),
-                "",
-                "<green>Click to Toggle On/Off"
-        );
+        List<String> flangerLore = MixerPlugin.getPlugin().getLocalizationManager().getMessageList("dsp.flanger_lore");
+        replacePlaceholder(flangerLore, "%status%", (flangerOn ? "<green>ON" : "<red>OFF"));
+        addLore(flangerItem, flangerLore);
         inv.setItem(16, flangerItem);
 
         // --- Reset ---
         ItemStack resetItem = createItem(Material.BARRIER, "dsp.reset_name");
-        addLore(resetItem, "<red>Click to reset all effects");
+        List<String> resetLore = MixerPlugin.getPlugin().getLocalizationManager().getMessageList("dsp.reset_lore");
+        addLore(resetItem, resetLore);
         inv.setItem(22, resetItem);
 
         // Fillers
@@ -115,6 +105,10 @@ public class DspGui implements Listener {
         }
     }
 
+    private void replacePlaceholder(List<String> list, String target, String replacement) {
+        list.replaceAll(s -> s.replace(target, replacement));
+    }
+
     private ItemStack createItem(Material mat, String langKey) {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
@@ -125,7 +119,7 @@ public class DspGui implements Listener {
         return item;
     }
 
-    private void addLore(ItemStack item, String... lines) {
+    private void addLore(ItemStack item, List<String> lines) {
         ItemMeta meta = item.getItemMeta();
         List<Component> lore = new ArrayList<>();
         for (String line : lines) {

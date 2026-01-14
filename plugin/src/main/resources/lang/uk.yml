@@ -36,10 +36,33 @@ messages:
   dsp:
     gui_title: "<gradient:#7277D8:#4851F5>Аудіо Ефекти (DSP)</gradient>"
     gain_name: "<green>Гучність (Gain)</green>"
+    gain_lore:
+      - "<gray>Поточно: <yellow>%gain%%"
+      - ""
+      - "<green>ЛКМ: +10% <gray>| <green>Shift+ЛКМ: +1%"
+      - "<red>ПКМ: -10% <gray>| <red>Shift+ПКМ: -1%"
     highpass_name: "<aqua>Фільтр Високих Частот (Зріз Басів)</aqua>"
+    highpass_lore:
+      - "<gray>Частота: <aqua>%freq% Hz"
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>ЛКМ: +50 Hz"
+      - "<red>ПКМ: -50 Hz"
     lowpass_name: "<yellow>Фільтр Низьких Частот (Зріз ВЧ)</yellow>"
+    lowpass_lore:
+      - "<gray>Частота: <aqua>%freq% Hz"
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>ЛКМ: +500 Hz (Менш глухо)"
+      - "<red>ПКМ: -500 Hz (Більш глухо)"
     flanger_name: "<light_purple>Ефект Фланжера</light_purple>"
+    flanger_lore:
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>Натисніть, щоб увімкнути/вимкнути"
     reset_name: "<red>Скинути Всі Ефекти</red>"
+    reset_lore:
+      - "<red>Натисніть, щоб скинути всі налаштування"
 
 # DO NOT CHANGE
 lang-version: 3

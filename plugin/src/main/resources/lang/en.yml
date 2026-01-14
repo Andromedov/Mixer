@@ -36,10 +36,33 @@ messages:
   dsp:
     gui_title: "<gradient:#7277D8:#4851F5>Audio Effects (DSP)</gradient>"
     gain_name: "<green>Volume (Gain)</green>"
+    gain_lore:
+      - "<gray>Current: <yellow>%gain%%"
+      - ""
+      - "<green>LMB: +10% <gray>| <green>Shift+LMB: +1%"
+      - "<red>RMB: -10% <gray>| <red>Shift+RMB: -1%"
     highpass_name: "<aqua>HighPass Filter (Bass Cut)</aqua>"
+    highpass_lore:
+      - "<gray>Frequency: <aqua>%freq% Hz"
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>LMB: +50 Hz"
+      - "<red>RMB: -50 Hz"
     lowpass_name: "<yellow>LowPass Filter (Treble Cut)</yellow>"
+    lowpass_lore:
+      - "<gray>Frequency: <aqua>%freq% Hz"
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>LMB: +500 Hz (Less Muffled)"
+      - "<red>RMB: -500 Hz (More Muffled)"
     flanger_name: "<light_purple>Flanger Effect</light_purple>"
+    flanger_lore:
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>Click to Toggle On/Off"
     reset_name: "<red>Reset All Effects</red>"
+    reset_lore:
+      - "<red>Click to reset all effects"
 
 # DO NOT CHANGE
 lang-version: 3
