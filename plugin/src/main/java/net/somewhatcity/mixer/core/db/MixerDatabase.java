@@ -3,6 +3,7 @@ package net.somewhatcity.mixer.core.db;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.h2.jdbcx.JdbcDataSource;
 
 import java.io.File;
 import java.sql.*;
@@ -13,16 +14,26 @@ import java.util.logging.Level;
 public class MixerDatabase {
     private final MixerPlugin plugin;
     private final String connectionString;
+    private JdbcDataSource dataSource;
 
     public MixerDatabase(MixerPlugin plugin) {
         this.plugin = plugin;
+        if (!plugin.getDataFolder().exists()) {
+            try {
+                plugin.getDataFolder().mkdirs();
+            } catch (Exception e) {
+                plugin.logDebug(Level.SEVERE, "Failed to create data folder", e);
+            }
+        }
+
         File dbFile = new File(plugin.getDataFolder(), "database");
-        this.connectionString = "jdbc:h2:" + dbFile.getAbsolutePath() + ";MODE=MySQL";
+        this.connectionString = "jdbc:h2:" + dbFile.getAbsolutePath() + ";MODE=MySQL;DB_CLOSE_DELAY=-1";
 
         try {
-            Class.forName("org.h2.Driver");
-        } catch (ClassNotFoundException e) {
-            plugin.logDebug(Level.SEVERE, "H2 Driver not found!", e);
+            dataSource = new JdbcDataSource();
+            dataSource.setURL(connectionString);
+        } catch (Exception e) {
+            plugin.logDebug(Level.SEVERE, "Failed to create H2 DataSource", e);
         }
     }
 
@@ -48,7 +59,10 @@ public class MixerDatabase {
     }
 
     private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(connectionString);
+        if (dataSource == null) {
+            throw new SQLException("DataSource is not initialized");
+        }
+        return dataSource.getConnection();
     }
 
     private String getLocationKey(Location loc) {
