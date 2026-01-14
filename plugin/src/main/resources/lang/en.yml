@@ -61,6 +61,3 @@ messages:
     reset_name: "<red>Reset All Effects</red>"
     reset_lore:
       - "<red>Click to reset all effects"
-
-# DO NOT CHANGE
-lang-version: 3

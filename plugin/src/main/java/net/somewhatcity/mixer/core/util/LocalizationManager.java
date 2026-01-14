@@ -4,14 +4,13 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import java.io.File;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
 import java.util.logging.Level;
 
 public class LocalizationManager {
-    private static final int latestLangVersion = 3;
     private final MixerPlugin plugin;
     private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
     private String currentLanguage = "en";
@@ -24,11 +23,15 @@ public class LocalizationManager {
     private void loadLanguages() {
         File langDir = new File(plugin.getDataFolder(), "lang");
         if (!langDir.exists()) {
-            langDir.mkdirs();
+            try {
+                langDir.mkdirs();
+            } catch (Exception e) {
+                plugin.logDebug(Level.FINEST, "Failed to create lang directory", e);
+            }
         }
 
-        createDefaultLanguageFile("en", latestLangVersion);
-        createDefaultLanguageFile("uk", latestLangVersion);
+        updateLanguageFile("en");
+        updateLanguageFile("uk");
 
         File[] langFiles = langDir.listFiles((dir, name) -> name.endsWith(".yml"));
         if (langFiles != null) {
@@ -40,32 +43,114 @@ public class LocalizationManager {
         }
     }
 
-    private void createDefaultLanguageFile(String langCode, int latestVersion) {
+    private void updateLanguageFile(String langCode) {
         File langFile = new File(plugin.getDataFolder(), "lang/" + langCode + ".yml");
 
-        if (langFile.exists()) {
-            FileConfiguration diskConfig = YamlConfiguration.loadConfiguration(langFile);
-            int diskVersion = diskConfig.getInt("lang-version", 0);
+        if (!langFile.exists()) {
+            plugin.saveResource("lang/" + langCode + ".yml", false);
+            return;
+        }
 
-            if (diskVersion >= latestVersion) {
+        try {
+            FileConfiguration currentConfig = YamlConfiguration.loadConfiguration(langFile);
+
+            List<String> templateLines = new ArrayList<>();
+            InputStream resourceStream = plugin.getResource("lang/" + langCode + ".yml");
+
+            if (resourceStream == null) {
+                plugin.logDebug(Level.WARNING, "Resource not found for update: lang/" + langCode + ".yml", null);
                 return;
             }
 
-            File oldFile = new File(plugin.getDataFolder(), "lang/" + langCode + "_v" + diskVersion + ".yml.old");
-            if (oldFile.exists()) {
-                oldFile.delete();
+            try (java.util.Scanner scanner = new java.util.Scanner(resourceStream, StandardCharsets.UTF_8)) {
+                while (scanner.hasNextLine()) {
+                    templateLines.add(scanner.nextLine());
+                }
             }
 
-            langFile.renameTo(oldFile);
-            plugin.logDebug(Level.WARNING, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", null);
-            plugin.logDebug(Level.WARNING, "Your language file '" + langCode + ".yml' is outdated!", null);
-            plugin.logDebug(Level.WARNING, "A new file with version " + latestVersion + " will be created.", null);
-            plugin.logDebug(Level.WARNING, "Your old file has been backed up to: " + oldFile.getName(), null);
-            plugin.logDebug(Level.WARNING, "Please update your custom messages from the old file.", null);
-            plugin.logDebug(Level.WARNING, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", null);
-        }
+            List<String> newLines = new ArrayList<>();
+            Map<Integer, String> context = new HashMap<>();
 
-        plugin.saveResource("lang/" + langCode + ".yml", false);
+            for (String line : templateLines) {
+                String trimmed = line.trim();
+
+                if (trimmed.startsWith("#") || trimmed.isEmpty()) {
+                    newLines.add(line);
+                    continue;
+                }
+
+                if (line.contains(":")) {
+                    String[] parts = line.split(":", 2);
+                    String keyPart = parts[0];
+
+                    int indentation = 0;
+                    while (indentation < keyPart.length() && keyPart.charAt(indentation) == ' ') {
+                        indentation++;
+                    }
+
+                    String keyName = keyPart.trim();
+                    context.put(indentation, keyName);
+
+                    int finalIndentation = indentation;
+                    context.keySet().removeIf(k -> k > finalIndentation);
+
+                    StringBuilder fullKeyBuilder = new StringBuilder();
+                    for (int i = 0; i <= indentation; i++) {
+                        if (context.containsKey(i)) {
+                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            fullKeyBuilder.append(context.get(i));
+                        }
+                    }
+                    String fullKey = fullKeyBuilder.toString();
+
+                    if (currentConfig.contains(fullKey)) {
+                        Object userValue = currentConfig.get(fullKey);
+
+                        if (currentConfig.isConfigurationSection(fullKey)) {
+                            newLines.add(line);
+                        } else {
+                            String yamlValue = formatYamlValue(userValue, indentation);
+                            if (yamlValue.contains("\n")) {
+                                newLines.add(keyPart + ":");
+                                newLines.add(yamlValue);
+                            } else {
+                                newLines.add(keyPart + ": " + yamlValue);
+                            }
+                        }
+                    } else {
+                        newLines.add(line);
+                    }
+                } else {
+                    boolean isListItem = trimmed.startsWith("-");
+                    if (!isListItem) {
+                        newLines.add(line);
+                    }
+                }
+            }
+
+            Files.write(langFile.toPath(), newLines, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            plugin.logDebug(Level.WARNING, "Failed to merge language file: " + langCode, e);
+        }
+    }
+
+    private String formatYamlValue(Object value, int indentation) {
+        if (value instanceof List<?>) {
+            StringBuilder sb = new StringBuilder();
+            List<?> list = (List<?>) value;
+            String spaces = String.join("", Collections.nCopies(indentation, "  "));
+
+            for (Object item : list) {
+                if (sb.length() > 0) sb.append("\n");
+                sb.append(spaces).append("- \"").append(item.toString().replace("\"", "\\\"")).append("\"");
+            }
+            return sb.toString();
+        } else if (value instanceof String) {
+            return "\"" + value.toString().replace("\"", "\\\"") + "\"";
+        } else {
+            return value.toString();
+        }
     }
 
     public void setLanguage(String langCode) {
@@ -92,7 +177,11 @@ public class LocalizationManager {
 
     public String getMessage(String key, Object... args) {
         String message = getMessage(key);
-        return String.format(message, args);
+        try {
+            return String.format(message, args);
+        } catch (Exception e) {
+            return message;
+        }
     }
 
     public List<String> getMessageList(String key) {
