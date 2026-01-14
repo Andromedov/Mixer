@@ -262,7 +262,7 @@ public class MixerPlugin extends JavaPlugin {
             Files.write(configFile.toPath(), newLines, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            logDebug(Level.WARNING, "Failed to update config.yml structure", e);
+            logDebug(Level.SEVERE, "Failed to update config.yml structure. Please check file permissions or syntax.", e);
         }
     }
 
