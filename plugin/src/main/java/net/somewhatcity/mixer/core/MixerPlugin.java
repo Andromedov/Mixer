@@ -6,6 +6,7 @@ import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
+import net.somewhatcity.mixer.core.db.MixerDatabase;
 import net.somewhatcity.mixer.core.gui.DspGui;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
 import net.somewhatcity.mixer.core.listener.*;
@@ -27,7 +28,6 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
@@ -39,14 +39,16 @@ public class MixerPlugin extends JavaPlugin {
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
 
+    // H2 Database
+    private MixerDatabase database;
+
+    // Jukebox Map - Thread-safe
     private final Map<Location, IMixerAudioPlayer> playerHashMap = new ConcurrentHashMap<>();
 
     // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
 
     private LocalizationManager localizationManager;
-    private File dataFile;
-    private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
 
     // GUIs
@@ -77,6 +79,7 @@ public class MixerPlugin extends JavaPlugin {
     public void onEnable() {
         plugin = this;
 
+        // Async cleanup
         Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
 
         initializeConfig();
@@ -85,11 +88,9 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
 
-        dataFile = new File(getDataFolder(), "data.yml");
-        if (!dataFile.exists()) {
-            saveResource("data.yml", false);
-        }
-        mixersConfig = YamlConfiguration.loadConfiguration(dataFile);
+        // Initialize Database
+        database = new MixerDatabase(this);
+        database.init();
 
         new CommandRegistry(this).registerCommands();
 
@@ -372,22 +373,11 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Stop audio players
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
-            try {
-                player.stop();
-            } catch (Exception e) {
-                logDebug(Level.WARNING, "Error stopping audio player during shutdown", e);
-            }
+            try { player.stop(); } catch (Exception e) {}
         });
-
-        // Stop portable audio players
         new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
-            try {
-                player.stop();
-            } catch (Exception e) {
-                logDebug(Level.WARNING, "Error stopping portable audio player during shutdown", e);
-            }
+            try { player.stop(); } catch (Exception e) {}
         });
         portablePlayerMap.clear();
     }
@@ -399,6 +389,7 @@ public class MixerPlugin extends JavaPlugin {
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
+    public MixerDatabase getDatabase() { return database; }
 
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
@@ -418,17 +409,8 @@ public class MixerPlugin extends JavaPlugin {
     public boolean isUpdateNotifierEnabled() { return updateNotifierEnabled; }
     public boolean isUpdateNotifierJoin() { return updateNotifierJoin; }
 
-    public FileConfiguration getMixersConfig() { return mixersConfig; }
     public static MixerPlugin getPlugin() { return plugin; }
     public static String getPluginId() { return PLUGIN_ID; }
-
-    public void saveMixersConfig() {
-        try {
-            mixersConfig.save(dataFile);
-        } catch (IOException e) {
-            logDebug(Level.WARNING, "Could not save data.yml: " + e.getMessage(), null);
-        }
-    }
 
     public void reloadPluginConfig() {
         reloadConfig();

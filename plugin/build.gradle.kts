@@ -27,6 +27,8 @@ repositories {
 dependencies {
     library("com.google.code.gson", "gson", "2.13.2")
 
+    implementation("com.h2database:h2:2.4.240")
+
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
     compileOnly("me.clip:placeholderapi:2.11.7")
