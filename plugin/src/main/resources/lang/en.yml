@@ -21,9 +21,7 @@ messages:
     speaker_received: "%s received!"
   actionBar:
     playback_stop: "<red>playback stopped"
-    playback_started: "<green>playback started"
-    bassboost_disabled: "<blue>bassboost disabled"
-    bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
+    playback_start: "<green>playback started"
     failed_to_start: "<red>failed to start playback"
     failed_to_stop: "<red>nothing is playing"
     no_disc_inserted: "<red>no disc inserted"

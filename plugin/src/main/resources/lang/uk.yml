@@ -22,8 +22,6 @@ messages:
   actionBar:
     playback_stop: "<red>відтворення зупинено"
     playback_start: "<green>відтворення запущено"
-    bassboost_disabled: "<blue>бас-буст вимкнено"
-    bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
     failed_to_start: "<red>не вдалось розпочати відтворення"
     failed_to_stop: "<red>нічого не відтворюється"
     no_disc_inserted: "<red>платівки не було вставлено</red>"
