@@ -39,8 +39,7 @@ public class MixerPlugin extends JavaPlugin {
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
 
-    // Jukebox Map
-    private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    private final Map<Location, IMixerAudioPlayer> playerHashMap = new ConcurrentHashMap<>();
 
     // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
@@ -78,7 +77,7 @@ public class MixerPlugin extends JavaPlugin {
     public void onEnable() {
         plugin = this;
 
-        cleanupOpusTemp();
+        Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
 
         initializeConfig();
 
@@ -393,7 +392,7 @@ public class MixerPlugin extends JavaPlugin {
         portablePlayerMap.clear();
     }
 
-    public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
+    public Map<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
     public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
     public DspGui getDspGui() { return dspGui; }
