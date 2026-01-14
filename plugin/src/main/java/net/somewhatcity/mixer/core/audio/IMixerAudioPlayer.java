@@ -17,7 +17,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
@@ -116,13 +115,9 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     @Override
     protected void configureAndPlay(AudioTrack track) {
-        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
-        String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-
+        // Save to Database
         Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
-            config.set(identifier + ".uri", track.getInfo().uri);
-            config.set(identifier + ".location", location);
-            MixerPlugin.getPlugin().saveMixersConfig();
+            MixerPlugin.getPlugin().getDatabase().saveMixer(location, track.getInfo().uri);
         });
 
         super.configureAndPlay(track);
@@ -133,13 +128,9 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
         super.stop();
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
-        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
-        String identifier = "mixers.mixer_%s%s%s".formatted(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-        Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-            if (config.contains(identifier)) {
-                config.set(identifier, null);
-                MixerPlugin.getPlugin().saveMixersConfig();
-            }
+        // Remove from Database
+        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            MixerPlugin.getPlugin().getDatabase().removeMixer(location);
         });
     }
 }

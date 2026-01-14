@@ -48,7 +48,7 @@ public class PlayerInteractListener implements Listener {
                         if (!item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
                             speakerId = UUID.randomUUID();
                             ItemMeta meta = item.getItemMeta();
-                            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
+                            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, speakerId.toString());
                             item.setItemMeta(meta);
                         } else {
                             try {
@@ -72,13 +72,14 @@ public class PlayerInteractListener implements Listener {
         Location location = e.getClickedBlock().getLocation();
         long currentTime = System.currentTimeMillis();
 
-        Long lastTime = lastInteractTime.get(location);
-        if (lastTime != null && (currentTime - lastTime) < INTERACT_COOLDOWN) {
-            e.setCancelled(true);
-            return;
+        synchronized (lastInteractTime) {
+            Long lastTime = lastInteractTime.get(location);
+            if (lastTime != null && (currentTime - lastTime) < INTERACT_COOLDOWN) {
+                e.setCancelled(true);
+                return;
+            }
+            lastInteractTime.put(location, currentTime);
         }
-
-        lastInteractTime.put(location, currentTime);
 
         // --- DSP GUI Trigger ---
         if (e.getAction() == Action.RIGHT_CLICK_BLOCK && e.getPlayer().isSneaking()) {

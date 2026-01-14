@@ -287,7 +287,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
-            attemptLoad(loadingQueue.poll(), 0);
+            String nextUrl = loadingQueue.poll();
+            CompletableFuture.runAsync(() -> attemptLoad(nextUrl, 0));
         }
     }
 
@@ -306,7 +307,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "Failed to resolve Cobalt URL");
                 } else {
-                    notifyUser("<red>Error resolving Cobalt media</red>");
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl + ". Terminating retry loop.", null);
+                    notifyUser("<red>Error resolving Cobalt media. Max retries reached.</red>");
                     loadNextFromQueue();
                 }
                 return;
@@ -344,7 +346,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "No matches found");
                 } else {
-                    notifyUser("<red>No matches found</red>");
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl + " after " + MAX_RETRIES + " retries.", null);
+                    notifyUser("<red>No matches found after retries</red>");
                     loadNextFromQueue();
                 }
             }
@@ -354,6 +357,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, e.getMessage());
                 } else {
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl + " after " + MAX_RETRIES + " retries. Error: " + e.getMessage(), e);
                     notifyUser("<red>Error loading: " + e.getMessage() + "</red>");
                     loadNextFromQueue();
                 }

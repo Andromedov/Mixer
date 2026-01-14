@@ -19,6 +19,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,7 +95,11 @@ public class RedstoneListener implements Listener {
 
     private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
-        text = text.replace(" ", "%20");
-        return TTS_URL.formatted(text);
+        try {
+            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8.toString());
+            return TTS_URL.formatted(encoded);
+        } catch (Exception e) {
+            return TTS_URL.formatted(text.replace(" ", "%20"));
+        }
     }
 }
