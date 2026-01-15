@@ -138,9 +138,7 @@ public class MixerPlugin extends JavaPlugin {
         }
 
         // Check for updates
-        new UpdateChecker(this).check((version, id) -> {
-            updateNotifyListener.setNewVersion(version, id);
-        });
+        new UpdateChecker(this).check(updateNotifyListener::setNewVersion);
     }
 
     private void cleanupOpusTemp() {
@@ -233,7 +231,7 @@ public class MixerPlugin extends JavaPlugin {
                     StringBuilder fullKeyBuilder = new StringBuilder();
                     for (int i = 0; i <= indentation; i++) {
                         if (context.containsKey(i)) {
-                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            if (!fullKeyBuilder.isEmpty()) fullKeyBuilder.append(".");
                             fullKeyBuilder.append(context.get(i));
                         }
                     }
@@ -244,7 +242,7 @@ public class MixerPlugin extends JavaPlugin {
                         String valueStr;
 
                         if (userValue instanceof String) {
-                            valueStr = "\"" + userValue.toString() + "\"";
+                            valueStr = "\"" + userValue + "\"";
                         } else {
                             valueStr = userValue.toString();
                         }
@@ -374,10 +372,10 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
-            try { player.stop(); } catch (Exception e) {}
+            try { player.stop(); } catch (Exception ignored) {}
         });
         new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
-            try { player.stop(); } catch (Exception e) {}
+            try { player.stop(); } catch (Exception ignored) {}
         });
         portablePlayerMap.clear();
     }

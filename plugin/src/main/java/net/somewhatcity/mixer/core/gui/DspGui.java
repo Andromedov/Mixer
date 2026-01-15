@@ -234,11 +234,10 @@ public class DspGui implements Listener {
 
             IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
             if (audioPlayer != null) {
+                audioPlayer.reloadDspSettings();
                 if (heavyUpdate) {
-                    audioPlayer.reloadDspSettings();
                     audioPlayer.loadDsp();
                 } else {
-                    audioPlayer.reloadDspSettings();
                     audioPlayer.updateVolume();
                 }
             }

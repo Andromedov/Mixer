@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -52,7 +53,7 @@ public class PlayerInteractListener implements Listener {
                             item.setItemMeta(meta);
                         } else {
                             try {
-                                speakerId = UUID.fromString(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING));
+                                speakerId = UUID.fromString(Objects.requireNonNull(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING)));
                             } catch (Exception ex) {
                                 speakerId = UUID.randomUUID();
                             }
