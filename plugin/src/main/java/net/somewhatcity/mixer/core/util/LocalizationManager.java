@@ -70,12 +70,20 @@ public class LocalizationManager {
 
             List<String> newLines = new ArrayList<>();
             Map<Integer, String> context = new HashMap<>();
+            boolean skipListItems = false;
 
             for (String line : templateLines) {
                 String trimmed = line.trim();
 
                 if (trimmed.startsWith("#") || trimmed.isEmpty()) {
                     newLines.add(line);
+                    continue;
+                }
+
+                if (trimmed.startsWith("-")) {
+                    if (!skipListItems) {
+                        newLines.add(line);
+                    }
                     continue;
                 }
 
@@ -108,6 +116,7 @@ public class LocalizationManager {
 
                         if (currentConfig.isConfigurationSection(fullKey)) {
                             newLines.add(line);
+                            skipListItems = false;
                         } else {
                             String yamlValue = formatYamlValue(userValue, indentation);
                             if (yamlValue.contains("\n")) {
@@ -116,15 +125,19 @@ public class LocalizationManager {
                             } else {
                                 newLines.add(keyPart + ": " + yamlValue);
                             }
+
+                            if (userValue instanceof List) {
+                                skipListItems = true;
+                            } else {
+                                skipListItems = false;
+                            }
                         }
                     } else {
                         newLines.add(line);
+                        skipListItems = false;
                     }
                 } else {
-                    boolean isListItem = trimmed.startsWith("-");
-                    if (!isListItem) {
-                        newLines.add(line);
-                    }
+                    newLines.add(line);
                 }
             }
 
