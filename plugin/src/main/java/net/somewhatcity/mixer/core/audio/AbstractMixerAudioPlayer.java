@@ -179,7 +179,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
-                    MixerPlugin.getPlugin().logDebug(Level.INFO, "Initializing audio scheduler...", null);
+                    if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                        MixerPlugin.getPlugin().logDebug(Level.INFO, "Initializing audio scheduler...", null);
+                    }
 
                     audioScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
                         Thread t = new Thread(r, "Mixer-Audio-Thread");
@@ -227,7 +229,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         try {
             AudioFrame frame = lavaplayer.provide();
 
-            if (frameCount++ % 100 == 0) {
+            if (frameCount++ % 100 == 0 && "ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
                 MixerPlugin.getPlugin().logDebug(Level.INFO,
                         String.format("Stats: Frame=%d, Queue=%d, Decoded=%d, Encoded=%d, Playing=%s",
                                 frameCount, audioQueue.size(), decodedBytes, encodedBytes, (frame != null)), null);
@@ -416,7 +418,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         if (!running) return;
         AudioTrack track = playlist.poll();
         if (track != null) {
-            MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
+            if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
+            }
             lavaplayer.playTrack(track);
         }
         else {
@@ -457,7 +461,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             try { Thread.sleep(200); } catch (InterruptedException e) { return; }
             if (!running) return;
 
-            MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting DSP dispatcher thread...", null);
+            if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting DSP dispatcher thread...", null);
+            }
 
             try {
                 if (audioStream == null) {
@@ -512,7 +518,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }));
 
                 dispatcher.run();
-                MixerPlugin.getPlugin().logDebug(Level.INFO, "DSP dispatcher stopped naturally.", null);
+                if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                    MixerPlugin.getPlugin().logDebug(Level.INFO, "DSP dispatcher stopped naturally.", null);
+                }
             } catch (Exception e) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error in DSP processing", e);
             }
