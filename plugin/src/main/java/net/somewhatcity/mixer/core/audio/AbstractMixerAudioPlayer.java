@@ -120,6 +120,11 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected Queue<byte[]> audioQueue = new ConcurrentLinkedDeque<>();
     protected JsonObject dspSettings;
 
+    // Debug counters
+    protected long frameCount = 0;
+    protected long decodedBytes = 0;
+    protected long encodedBytes = 0;
+
     public AbstractMixerAudioPlayer() {
         MixerPlugin plugin = MixerPlugin.getPlugin();
         int sampleRate = plugin.getAudioSampleRate();
@@ -174,6 +179,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
+                    MixerPlugin.getPlugin().logDebug(Level.INFO, "Initializing audio scheduler...", null);
+
                     audioScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
                         Thread t = new Thread(r, "Mixer-Audio-Thread");
                         t.setPriority(Thread.MAX_PRIORITY);
@@ -213,18 +220,24 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         });
     }
 
-    // Abstract methods to be implemented by subclasses
     protected abstract void broadcastAudio(byte[] data);
     protected abstract void notifyUser(String message);
 
     protected void processAudioFrame() {
         try {
             AudioFrame frame = lavaplayer.provide();
+
+            if (frameCount++ % 100 == 0) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO,
+                        String.format("Stats: Frame=%d, Queue=%d, Decoded=%d, Encoded=%d, Playing=%s",
+                                frameCount, audioQueue.size(), decodedBytes, encodedBytes, (frame != null)), null);
+            }
+
             if (frame != null && running) {
                 byte[] data = frame.getData();
                 byte[] decoded;
                 if (data.length >= 1500) {
-                    decoded = data;
+                    decoded = data; // Assume Raw PCM
                 } else if (decoder != null && !decoder.isClosed()) {
                     decoded = Utils.shortToByte(decoder.decode(data));
                 } else {
@@ -232,6 +245,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }
 
                 if (audioStream != null && decoded.length > 0) {
+                    decodedBytes += decoded.length;
                     try {
                         audioStream.appendData(decoded);
                     } catch (Exception ex) {
@@ -300,7 +314,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "Failed to resolve Cobalt URL");
                 } else {
-                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl + ". Terminating retry loop.", null);
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl, null);
                     notifyUser("<red>Error resolving Cobalt media. Max retries reached.</red>");
                     loadNextFromQueue();
                 }
@@ -339,7 +353,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "No matches found");
                 } else {
-                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl + " after " + MAX_RETRIES + " retries.", null);
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl, null);
                     notifyUser("<red>No matches found after retries</red>");
                     loadNextFromQueue();
                 }
@@ -350,7 +364,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, e.getMessage());
                 } else {
-                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl + " after " + MAX_RETRIES + " retries. Error: " + e.getMessage(), e);
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl, e);
                     notifyUser("<red>Error loading: " + e.getMessage() + "</red>");
                     loadNextFromQueue();
                 }
@@ -361,9 +375,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void scheduleRetry(String url, int currentRetry, String reason) {
         int nextRetry = currentRetry + 1;
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES, null);
-
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
-
         Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> attemptLoad(url, nextRetry), 60L);
     }
 
@@ -403,8 +415,13 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void start() {
         if (!running) return;
         AudioTrack track = playlist.poll();
-        if (track != null) { lavaplayer.playTrack(track); }
-        else { if (!loadingQueue.isEmpty()) { loadNextFromQueue(); } }
+        if (track != null) {
+            MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
+            lavaplayer.playTrack(track);
+        }
+        else {
+            if (!loadingQueue.isEmpty()) { loadNextFromQueue(); }
+        }
     }
 
     public void updateVolume() {
@@ -440,7 +457,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             try { Thread.sleep(200); } catch (InterruptedException e) { return; }
             if (!running) return;
 
+            MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting DSP dispatcher thread...", null);
+
             try {
+                if (audioStream == null) {
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "AudioStream is null in loadDsp, attempting to recover...", null);
+                    audioStream = new LavaplayerAudioStream(audioFormat);
+                }
+
                 jvmAudioInputStream = new JVMAudioInputStream(audioStream);
                 dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
                 TarsosDSPAudioFormat format = dispatcher.getFormat();
@@ -480,6 +504,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }
 
                 dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
+                    encodedBytes += data.length;
                     if (encoder != null && !encoder.isClosed()) {
                         byte[] encoded = encoder.encode(Utils.byteToShort(data));
                         audioQueue.add(encoded);
@@ -487,6 +512,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }));
 
                 dispatcher.run();
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "DSP dispatcher stopped naturally.", null);
             } catch (Exception e) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error in DSP processing", e);
             }
