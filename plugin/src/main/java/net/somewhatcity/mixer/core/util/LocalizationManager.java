@@ -25,7 +25,7 @@ public class LocalizationManager {
         if (!langDir.exists()) {
             try {
                 if (!langDir.mkdirs()) {
-                    plugin.logDebug(Level.WARNING, "Failed to create lang directory", null);
+                    plugin.logDebug(Level.FINEST, "Failed to create lang directory", null);
                 }
             } catch (Exception e) {
                 plugin.logDebug(Level.FINEST, "Failed to create lang directory", e);
