@@ -16,7 +16,7 @@ public class MixerPapiExpansion extends PlaceholderExpansion {
 
     @Override
     public @NotNull String getIdentifier() {
-        return "";
+        return "mixer";
     }
 
     @Override
