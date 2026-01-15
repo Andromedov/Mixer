@@ -43,9 +43,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 
 public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
@@ -109,7 +107,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected volatile boolean isInitialized = false;
 
     protected MixerDsp dsp;
-    protected Timer audioTimer;
+    protected ScheduledExecutorService audioScheduler;
+    protected ScheduledFuture<?> audioTask;
     protected AudioPlayer lavaplayer;
     protected OpusDecoder decoder;
     protected OpusEncoder encoder;
@@ -178,25 +177,29 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
-                    audioTimer = new Timer();
-                    audioTimer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            if (!running) {
-                                cancel();
-                                return;
-                            }
+                    audioScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+                        Thread t = new Thread(r, "Mixer-Audio-Thread");
+                        t.setPriority(Thread.MAX_PRIORITY);
+                        return t;
+                    });
 
-                            try {
-                                processAudioFrame();
-                            } catch (Exception e) {
-                                if (running) {
-                                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Critical error in audio timer task", e);
+                    audioTask = audioScheduler.scheduleAtFixedRate(() -> {
+                        if (!running) {
+                            if (audioTask != null) audioTask.cancel(false);
+                            return;
+                        }
+
+                        try {
+                            processAudioFrame();
+                        } catch (Throwable e) {
+                            if (running) {
+                                MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Critical error in audio loop", e);
+                                if (e instanceof LinkageError) {
                                     stop();
                                 }
                             }
                         }
-                    }, 0, 20);
+                    }, 0, 20, TimeUnit.MILLISECONDS);
 
                     Thread.sleep(100);
 
@@ -249,9 +252,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }
             }
         } catch (Exception e) {
-            if (running) {
-                MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Unexpected error in processAudioFrame", e);
-            }
+            throw new RuntimeException("Error processing frame", e);
         }
     }
 
@@ -389,7 +390,16 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     @Override
     public void stop() {
         running = false;
-        if (audioTimer != null) { audioTimer.cancel(); audioTimer = null; }
+
+        if (audioTask != null) {
+            audioTask.cancel(true);
+            audioTask = null;
+        }
+        if (audioScheduler != null) {
+            audioScheduler.shutdownNow();
+            audioScheduler = null;
+        }
+
         if (dispatcher != null) {
             try { dispatcher.stop(); } catch (Exception e) {}
             dispatcher = null;
