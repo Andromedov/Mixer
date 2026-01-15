@@ -39,7 +39,13 @@ public class LocalizationManager {
         if (langFiles != null) {
             for (File langFile : langFiles) {
                 String langCode = langFile.getName().replace(".yml", "");
-                FileConfiguration config = YamlConfiguration.loadConfiguration(langFile);
+                FileConfiguration config;
+                try {
+                    config = YamlConfiguration.loadConfiguration(langFile);
+                } catch (Exception e) {
+                    plugin.logDebug(Level.WARNING, "Failed to load language file " + langCode + ", using empty default.", e);
+                    config = new YamlConfiguration();
+                }
                 languageConfigs.put(langCode, config);
             }
         }
@@ -54,7 +60,12 @@ public class LocalizationManager {
         }
 
         try {
-            FileConfiguration currentConfig = YamlConfiguration.loadConfiguration(langFile);
+            FileConfiguration currentConfig = new YamlConfiguration();
+            try {
+                currentConfig.load(langFile);
+            } catch (Exception e) {
+                plugin.logDebug(Level.WARNING, "Language file " + langCode + ".yml is corrupted or invalid. It will be repaired.", e);
+            }
 
             List<String> templateLines = new ArrayList<>();
             InputStream resourceStream = plugin.getResource("lang/" + langCode + ".yml");
@@ -120,15 +131,15 @@ public class LocalizationManager {
                             newLines.add(line);
                             skipListItems = false;
                         } else {
-                            String yamlValue = formatYamlValue(userValue, indentation);
-                            if (yamlValue.contains("\n")) {
+                            if (userValue instanceof List) {
                                 newLines.add(keyPart + ":");
-                                newLines.add(yamlValue);
+                                newLines.add(formatYamlValue(userValue, indentation));
+                                skipListItems = true;
                             } else {
+                                String yamlValue = formatYamlValue(userValue, indentation);
                                 newLines.add(keyPart + ": " + yamlValue);
+                                skipListItems = false;
                             }
-
-                            skipListItems = userValue instanceof List;
                         }
                     } else {
                         newLines.add(line);
