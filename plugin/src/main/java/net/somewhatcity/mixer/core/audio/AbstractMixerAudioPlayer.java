@@ -1,6 +1,7 @@
 package net.somewhatcity.mixer.core.audio;
 
 import be.tarsos.dsp.AudioDispatcher;
+import be.tarsos.dsp.AudioProcessor;
 import be.tarsos.dsp.GainProcessor;
 import be.tarsos.dsp.effects.FlangerEffect;
 import be.tarsos.dsp.filters.HighPass;
@@ -31,41 +32,38 @@ import de.maxhenkel.opus4j.OpusDecoder;
 import de.maxhenkel.opus4j.OpusEncoder;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.clients.*;
-import dev.lavalink.youtube.clients.skeleton.Client;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.api.MixerDsp;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.*;
+import java.util.logging.Level;
 
 public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
 
     // Retry settings
     protected static final int MAX_RETRIES = 3;
-    protected static final long RETRY_DELAY_MS = 3000L;
 
     static {
-        FileConfiguration config = MixerPlugin.getPlugin().getMixersConfig();
+        FileConfiguration config = MixerPlugin.getPlugin().getConfig();
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
-            YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
+            YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true,
                     new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
                     new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
-            });
+            );
 
             if (config.getBoolean("mixer.youtube.useOAuth", false)) {
                 String refreshToken = config.getString("mixer.youtube.refreshToken", "");
-                if (refreshToken != null && !refreshToken.isEmpty()) {
+                if (!refreshToken.isEmpty()) {
                     youtube.useOauth2(refreshToken, true);
                 } else {
                     youtube.useOauth2(null, false);
@@ -88,9 +86,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         APM.setFrameBufferDuration(frameBufferDuration);
     }
 
-    protected static class TrackContext {
-        String originalUrl;
-        int retries;
+    public static class TrackContext {
+        public String originalUrl;
+        public int retries;
 
         public TrackContext(String originalUrl, int retries) {
             this.originalUrl = originalUrl;
@@ -103,12 +101,18 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected final int frameBufferDuration;
     protected GainProcessor gainProcessor;
 
-    protected final Map<String, Long> lastLogTimes = new ConcurrentHashMap<>();
+    // Processor references for seamless updates
+    protected AudioProcessor highPassProcessor;
+    protected AudioProcessor lowPassProcessor;
+    protected AudioProcessor flangerProcessor;
+    protected AudioProcessor outputProcessor;
+
     protected final Object initializationLock = new Object();
     protected volatile boolean isInitialized = false;
 
     protected MixerDsp dsp;
-    protected Timer audioTimer;
+    protected ScheduledExecutorService audioScheduler;
+    protected ScheduledFuture<?> audioTask;
     protected AudioPlayer lavaplayer;
     protected OpusDecoder decoder;
     protected OpusEncoder encoder;
@@ -122,6 +126,11 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected Queue<String> loadingQueue = new ConcurrentLinkedDeque<>();
     protected Queue<byte[]> audioQueue = new ConcurrentLinkedDeque<>();
     protected JsonObject dspSettings;
+
+    // Debug counters
+    protected long frameCount = 0;
+    protected long decodedBytes = 0;
+    protected long encodedBytes = 0;
 
     public AbstractMixerAudioPlayer() {
         MixerPlugin plugin = MixerPlugin.getPlugin();
@@ -139,6 +148,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         // Default empty settings
         this.dspSettings = new JsonObject();
+    }
+
+    public JsonObject getDspSettings() {
+        return dspSettings;
+    }
+
+    public void setDspSettings(JsonObject dspSettings) {
+        this.dspSettings = dspSettings;
     }
 
     protected void initializeAsync() {
@@ -162,12 +179,12 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
                         @Override
                         public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
-                            handlePlaybackException(track, exception);
+                            handlePlaybackException(exception);
                         }
 
                         @Override
                         public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
-                            MixerPlugin.getPlugin().getLogger().warning("Track stuck: " + track.getInfo().title);
+                            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Track stuck: " + track.getInfo().title, null);
                             start();
                         }
                     });
@@ -177,25 +194,33 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                     decoder.setFrameSize(frameSize);
                     encoder = new OpusEncoder((int) audioFormat.getSampleRate(), audioFormat.getChannels(), OpusEncoder.Application.AUDIO);
 
-                    audioTimer = new Timer();
-                    audioTimer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            if (!running) {
-                                cancel();
-                                return;
-                            }
+                    if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                        MixerPlugin.getPlugin().logDebug(Level.INFO, "Initializing audio scheduler...", null);
+                    }
 
-                            try {
-                                processAudioFrame();
-                            } catch (Exception e) {
-                                if (running) {
-                                    MixerPlugin.getPlugin().getLogger().severe("Critical error in audio timer: " + e.getMessage());
+                    audioScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+                        Thread t = new Thread(r, "Mixer-Audio-Thread");
+                        t.setPriority(Thread.MAX_PRIORITY);
+                        return t;
+                    });
+
+                    audioTask = audioScheduler.scheduleAtFixedRate(() -> {
+                        if (!running) {
+                            if (audioTask != null) audioTask.cancel(false);
+                            return;
+                        }
+
+                        try {
+                            processAudioFrame();
+                        } catch (Throwable e) {
+                            if (running) {
+                                MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Critical error in audio loop", e);
+                                if (e instanceof LinkageError) {
                                     stop();
                                 }
                             }
                         }
-                    }, 0, 20);
+                    }, 0, 20, TimeUnit.MILLISECONDS);
 
                     Thread.sleep(100);
 
@@ -206,49 +231,65 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                         loadNextFromQueue();
                     }
                 } catch (Exception e) {
-                    MixerPlugin.getPlugin().getLogger().severe("Failed to initialize audio player: " + e.getMessage());
-                    e.printStackTrace();
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to initialize audio player", e);
                 }
             }
         });
     }
 
-    // Abstract methods to be implemented by subclasses
     protected abstract void broadcastAudio(byte[] data);
     protected abstract void notifyUser(String message);
 
     protected void processAudioFrame() {
-        AudioFrame frame = lavaplayer.provide();
-        if (frame != null && running) {
-            byte[] data = frame.getData();
-            byte[] decoded;
-            if (data.length >= 1500) {
-                decoded = data;
-            } else if (decoder != null && !decoder.isClosed()) {
-                decoded = Utils.shortToByte(decoder.decode(data));
-            } else {
-                decoded = new byte[0];
+        try {
+            AudioFrame frame = lavaplayer.provide();
+
+            if (frameCount++ % 100 == 0 && "ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO,
+                        String.format("Stats: Frame=%d, Queue=%d, Decoded=%d, Encoded=%d, Playing=%s",
+                                frameCount, audioQueue.size(), decodedBytes, encodedBytes, (frame != null)), null);
             }
 
-            if (audioStream != null && decoded.length > 0) {
-                try {
-                    audioStream.appendData(decoded);
-                } catch (Exception ex) {
-                    if (running) { MixerPlugin.getPlugin().getLogger().warning("Error appending audio data: " + ex.getMessage()); }
+            if (frame != null && running) {
+                byte[] data = frame.getData();
+                byte[] decoded;
+                if (data.length >= 1500) {
+                    decoded = data; // Assume Raw PCM
+                } else if (decoder != null && !decoder.isClosed()) {
+                    decoded = Utils.shortToByte(decoder.decode(data));
+                } else {
+                    decoded = new byte[0];
+                }
+
+                if (audioStream != null && decoded.length > 0) {
+                    decodedBytes += decoded.length;
+                    try {
+                        audioStream.appendData(decoded);
+                    } catch (Exception ex) {
+                        if (running) {
+                            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error appending audio data to stream", ex);
+                        }
+                    }
                 }
             }
-        }
 
-        if (!audioQueue.isEmpty() && running) {
-            byte[] data = audioQueue.poll();
-            if (data != null) {
-                broadcastAudio(data);
+            if (!audioQueue.isEmpty() && running) {
+                byte[] data = audioQueue.poll();
+                if (data != null) {
+                    broadcastAudio(data);
+                }
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Error processing frame", e);
         }
     }
 
     @Override
     public MixerDsp dsp() { return dsp; }
+
+    public AudioTrack getPlayingTrack() {
+        return lavaplayer != null ? lavaplayer.getPlayingTrack() : null;
+    }
 
     @Override
     public void load(String... url) {
@@ -270,7 +311,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
-            attemptLoad(loadingQueue.poll(), 0);
+            String nextUrl = loadingQueue.poll();
+            CompletableFuture.runAsync(() -> attemptLoad(nextUrl, 0));
         }
     }
 
@@ -289,7 +331,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "Failed to resolve Cobalt URL");
                 } else {
-                    notifyUser("<red>Error resolving Cobalt media</red>");
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl, null);
+                    notifyUser("<red>Error resolving Cobalt media. Max retries reached.</red>");
                     loadNextFromQueue();
                 }
                 return;
@@ -313,7 +356,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
                 AudioTrack track = audioPlaylist.getSelectedTrack();
                 if (track == null && !audioPlaylist.getTracks().isEmpty()) {
-                    track = audioPlaylist.getTracks().get(0);
+                    track = audioPlaylist.getTracks().getFirst();
                 }
                 if (track != null) {
                     track.setUserData(new TrackContext(audioUrl, 0));
@@ -327,7 +370,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, "No matches found");
                 } else {
-                    notifyUser("<red>No matches found</red>");
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl, null);
+                    notifyUser("<red>No matches found after retries</red>");
                     loadNextFromQueue();
                 }
             }
@@ -337,6 +381,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 if (retryCount < MAX_RETRIES) {
                     scheduleRetry(audioUrl, retryCount, e.getMessage());
                 } else {
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl, e);
                     notifyUser("<red>Error loading: " + e.getMessage() + "</red>");
                     loadNextFromQueue();
                 }
@@ -346,13 +391,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void scheduleRetry(String url, int currentRetry, String reason) {
         int nextRetry = currentRetry + 1;
-        MixerPlugin.getPlugin().getLogger().warning("Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES);
-
+        MixerPlugin.getPlugin().logDebug(Level.WARNING, "Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES, null);
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
-
-        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> {
-            attemptLoad(url, nextRetry);
-        }, 60L);
+        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> attemptLoad(url, nextRetry), 60L);
     }
 
     // Subclasses can override this to save config
@@ -368,22 +409,38 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     @Override
     public void stop() {
         running = false;
-        if (audioTimer != null) { audioTimer.cancel(); audioTimer = null; }
+
+        if (audioTask != null) {
+            audioTask.cancel(true);
+            audioTask = null;
+        }
+        if (audioScheduler != null) {
+            audioScheduler.shutdownNow();
+            audioScheduler = null;
+        }
+
         if (dispatcher != null) {
-            try { dispatcher.stop(); } catch (Exception e) {}
+            try { dispatcher.stop(); } catch (Exception ignored) {}
             dispatcher = null;
         }
-        if (encoder != null) { try { encoder.close(); } catch (Exception e) {} }
-        if (decoder != null) { try { decoder.close(); } catch (Exception e) {} }
-        if (audioStream != null) { try { audioStream.close(); } catch (Exception e) {} }
-        if (jvmAudioInputStream != null) { try { jvmAudioInputStream.close(); } catch (IOException e) {} }
+        if (encoder != null) { try { encoder.close(); } catch (Exception ignored) {} }
+        if (decoder != null) { try { decoder.close(); } catch (Exception ignored) {} }
+        if (audioStream != null) { try { audioStream.close(); } catch (Exception ignored) {} }
+        if (jvmAudioInputStream != null) { try { jvmAudioInputStream.close(); } catch (IOException ignored) {} }
     }
 
     protected void start() {
         if (!running) return;
         AudioTrack track = playlist.poll();
-        if (track != null) { lavaplayer.playTrack(track); }
-        else { if (!loadingQueue.isEmpty()) { loadNextFromQueue(); } }
+        if (track != null) {
+            if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
+            }
+            lavaplayer.playTrack(track);
+        }
+        else {
+            if (!loadingQueue.isEmpty()) { loadNextFromQueue(); }
+        }
     }
 
     public void updateVolume() {
@@ -401,70 +458,130 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         this.gainProcessor.setGain(finalGain);
     }
 
+    public void reloadDspSettings() {
+        if (this instanceof IMixerAudioPlayer) {
+            Location loc = this.location();
+            this.dspSettings = Utils.loadNbtData(loc, "mixer_dsp");
+            if (this.dspSettings == null) this.dspSettings = new JsonObject();
+        }
+    }
+
     public void loadDsp() {
-        if (dispatcher != null && !dispatcher.isStopped()) return;
+        if (dispatcher != null && !dispatcher.isStopped()) {
+            updateActiveEffects();
+            return;
+        }
 
         CompletableFuture.runAsync(() -> {
-            if (dispatcher != null && !dispatcher.isStopped()) return;
-            try { Thread.sleep(500); } catch (InterruptedException e) { return; }
+            try {
+                // Short delay only on cold start if needed, but usually redundant if checks are correct
+                if (audioStream == null) {
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException e) { return; }
             if (!running) return;
 
+            if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting DSP dispatcher thread...", null);
+            }
+
             try {
+                if (audioStream == null) {
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "AudioStream is null in loadDsp, attempting to recover...", null);
+                    audioStream = new LavaplayerAudioStream(audioFormat);
+                }
+
                 jvmAudioInputStream = new JVMAudioInputStream(audioStream);
                 dispatcher = new AudioDispatcher(jvmAudioInputStream, frameSize, 0);
-                TarsosDSPAudioFormat format = dispatcher.getFormat();
 
                 float currentVolumeMultiplier = MixerPlugin.getPlugin().getVolumeMultiplier();
                 JsonObject gainSettings = dspSettings.getAsJsonObject("gain");
                 if (gainSettings != null) {
                     double configuredGain = gainSettings.get("gain").getAsDouble();
-                    double finalGain = configuredGain * currentVolumeMultiplier;
-                    gainProcessor = new GainProcessor(finalGain);
+                    gainProcessor = new GainProcessor(configuredGain * currentVolumeMultiplier);
                 } else {
                     gainProcessor = new GainProcessor(currentVolumeMultiplier);
                 }
                 dispatcher.addAudioProcessor(gainProcessor);
 
-                JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
-                if (highPassSettings != null) {
-                    float frequency = highPassSettings.get("frequency").getAsFloat();
-                    HighPass highPass = new HighPass(frequency, format.getSampleRate());
-                    dispatcher.addAudioProcessor(highPass);
-                }
+                // Add effects
+                applyEffectsChain();
 
-                JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
-                if (flangerEffectSettings != null) {
-                    double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
-                    double wet = flangerEffectSettings.get("wet").getAsDouble();
-                    double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
-                    FlangerEffect flangerEffect = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
-                    dispatcher.addAudioProcessor(flangerEffect);
+                if (outputProcessor != null) {
+                    dispatcher.addAudioProcessor(outputProcessor);
                 }
-
-                JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
-                if (lowPassSettings != null) {
-                    float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
-                    LowPassFS lowPassFS = new LowPassFS(cutoffFrequency, format.getSampleRate());
-                    dispatcher.addAudioProcessor(lowPassFS);
-                }
-
-                dispatcher.addAudioProcessor(new AudioOutputProcessor(data -> {
-                    if (encoder != null && !encoder.isClosed()) {
-                        byte[] encoded = encoder.encode(Utils.byteToShort(data));
-                        audioQueue.add(encoded);
-                    }
-                }));
 
                 dispatcher.run();
+                if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
+                    MixerPlugin.getPlugin().logDebug(Level.INFO, "DSP dispatcher stopped naturally.", null);
+                }
             } catch (Exception e) {
-                MixerPlugin.getPlugin().getLogger().warning("Error in DSP processing: " + e.getMessage());
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error in DSP processing", e);
             }
         });
     }
 
-    protected void handlePlaybackException(AudioTrack track, FriendlyException exception) {
+    private void updateActiveEffects() {
+        if (dispatcher == null) return;
+
+        if (outputProcessor != null) dispatcher.removeAudioProcessor(outputProcessor);
+
+        // Remove old effects
+        if (highPassProcessor != null) { dispatcher.removeAudioProcessor(highPassProcessor); highPassProcessor = null; }
+        if (flangerProcessor != null) { dispatcher.removeAudioProcessor(flangerProcessor); flangerProcessor = null; }
+        if (lowPassProcessor != null) { dispatcher.removeAudioProcessor(lowPassProcessor); lowPassProcessor = null; }
+
+        // Apply new effects
+        applyEffectsChain();
+
+        if (outputProcessor != null) dispatcher.addAudioProcessor(outputProcessor);
+    }
+
+    private void applyEffectsChain() {
+        TarsosDSPAudioFormat format = dispatcher.getFormat();
+
+        // HighPass
+        JsonObject highPassSettings = dspSettings.getAsJsonObject("highPassFilter");
+        if (highPassSettings != null) {
+            float frequency = highPassSettings.get("frequency").getAsFloat();
+            highPassProcessor = new HighPass(frequency, format.getSampleRate());
+            dispatcher.addAudioProcessor(highPassProcessor);
+        }
+
+        // Flanger
+        JsonObject flangerEffectSettings = dspSettings.getAsJsonObject("flangerEffect");
+        if (flangerEffectSettings != null) {
+            double maxFlangerLength = flangerEffectSettings.get("maxFlangerLength").getAsDouble();
+            double wet = flangerEffectSettings.get("wet").getAsDouble();
+            double lfoFrequency = flangerEffectSettings.get("lfoFrequency").getAsDouble();
+            flangerProcessor = new FlangerEffect(maxFlangerLength, wet, format.getSampleRate(), lfoFrequency);
+            dispatcher.addAudioProcessor(flangerProcessor);
+        }
+
+        // LowPass
+        JsonObject lowPassSettings = dspSettings.getAsJsonObject("lowPassFilter");
+        if (lowPassSettings != null) {
+            float cutoffFrequency = lowPassSettings.get("frequency").getAsFloat();
+            lowPassProcessor = new LowPassFS(cutoffFrequency, format.getSampleRate());
+            dispatcher.addAudioProcessor(lowPassProcessor);
+        }
+
+        // Output Processor
+        if (outputProcessor == null) {
+            outputProcessor = new AudioOutputProcessor(data -> {
+                encodedBytes += data.length;
+                if (encoder != null && !encoder.isClosed()) {
+                    byte[] encoded = encoder.encode(Utils.byteToShort(data));
+                    audioQueue.add(encoded);
+                }
+            });
+        }
+    }
+
+    protected void handlePlaybackException(FriendlyException exception) {
         String errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>";
         notifyUser(errorMessage);
+        MixerPlugin.getPlugin().logDebug(Level.WARNING, "FriendlyException in track playback", exception);
         if (!playlist.isEmpty()) { start(); }
     }
 }

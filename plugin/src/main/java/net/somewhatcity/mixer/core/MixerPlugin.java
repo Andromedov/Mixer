@@ -6,14 +6,14 @@ import net.somewhatcity.mixer.core.api.ImplMixerApi;
 import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.commands.CommandRegistry;
+import net.somewhatcity.mixer.core.db.MixerDatabase;
+import net.somewhatcity.mixer.core.gui.DspGui;
 import net.somewhatcity.mixer.core.gui.PortableSpeakerGui;
-import net.somewhatcity.mixer.core.listener.PlayerInteractListener;
-import net.somewhatcity.mixer.core.listener.PlayerItemListener;
-import net.somewhatcity.mixer.core.listener.PlayerQuitListener;
-import net.somewhatcity.mixer.core.listener.InventoryListener;
-import net.somewhatcity.mixer.core.listener.RedstoneListener;
+import net.somewhatcity.mixer.core.listener.*;
+import net.somewhatcity.mixer.core.papi.MixerPapiExpansion;
 import net.somewhatcity.mixer.core.util.LocalizationManager;
 import net.somewhatcity.mixer.core.util.MessageUtil;
+import net.somewhatcity.mixer.core.util.UpdateChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LogEvent;
@@ -28,30 +28,32 @@ import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class MixerPlugin extends JavaPlugin {
     private static MixerPlugin plugin;
     private ImplMixerApi api;
     private static final String PLUGIN_ID = "mixer";
 
-    // Jukebox Map
-    private final HashMap<Location, IMixerAudioPlayer> playerHashMap = new HashMap<>();
+    // H2 Database
+    private MixerDatabase database;
+
+    // Jukebox Map - Thread-safe
+    private final Map<Location, IMixerAudioPlayer> playerHashMap = new ConcurrentHashMap<>();
 
     // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
 
     private LocalizationManager localizationManager;
-    private File dataFile;
-    private FileConfiguration mixersConfig;
     protected PlayerInteractListener playerInteractListener;
 
-    // GUI for potable speaker
+    // GUIs
     private PortableSpeakerGui portableSpeakerGui;
+    private DspGui dspGui;
 
     // Config
     private boolean youtubeEnabled;
@@ -62,17 +64,23 @@ public class MixerPlugin extends JavaPlugin {
     private int audioBufferSize;
     private int audioFrameBufferDuration;
     private String language;
+    private String debugLevel; // "NONE", "WARNING", "ALL"
 
     // Portable Speaker Config
     private boolean portableSpeakerEnabled;
     private int portableSpeakerRange;
     private String portableSpeakerItemMaterial;
 
+    // Update Notifier Config
+    private boolean updateNotifierEnabled;
+    private boolean updateNotifierJoin;
+
     @Override
     public void onEnable() {
         plugin = this;
 
-        cleanupOpusTemp();
+        // Async cleanup
+        Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
 
         initializeConfig();
 
@@ -80,11 +88,9 @@ public class MixerPlugin extends JavaPlugin {
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
 
-        dataFile = new File(getDataFolder(), "data.yml");
-        if (!dataFile.exists()) {
-            saveResource("data.yml", false);
-        }
-        mixersConfig = YamlConfiguration.loadConfiguration(dataFile);
+        // Initialize Database
+        database = new MixerDatabase(this);
+        database.init();
 
         new CommandRegistry(this).registerCommands();
 
@@ -93,7 +99,7 @@ public class MixerPlugin extends JavaPlugin {
             MixerVoicechatPlugin voicechatPlugin = new MixerVoicechatPlugin();
             vcService.registerPlugin(voicechatPlugin);
         } else {
-            getLogger().info("VoiceChat not found");
+            logDebug(Level.INFO, "VoiceChat not found", null);
         }
 
         playerInteractListener = new PlayerInteractListener();
@@ -106,14 +112,33 @@ public class MixerPlugin extends JavaPlugin {
         pm.registerEvents(new PlayerItemListener(), this);
         pm.registerEvents(new InventoryListener(), this);
 
+        // Update Notifier Listener
+        UpdateNotifyListener updateNotifyListener = new UpdateNotifyListener(this);
+        pm.registerEvents(updateNotifyListener, this);
+
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
+
+        // Register DSP GUI
+        dspGui = new DspGui();
+        pm.registerEvents(dspGui, this);
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
 
         setupLogFilters();
+
+        // Register PlaceholderAPI expansion
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new MixerPapiExpansion(this).register();
+            logDebug(Level.INFO, "PlaceholderAPI expansion registered!", null);
+        } else {
+            logDebug(Level.INFO, "PlaceholderAPI not found. Placeholders will not work.", null);
+        }
+
+        // Check for updates
+        new UpdateChecker(this).check(updateNotifyListener::setNewVersion);
     }
 
     private void cleanupOpusTemp() {
@@ -123,15 +148,19 @@ public class MixerPlugin extends JavaPlugin {
             File[] files = dir.listFiles((d, name) -> name.startsWith("opus4j-"));
             if (files != null) {
                 for (File f : files) {
-                    deleteRecursively(f);
+                    if (!deleteRecursively(f)) {
+                        logDebug(Level.WARNING, "Couldn't delete temp file: " + f.getAbsolutePath(), null);
+                    } else {
+                        logDebug(Level.INFO, "Cleaned up old opus4j temp files: " + f.getName(), null);
+                    }
                 }
             }
         } catch (Exception e) {
-            getLogger().warning("Failed to cleanup opus4j temp files: " + e.getMessage());
+            logDebug(Level.WARNING, "Failed to cleanup opus4j temp files", e);
         }
     }
 
-    private void deleteRecursively(File file) {
+    private boolean deleteRecursively(File file) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             if (files != null) {
@@ -140,7 +169,7 @@ public class MixerPlugin extends JavaPlugin {
                 }
             }
         }
-        file.delete();
+        return file.delete();
     }
 
     private void initializeConfig() {
@@ -202,7 +231,7 @@ public class MixerPlugin extends JavaPlugin {
                     StringBuilder fullKeyBuilder = new StringBuilder();
                     for (int i = 0; i <= indentation; i++) {
                         if (context.containsKey(i)) {
-                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            if (!fullKeyBuilder.isEmpty()) fullKeyBuilder.append(".");
                             fullKeyBuilder.append(context.get(i));
                         }
                     }
@@ -213,7 +242,7 @@ public class MixerPlugin extends JavaPlugin {
                         String valueStr;
 
                         if (userValue instanceof String) {
-                            valueStr = "\"" + userValue.toString() + "\"";
+                            valueStr = "\"" + userValue + "\"";
                         } else {
                             valueStr = userValue.toString();
                         }
@@ -231,7 +260,7 @@ public class MixerPlugin extends JavaPlugin {
             Files.write(configFile.toPath(), newLines, StandardCharsets.UTF_8);
 
         } catch (Exception e) {
-            getLogger().warning("Failed to update config.yml structure: " + e.getMessage());
+            logDebug(Level.SEVERE, "Failed to update config.yml structure. Please check file permissions or syntax.", e);
         }
     }
 
@@ -245,13 +274,19 @@ public class MixerPlugin extends JavaPlugin {
         audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
         language = config.getString("lang", "en");
 
+        // Load debug level
+        debugLevel = config.getString("system.debugLevel", "WARNING").toUpperCase();
+
         portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
         portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
         portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
 
+        updateNotifierEnabled = config.getBoolean("updateNotifier.enabled", true);
+        updateNotifierJoin = config.getBoolean("updateNotifier.on-join", true);
+
         // Volume validation
         if (volumePercent < 0 || volumePercent > 200) {
-            getLogger().warning("Invalid volume percentage: " + volumePercent + ". Setting to 50%");
+            logDebug(Level.WARNING, "Invalid volume percentage: " + volumePercent + ". Setting to 50%", null);
             volumePercent = 50;
             config.set("mixer.volume", 50);
             saveConfig();
@@ -301,37 +336,59 @@ public class MixerPlugin extends JavaPlugin {
             }
         });
 
-        getLogger().info("Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.");
+        logDebug(Level.INFO, "Mixer filters enabled: HTTP 403/410 and Loading errors will be suppressed.", null);
+    }
+
+    /**
+     * Smart logging method based on the configured debug level.
+     * @param level The severity level (Level.INFO, Level.WARNING, or Level.SEVERE)
+     * @param message The message to log
+     * @param e The exception that occurred (nullable)
+     */
+    public void logDebug(Level level, String message, Throwable e) {
+        if ("NONE".equals(debugLevel)) {
+            if (level == Level.INFO) {
+                getLogger().log(level, message);
+                return;
+            }
+            return;
+        }
+
+        if ("ALL".equals(debugLevel)) {
+            // Full stack trace
+            getLogger().log(level, message, e);
+        } else {
+            // "WARNING" (default) - Only message, but always show INFO
+            if (level == Level.INFO) {
+                getLogger().log(level, message);
+            } else if (e != null) {
+                getLogger().log(level, message + ": " + e.getMessage());
+            } else {
+                getLogger().log(level, message);
+            }
+        }
     }
 
     @Override
     public void onDisable() {
-        // Stop audio players
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
-            try {
-                player.stop();
-            } catch (Exception e) {
-                getLogger().warning("Error stopping audio player during shutdown: " + e.getMessage());
-            }
+            try { player.stop(); } catch (Exception ignored) {}
         });
-
-        // Stop portable audio players
         new ArrayList<>(portablePlayerMap.values()).forEach(player -> {
-            try {
-                player.stop();
-            } catch (Exception e) {
-                getLogger().warning("Error stopping portable audio player during shutdown: " + e.getMessage());
-            }
+            try { player.stop(); } catch (Exception ignored) {}
         });
         portablePlayerMap.clear();
     }
 
-    public HashMap<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
+    public Map<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
     public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
+    public DspGui getDspGui() { return dspGui; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
+    public MixerDatabase getDatabase() { return database; }
+
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
     public String getYoutubeRefreshToken() { return youtubeRefreshToken; }
@@ -341,22 +398,17 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioBufferSize() { return audioBufferSize; }
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
+    public String getDebugLevel() { return debugLevel; }
 
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }
     public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
 
-    public FileConfiguration getMixersConfig() { return mixersConfig; }
+    public boolean isUpdateNotifierEnabled() { return updateNotifierEnabled; }
+    public boolean isUpdateNotifierJoin() { return updateNotifierJoin; }
+
     public static MixerPlugin getPlugin() { return plugin; }
     public static String getPluginId() { return PLUGIN_ID; }
-
-    public void saveMixersConfig() {
-        try {
-            mixersConfig.save(dataFile);
-        } catch (IOException e) {
-            getLogger().warning("Could not save data.yml: " + e.getMessage());
-        }
-    }
 
     public void reloadPluginConfig() {
         reloadConfig();

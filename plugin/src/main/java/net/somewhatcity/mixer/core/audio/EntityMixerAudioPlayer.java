@@ -14,6 +14,7 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private final Player owner;
@@ -34,10 +35,10 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
                 this.channel.setCategory("mixer");
                 this.channel.setDistance(100);
             } else {
-                MixerPlugin.getPlugin().getLogger().warning("Failed to convert player to VoiceChat entity.");
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to convert player to VoiceChat entity.", null);
             }
         } else {
-            MixerPlugin.getPlugin().getLogger().severe("VoiceChat API is not initialized!");
+            MixerPlugin.getPlugin().logDebug(Level.SEVERE, "VoiceChat API is not initialized!", null);
         }
 
         initializeAsync();

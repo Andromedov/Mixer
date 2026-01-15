@@ -16,6 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -23,6 +24,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class PortableSpeakerGui implements Listener {
 
@@ -34,7 +36,7 @@ public class PortableSpeakerGui implements Listener {
     }
 
     public void open(Player player, UUID speakerId) {
-        openSpeakers.put(player.getUniqueId(), speakerId); // Зберігаємо ID
+        openSpeakers.put(player.getUniqueId(), speakerId);
         Inventory inv = Bukkit.createInventory(null, 9, getTitle());
 
         // Fillers
@@ -54,6 +56,15 @@ public class PortableSpeakerGui implements Listener {
         startMeta.displayName(MiniMessage.miniMessage().deserialize(startName).decoration(TextDecoration.ITALIC, false));
         start.setItemMeta(startMeta);
         inv.setItem(0, start);
+
+        // DSP / Effects Button
+        ItemStack dsp = new ItemStack(Material.AMETHYST_SHARD);
+        ItemMeta dspMeta = dsp.getItemMeta();
+        String dspName = MixerPlugin.getPlugin().getLocalizationManager().getMessage("dsp.gui_title");
+        dspMeta.displayName(MiniMessage.miniMessage().deserialize(dspName).decoration(TextDecoration.ITALIC, false));
+        dspMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        dsp.setItemMeta(dspMeta);
+        inv.setItem(2, dsp);
 
         // Stop button
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
@@ -110,7 +121,7 @@ public class PortableSpeakerGui implements Listener {
                 if (speakerId != null) {
                     portablePlayer.setSourceItemId(speakerId);
                 } else {
-                    MixerPlugin.getPlugin().getLogger().warning("Speaker UUID missing for player " + player.getName());
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Speaker UUID missing for player " + player.getName(), null);
                 }
 
                 portablePlayer.load(url);
@@ -118,6 +129,14 @@ public class PortableSpeakerGui implements Listener {
                 MessageUtil.sendActionBarMsg(player, "playback_start");
 
                 player.closeInventory();
+            }
+            // "Audio Effects" button logic
+            else if (e.getSlot() == 2) {
+                if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
+                    MixerPlugin.getPlugin().getDspGui().open(player, player.getUniqueId());
+                } else {
+                    MessageUtil.sendActionBarMsg(player, "failed_to_stop");
+                }
             }
             // "Stop" button logic
             else if (e.getSlot() == 8) {

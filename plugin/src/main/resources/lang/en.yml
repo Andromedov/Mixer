@@ -2,6 +2,8 @@
 messages:
   plugin:
     prefix: "<gradient:#7277D8:#4851F5>[Mixer]</gradient> "
+    update_available: "A new version of Mixer is available: <green>%s</green> (Current: <yellow>%s</yellow>)"
+    click_to_download: "<click:open_url:'https://modrinth.com/plugin/mixer/version/%s'><blue><u>Click to download on Modrinth</u></blue></click>"
   errors:
     no_disc: "You must be holding a music disc!"
     no_jukebox: "No jukebox found at location"
@@ -19,9 +21,7 @@ messages:
     speaker_received: "%s received!"
   actionBar:
     playback_stop: "<red>playback stopped"
-    playback_started: "<green>playback started"
-    bassboost_disabled: "<blue>bassboost disabled"
-    bassboost_set_to: "<blue>bassboost set to <b>%s</b>"
+    playback_start: "<green>playback started"
     failed_to_start: "<red>failed to start playback"
     failed_to_stop: "<red>nothing is playing"
     no_disc_inserted: "<red>no disc inserted"
@@ -31,6 +31,33 @@ messages:
     portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
     portable_speaker_start_button: "<green>Start</green>"
     portable_speaker_stop_button: "<red>Stop</red>"
-
-# DO NOT CHANGE
-lang-version: 1
+  dsp:
+    gui_title: "<gradient:#7277D8:#4851F5>Audio Effects (DSP)</gradient>"
+    gain_name: "<green>Volume (Gain)</green>"
+    gain_lore:
+      - "<gray>Current: <yellow>%gain%%"
+      - ""
+      - "<green>LMB: +10% <gray>| <green>Shift+LMB: +1%"
+      - "<red>RMB: -10% <gray>| <red>Shift+RMB: -1%"
+    highpass_name: "<aqua>HighPass Filter (Bass Cut)</aqua>"
+    highpass_lore:
+      - "<gray>Frequency: <aqua>%freq% Hz"
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>LMB: +50 Hz"
+      - "<red>RMB: -50 Hz"
+    lowpass_name: "<yellow>LowPass Filter (Treble Cut)</yellow>"
+    lowpass_lore:
+      - "<gray>Frequency: <aqua>%freq% Hz"
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>LMB: +500 Hz (Less Muffled)"
+      - "<red>RMB: -500 Hz (More Muffled)"
+    flanger_name: "<light_purple>Flanger Effect</light_purple>"
+    flanger_lore:
+      - "<gray>Status: %status%"
+      - ""
+      - "<green>Click to Toggle On/Off"
+    reset_name: "<red>Reset All Effects</red>"
+    reset_lore:
+      - "<red>Click to reset all effects"

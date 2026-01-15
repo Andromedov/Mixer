@@ -2,6 +2,8 @@
 messages:
   plugin:
     prefix: "<gradient:#7277D8:#4851F5>[Mixer]</gradient> "
+    update_available: "Доступна нова версія Mixer: <green>%s</green> (Поточна: <yellow>%s</yellow>)"
+    click_to_download: "<click:open_url:'https://modrinth.com/plugin/mixer/version/%s'><blue><u>Натисніть, щоб завантажити з Modrinth</u></blue></click>"
   errors:
     no_disc: "Ви повинні тримати музичний диск!"
     no_jukebox: "Програвач не знайдено в цьому місці"
@@ -20,8 +22,6 @@ messages:
   actionBar:
     playback_stop: "<red>відтворення зупинено"
     playback_start: "<green>відтворення запущено"
-    bassboost_disabled: "<blue>бас-буст вимкнено"
-    bassboost_set_to: "<blue>бас-буст встановлено на <b>%s</b>"
     failed_to_start: "<red>не вдалось розпочати відтворення"
     failed_to_stop: "<red>нічого не відтворюється"
     no_disc_inserted: "<red>платівки не було вставлено</red>"
@@ -31,6 +31,33 @@ messages:
     portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
     portable_speaker_start_button: "<green>Старт</green>"
     portable_speaker_stop_button: "<red>Стоп</red>"
-
-# DO NOT CHANGE
-lang-version: 1
+  dsp:
+    gui_title: "<gradient:#7277D8:#4851F5>Аудіо Ефекти (DSP)</gradient>"
+    gain_name: "<green>Гучність (Gain)</green>"
+    gain_lore:
+      - "<gray>Поточно: <yellow>%gain%%"
+      - ""
+      - "<green>ЛКМ: +10% <gray>| <green>Shift+ЛКМ: +1%"
+      - "<red>ПКМ: -10% <gray>| <red>Shift+ПКМ: -1%"
+    highpass_name: "<aqua>Фільтр Високих Частот (Зріз Басів)</aqua>"
+    highpass_lore:
+      - "<gray>Частота: <aqua>%freq% Hz"
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>ЛКМ: +50 Hz"
+      - "<red>ПКМ: -50 Hz"
+    lowpass_name: "<yellow>Фільтр Низьких Частот (Зріз ВЧ)</yellow>"
+    lowpass_lore:
+      - "<gray>Частота: <aqua>%freq% Hz"
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>ЛКМ: +500 Hz (Менш глухо)"
+      - "<red>ПКМ: -500 Hz (Більш глухо)"
+    flanger_name: "<light_purple>Ефект Фланжера</light_purple>"
+    flanger_lore:
+      - "<gray>Статус: %status%"
+      - ""
+      - "<green>Натисніть, щоб увімкнути/вимкнути"
+    reset_name: "<red>Скинути Всі Ефекти</red>"
+    reset_lore:
+      - "<red>Натисніть, щоб скинути всі налаштування"
