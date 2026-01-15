@@ -464,13 +464,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             return;
         }
 
-        if (dispatcher != null && !dispatcher.isStopped()) {
-            dispatcher.stop();
-            dispatcher = null;
-        }
-
         CompletableFuture.runAsync(() -> {
             try {
+                // Short delay only on cold start if needed, but usually redundant if checks are correct
                 if (audioStream == null) {
                     Thread.sleep(100);
                 }
@@ -502,6 +498,10 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
                 // Add effects
                 applyEffectsChain();
+
+                if (outputProcessor != null) {
+                    dispatcher.addAudioProcessor(outputProcessor);
+                }
 
                 dispatcher.run();
                 if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
