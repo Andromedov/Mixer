@@ -31,7 +31,6 @@ import de.maxhenkel.opus4j.OpusDecoder;
 import de.maxhenkel.opus4j.OpusEncoder;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.clients.*;
-import dev.lavalink.youtube.clients.skeleton.Client;
 import net.somewhatcity.mixer.api.MixerAudioPlayer;
 import net.somewhatcity.mixer.api.MixerDsp;
 import net.somewhatcity.mixer.core.MixerPlugin;
@@ -51,20 +50,19 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     // Retry settings
     protected static final int MAX_RETRIES = 3;
-    protected static final long RETRY_DELAY_MS = 3000L;
 
     static {
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
-            YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true, new Client[]{
+            YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true,
                     new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
                     new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
-            });
+            );
 
             if (config.getBoolean("mixer.youtube.useOAuth", false)) {
                 String refreshToken = config.getString("mixer.youtube.refreshToken", "");
-                if (refreshToken != null && !refreshToken.isEmpty()) {
+                if (!refreshToken.isEmpty()) {
                     youtube.useOauth2(refreshToken, true);
                 } else {
                     youtube.useOauth2(null, false);
@@ -102,7 +100,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected final int frameBufferDuration;
     protected GainProcessor gainProcessor;
 
-    protected final Map<String, Long> lastLogTimes = new ConcurrentHashMap<>();
     protected final Object initializationLock = new Object();
     protected volatile boolean isInitialized = false;
 
@@ -162,7 +159,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
                         @Override
                         public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
-                            handlePlaybackException(track, exception);
+                            handlePlaybackException(exception);
                         }
 
                         @Override
@@ -259,11 +256,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     @Override
     public MixerDsp dsp() { return dsp; }
 
-    /**
-     * Helper method for PlaceholderAPI or other integrations
-     * to get the current track being played by this player.
-     * @return The currently playing AudioTrack, or null if none.
-     */
     public AudioTrack getPlayingTrack() {
         return lavaplayer != null ? lavaplayer.getPlayingTrack() : null;
     }
@@ -333,7 +325,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
                 AudioTrack track = audioPlaylist.getSelectedTrack();
                 if (track == null && !audioPlaylist.getTracks().isEmpty()) {
-                    track = audioPlaylist.getTracks().get(0);
+                    track = audioPlaylist.getTracks().getFirst();
                 }
                 if (track != null) {
                     track.setUserData(new TrackContext(audioUrl, 0));
@@ -372,9 +364,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
 
-        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> {
-            attemptLoad(url, nextRetry);
-        }, 60L);
+        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> attemptLoad(url, nextRetry), 60L);
     }
 
     // Subclasses can override this to save config
@@ -401,13 +391,13 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         }
 
         if (dispatcher != null) {
-            try { dispatcher.stop(); } catch (Exception e) {}
+            try { dispatcher.stop(); } catch (Exception ignored) {}
             dispatcher = null;
         }
-        if (encoder != null) { try { encoder.close(); } catch (Exception e) {} }
-        if (decoder != null) { try { decoder.close(); } catch (Exception e) {} }
-        if (audioStream != null) { try { audioStream.close(); } catch (Exception e) {} }
-        if (jvmAudioInputStream != null) { try { jvmAudioInputStream.close(); } catch (IOException e) {} }
+        if (encoder != null) { try { encoder.close(); } catch (Exception ignored) {} }
+        if (decoder != null) { try { decoder.close(); } catch (Exception ignored) {} }
+        if (audioStream != null) { try { audioStream.close(); } catch (Exception ignored) {} }
+        if (jvmAudioInputStream != null) { try { jvmAudioInputStream.close(); } catch (IOException ignored) {} }
     }
 
     protected void start() {
@@ -503,7 +493,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         });
     }
 
-    protected void handlePlaybackException(AudioTrack track, FriendlyException exception) {
+    protected void handlePlaybackException(FriendlyException exception) {
         String errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>";
         notifyUser(errorMessage);
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "FriendlyException in track playback", exception);
