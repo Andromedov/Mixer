@@ -150,6 +150,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         this.dspSettings = new JsonObject();
     }
 
+    public JsonObject getDspSettings() {
+        return dspSettings;
+    }
+
+    public void setDspSettings(JsonObject dspSettings) {
+        this.dspSettings = dspSettings;
+    }
+
     protected void initializeAsync() {
         CompletableFuture.runAsync(() -> {
             synchronized(initializationLock) {
