@@ -24,7 +24,9 @@ public class LocalizationManager {
         File langDir = new File(plugin.getDataFolder(), "lang");
         if (!langDir.exists()) {
             try {
-                langDir.mkdirs();
+                if (!langDir.mkdirs()) {
+                    plugin.logDebug(Level.WARNING, "Failed to create lang directory", null);
+                }
             } catch (Exception e) {
                 plugin.logDebug(Level.FINEST, "Failed to create lang directory", e);
             }
@@ -105,7 +107,7 @@ public class LocalizationManager {
                     StringBuilder fullKeyBuilder = new StringBuilder();
                     for (int i = 0; i <= indentation; i++) {
                         if (context.containsKey(i)) {
-                            if (fullKeyBuilder.length() > 0) fullKeyBuilder.append(".");
+                            if (!fullKeyBuilder.isEmpty()) fullKeyBuilder.append(".");
                             fullKeyBuilder.append(context.get(i));
                         }
                     }
@@ -126,11 +128,7 @@ public class LocalizationManager {
                                 newLines.add(keyPart + ": " + yamlValue);
                             }
 
-                            if (userValue instanceof List) {
-                                skipListItems = true;
-                            } else {
-                                skipListItems = false;
-                            }
+                            skipListItems = userValue instanceof List;
                         }
                     } else {
                         newLines.add(line);
@@ -149,13 +147,13 @@ public class LocalizationManager {
     }
 
     private String formatYamlValue(Object value, int indentation) {
-        if (value instanceof List<?>) {
+        if (value instanceof List<?> list) {
             StringBuilder sb = new StringBuilder();
-            List<?> list = (List<?>) value;
+
             String spaces = String.join("", Collections.nCopies(indentation, "  "));
 
             for (Object item : list) {
-                if (sb.length() > 0) sb.append("\n");
+                if (!sb.isEmpty()) sb.append("\n");
                 sb.append(spaces).append("- \"").append(item.toString().replace("\"", "\\\"")).append("\"");
             }
             return sb.toString();
