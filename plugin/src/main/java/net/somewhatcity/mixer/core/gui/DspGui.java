@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.core.MixerPlugin;
+import net.somewhatcity.mixer.core.audio.EntityMixerAudioPlayer;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
@@ -24,7 +25,7 @@ import java.util.*;
 
 public class DspGui implements Listener {
 
-    private final Map<UUID, Location> editingSession = new HashMap<>();
+    private final Map<UUID, Object> editingSession = new HashMap<>();
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private Component getTitle() {
@@ -39,8 +40,25 @@ public class DspGui implements Listener {
         player.openInventory(inv);
     }
 
-    private void updateInventory(Inventory inv, Location location) {
-        JsonObject dspData = Utils.loadNbtData(location, "mixer_dsp");
+    public void open(Player player, UUID targetPlayerId) {
+        editingSession.put(player.getUniqueId(), targetPlayerId);
+        Inventory inv = Bukkit.createInventory(null, 27, getTitle());
+        updateInventory(inv, targetPlayerId);
+        player.openInventory(inv);
+    }
+
+    private void updateInventory(Inventory inv, Object target) {
+        JsonObject dspData = null;
+
+        if (target instanceof Location loc) {
+            dspData = Utils.loadNbtData(loc, "mixer_dsp");
+        } else if (target instanceof UUID uid) {
+            EntityMixerAudioPlayer player = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
+            if (player != null) {
+                dspData = player.getDspSettings();
+            }
+        }
+
         if (dspData == null) dspData = new JsonObject();
 
         // --- Gain (Volume) ---
@@ -136,14 +154,28 @@ public class DspGui implements Listener {
 
         if (e.getClickedInventory() != e.getView().getTopInventory()) return;
         Player player = (Player) e.getWhoClicked();
-        Location location = editingSession.get(player.getUniqueId());
+        Object target = editingSession.get(player.getUniqueId());
 
-        if (location == null || location.getBlock().getType() != Material.JUKEBOX) {
+        if (target == null) {
             player.closeInventory();
             return;
         }
 
-        JsonObject dspData = Utils.loadNbtData(location, "mixer_dsp");
+        if (target instanceof Location loc) {
+            if (loc.getBlock().getType() != Material.JUKEBOX) {
+                player.closeInventory();
+                return;
+            }
+        }
+
+        JsonObject dspData = null;
+        if (target instanceof Location loc) {
+            dspData = Utils.loadNbtData(loc, "mixer_dsp");
+        } else if (target instanceof UUID uid) {
+            EntityMixerAudioPlayer emp = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
+            if (emp != null) dspData = emp.getDspSettings();
+        }
+
         if (dspData == null) dspData = new JsonObject();
 
         boolean updateAudio = false;
@@ -229,18 +261,29 @@ public class DspGui implements Listener {
         }
 
         if (updateAudio || heavyUpdate) {
-            Utils.saveNbtData(location, "mixer_dsp", dspData);
-            updateInventory(e.getInventory(), location);
-
-            IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
-            if (audioPlayer != null) {
-                audioPlayer.reloadDspSettings();
-                if (heavyUpdate) {
-                    audioPlayer.loadDsp();
-                } else {
-                    audioPlayer.updateVolume();
+            if (target instanceof Location loc) {
+                Utils.saveNbtData(loc, "mixer_dsp", dspData);
+                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
+                if (audioPlayer != null) {
+                    audioPlayer.reloadDspSettings();
+                    if (heavyUpdate) {
+                        audioPlayer.loadDsp();
+                    } else {
+                        audioPlayer.updateVolume();
+                    }
+                }
+            } else if (target instanceof UUID uid) {
+                EntityMixerAudioPlayer emp = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
+                if (emp != null) {
+                    emp.setDspSettings(dspData);
+                    if (heavyUpdate) {
+                        emp.loadDsp();
+                    } else {
+                        emp.updateVolume();
+                    }
                 }
             }
+            updateInventory(e.getInventory(), target);
         }
     }
 
