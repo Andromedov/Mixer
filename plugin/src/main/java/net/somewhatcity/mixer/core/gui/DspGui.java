@@ -289,6 +289,8 @@ public class DspGui implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        editingSession.remove(e.getPlayer().getUniqueId());
+        if (e.getView().title().equals(getTitle())) {
+            editingSession.remove(e.getPlayer().getUniqueId());
+        }
     }
 }
