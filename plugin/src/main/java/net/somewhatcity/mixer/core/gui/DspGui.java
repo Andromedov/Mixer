@@ -40,10 +40,15 @@ public class DspGui implements Listener {
         player.openInventory(inv);
     }
 
-    public void open(Player player, UUID targetPlayerId) {
-        editingSession.put(player.getUniqueId(), targetPlayerId);
+    /**
+     * Open DSP GUI for a Portable Speaker.
+     * @param player The player opening the GUI.
+     * @param speakerId The UUID of the speaker item.
+     */
+    public void open(Player player, UUID speakerId) {
+        editingSession.put(player.getUniqueId(), speakerId);
         Inventory inv = Bukkit.createInventory(null, 27, getTitle());
-        updateInventory(inv, targetPlayerId);
+        updateInventory(inv, speakerId);
         player.openInventory(inv);
     }
 
@@ -52,11 +57,8 @@ public class DspGui implements Listener {
 
         if (target instanceof Location loc) {
             dspData = Utils.loadNbtData(loc, "mixer_dsp");
-        } else if (target instanceof UUID uid) {
-            EntityMixerAudioPlayer player = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
-            if (player != null) {
-                dspData = player.getDspSettings();
-            }
+        } else if (target instanceof UUID speakerId) {
+            dspData = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp(speakerId);
         }
 
         if (dspData == null) dspData = new JsonObject();
@@ -171,9 +173,8 @@ public class DspGui implements Listener {
         JsonObject dspData = null;
         if (target instanceof Location loc) {
             dspData = Utils.loadNbtData(loc, "mixer_dsp");
-        } else if (target instanceof UUID uid) {
-            EntityMixerAudioPlayer emp = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
-            if (emp != null) dspData = emp.getDspSettings();
+        } else if (target instanceof UUID speakerId) {
+            dspData = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp(speakerId);
         }
 
         if (dspData == null) dspData = new JsonObject();
@@ -272,9 +273,12 @@ public class DspGui implements Listener {
                         audioPlayer.updateVolume();
                     }
                 }
-            } else if (target instanceof UUID uid) {
-                EntityMixerAudioPlayer emp = MixerPlugin.getPlugin().getPortablePlayerMap().get(uid);
-                if (emp != null) {
+            } else if (target instanceof UUID speakerId) {
+                MixerPlugin.getPlugin().getDatabase().saveSpeakerDsp(speakerId, dspData);
+
+                EntityMixerAudioPlayer emp = MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId());
+
+                if (emp != null && speakerId.equals(emp.getSourceItemId())) {
                     emp.setDspSettings(dspData);
                     if (heavyUpdate) {
                         emp.loadDsp();
@@ -289,8 +293,6 @@ public class DspGui implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {
-        if (e.getView().title().equals(getTitle())) {
-            editingSession.remove(e.getPlayer().getUniqueId());
-        }
+        editingSession.remove(e.getPlayer().getUniqueId());
     }
 }

@@ -1,11 +1,13 @@
 package net.somewhatcity.mixer.core.audio;
 
+import com.google.gson.JsonObject;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.EntityAudioChannel;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.somewhatcity.mixer.api.MixerSpeaker;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.MixerVoicechatPlugin;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
@@ -46,10 +48,24 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     public void setSourceItemId(UUID sourceItemId) {
         this.sourceItemId = sourceItemId;
+        loadSettingsFromDb();
     }
 
     public UUID getSourceItemId() {
         return sourceItemId;
+    }
+
+    private void loadSettingsFromDb() {
+        if (sourceItemId == null) return;
+        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            JsonObject loadedSettings = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp(sourceItemId);
+            if (loadedSettings != null) {
+                this.setDspSettings(loadedSettings);
+                if (running && playbackStarted) {
+                    updateVolume();
+                }
+            }
+        });
     }
 
     @Override

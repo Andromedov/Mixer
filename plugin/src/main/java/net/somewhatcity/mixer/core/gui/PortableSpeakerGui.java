@@ -132,8 +132,9 @@ public class PortableSpeakerGui implements Listener {
             }
             // "Audio Effects" button logic
             else if (e.getSlot() == 2) {
-                if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
-                    MixerPlugin.getPlugin().getDspGui().open(player, player.getUniqueId());
+                UUID speakerId = openSpeakers.get(player.getUniqueId());
+                if (speakerId != null) {
+                    MixerPlugin.getPlugin().getDspGui().open(player, speakerId);
                 } else {
                     MessageUtil.sendActionBarMsg(player, "failed_to_stop");
                 }
