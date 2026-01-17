@@ -1,5 +1,7 @@
 package net.somewhatcity.mixer.core.db;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.somewhatcity.mixer.core.MixerPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -9,6 +11,7 @@ import java.io.File;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 
 public class MixerDatabase {
@@ -52,6 +55,12 @@ public class MixerDatabase {
                     ")";
             stmt.execute(sql);
 
+            String sqlSpeakers = "CREATE TABLE IF NOT EXISTS speaker_dsp (" +
+                    "speaker_id VARCHAR(36) PRIMARY KEY, " +
+                    "settings TEXT NOT NULL" +
+                    ")";
+            stmt.execute(sqlSpeakers);
+
             plugin.logDebug(Level.INFO, "Database initialized successfully.", null);
         } catch (SQLException e) {
             plugin.logDebug(Level.SEVERE, "Failed to initialize database", e);
@@ -64,6 +73,8 @@ public class MixerDatabase {
         }
         return dataSource.getConnection();
     }
+
+    // --- Active Mixers (Jukeboxes) ---
 
     private String getLocationKey(Location loc) {
         return loc.getWorld().getName() + "_" + loc.getBlockX() + "_" + loc.getBlockY() + "_" + loc.getBlockZ();
@@ -127,5 +138,43 @@ public class MixerDatabase {
         }
 
         return mixers;
+    }
+
+    // --- Portable Speaker DSP Settings ---
+
+    public void saveSpeakerDsp(UUID speakerId, JsonObject settings) {
+        String sql = "MERGE INTO speaker_dsp (speaker_id, settings) KEY(speaker_id) VALUES (?, ?)";
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, speakerId.toString());
+            pstmt.setString(2, settings.toString());
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.logDebug(Level.WARNING, "Failed to save speaker DSP to DB", e);
+        }
+    }
+
+    public JsonObject loadSpeakerDsp(UUID speakerId) {
+        String sql = "SELECT settings FROM speaker_dsp WHERE speaker_id = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, speakerId.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    String json = rs.getString("settings");
+                    return JsonParser.parseString(json).getAsJsonObject();
+                }
+            }
+        } catch (SQLException e) {
+            plugin.logDebug(Level.WARNING, "Failed to load speaker DSP from DB", e);
+        } catch (Exception e) {
+            plugin.logDebug(Level.WARNING, "Failed to parse speaker DSP JSON", e);
+        }
+        return new JsonObject(); // Return empty if not found
     }
 }
