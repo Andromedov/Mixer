@@ -28,6 +28,7 @@ dependencies {
     library("com.google.code.gson", "gson", "2.13.2")
 
     implementation("com.h2database:h2:2.4.240")
+    implementation("org.bstats:bstats-bukkit:3.1.0")
 
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
@@ -50,6 +51,10 @@ tasks {
     shadowJar {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
+
+        configurations = listOf(project.configurations.runtimeClasspath.get())
+        dependencies { exclude { it.moduleGroup != "org.bstats" } }
+        relocate("org.bstats", project.group.toString())
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))

@@ -19,6 +19,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.apache.logging.log4j.core.Filter;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -65,6 +66,7 @@ public class MixerPlugin extends JavaPlugin {
     private int audioFrameBufferDuration;
     private String language;
     private String debugLevel; // "NONE", "WARNING", "ALL"
+    private Boolean metrics;
 
     // Portable Speaker Config
     private boolean portableSpeakerEnabled;
@@ -139,6 +141,14 @@ public class MixerPlugin extends JavaPlugin {
 
         // Check for updates
         new UpdateChecker(this).check(updateNotifyListener::setNewVersion);
+
+        // Metrics
+        if (getMetric()) {
+            logDebug(Level.INFO, "Metrics is enabled", null);
+            new Metrics(this, 29082);
+        } else {
+            logDebug(Level.INFO, "Metrics is disabled", null);
+        }
     }
 
     private void cleanupOpusTemp() {
@@ -274,8 +284,8 @@ public class MixerPlugin extends JavaPlugin {
         audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
         language = config.getString("lang", "en");
 
-        // Load debug level
         debugLevel = config.getString("system.debugLevel", "WARNING").toUpperCase();
+        metrics = config.getBoolean("system.metrics", true);
 
         portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
         portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
@@ -399,6 +409,7 @@ public class MixerPlugin extends JavaPlugin {
     public int getAudioFrameBufferDuration() { return audioFrameBufferDuration; }
     public String getLanguage() { return language; }
     public String getDebugLevel() { return debugLevel; }
+    public Boolean getMetric() { return metrics; }
 
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }

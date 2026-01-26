@@ -16,6 +16,8 @@ system:
   # "WARNING" - (Default) Print error messages without stack traces.
   # "ALL"     - Print full stack traces (useful for dev/debugging).
   debugLevel: "WARNING"
+  # Metrics ( please leave as enabled :D )
+  metrics: true
 
 # ===========================================
 # UPDATE NOTIFIER
