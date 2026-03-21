@@ -121,7 +121,7 @@ public class CommandRegistry {
                 oldUrl = finalUrl;
                 finalUrl = Utils.requestCobaltMediaUrl(uri);
                 if (finalUrl == null) {
-                    player.sendMessage(MM.deserialize("<c><red>Cobalt API Error: unable to obtain a direct link.</red>\n<gray>Check the server console. If you see an HTTP 403 error there, your hosting account has been blocked by Cobalt (Cloudflare).</gray>"));
+                    player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link.</red>\n<gray>Check the server console. If you see an HTTP 403 error there, your hosting account has been blocked by Cobalt (Cloudflare).</gray>"));
                     return;
                 }
             } else {
