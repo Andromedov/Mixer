@@ -61,3 +61,10 @@ messages:
     reset_name: "<red>Скинути Всі Ефекти</red>"
     reset_lore:
       - "<red>Натисніть, щоб скинути всі налаштування"
+  youtube:
+    already_polling: "<red>Процес авторизації вже запущено. Зачекайте або перезавантажте сервер.</red>"
+    api_error: "<red>Помилка з'єднання з Google API.</red>"
+    instructions: "\n<green>=== Авторизація YouTube ===</green>\n<yellow>1.</yellow> Перейдіть за посиланням: <click:open_url:'%url%'><aqua><u>%url%</u></aqua></click>\n<yellow>2.</yellow> Введіть цей код: <click:copy_to_clipboard:'%code%'><gold><bold>%code%</bold> (Натисніть, щоб скопіювати)</gold></click>\n<gray>Плагін автоматично очікує на ваше підтвердження...</gray>\n"
+    timeout: "<red>Час очікування коду вичерпано. Спробуйте ще раз.</red>"
+    auth_error: "<red>Помилка авторизації: %error%</red>"
+    success: "\n<green><bold>✅ YouTube успішно прив'язано!</bold></green>\n<gray>Токен збережено в config.yml. Налаштування аудіо-плеєра були перезавантажені.</gray>\n"

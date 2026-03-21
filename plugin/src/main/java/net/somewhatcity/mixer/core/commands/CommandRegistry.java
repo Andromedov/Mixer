@@ -34,6 +34,7 @@ import net.somewhatcity.mixer.core.MixerPlugin;
 import net.somewhatcity.mixer.core.audio.IMixerAudioPlayer;
 import net.somewhatcity.mixer.core.util.MessageUtil;
 import net.somewhatcity.mixer.core.util.Utils;
+import net.somewhatcity.mixer.core.util.YoutubeOAuthHelper;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -71,6 +72,7 @@ public class CommandRegistry {
                     .then(registerRedstoneCommand())
                     .then(registerDspCommand())
                     .then(registerSpeakerCommand())
+                    .then(registerYoutubeCommand())
                     .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
@@ -543,5 +545,24 @@ public class CommandRegistry {
         catch (Exception e) {
             return null;
         }
+    }
+
+    // --- /mixer youtube ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerYoutubeCommand() {
+        return Commands.literal("youtube")
+                .requires(source -> source.getSender().hasPermission("mixer.command.youtube"))
+                .then(Commands.literal("login")
+                        .executes(this::executeYoutubeLogin));
+    }
+
+    private int executeYoutubeLogin(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+
+        YoutubeOAuthHelper.startOAuthFlow(player);
+        return Command.SINGLE_SUCCESS;
     }
 }

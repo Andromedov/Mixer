@@ -61,3 +61,10 @@ messages:
     reset_name: "<red>Reset All Effects</red>"
     reset_lore:
       - "<red>Click to reset all effects"
+  youtube:
+    already_polling: "<red>Authorization process is already running. Please wait or restart the server.</red>"
+    api_error: "<red>Failed to connect to Google API.</red>"
+    instructions: "\n<green>=== YouTube Authorization ===</green>\n<yellow>1.</yellow> Go to: <click:open_url:'%url%'><aqua><u>%url%</u></aqua></click>\n<yellow>2.</yellow> Enter this code: <click:copy_to_clipboard:'%code%'><gold><bold>%code%</bold> (Click to copy)</gold></click>\n<gray>The plugin is waiting for your confirmation...</gray>\n"
+    timeout: "<red>Authorization timed out. Please try again.</red>"
+    auth_error: "<red>Authorization error: %error%</red>"
+    success: "\n<green><bold>✅ YouTube successfully linked!</bold></green>\n<gray>Token saved to config.yml. Audio player settings have been reloaded.</gray>\n"
