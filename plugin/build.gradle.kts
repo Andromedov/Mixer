@@ -44,7 +44,7 @@ dependencies {
     implementation("de.maxhenkel.opus4j:opus4j:2.1.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    api(project(":api"))
+    implementation(project(":api"))
 }
 
 tasks {
@@ -52,9 +52,7 @@ tasks {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
-        configurations = listOf(project.configurations.runtimeClasspath.get())
-        dependencies { exclude { it.moduleGroup != "org.bstats" } }
-        relocate("org.bstats", project.group.toString())
+        relocate("org.bstats", "net.somewhatcity.mixer.bstats")
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
