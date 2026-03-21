@@ -95,7 +95,7 @@ public class RedstoneListener implements Listener {
     private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
         try {
-            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8.toString());
+            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             return TTS_URL.formatted(encoded);
         } catch (Exception e) {
             return TTS_URL.formatted(text.replace(" ", "%20"));
