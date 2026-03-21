@@ -47,6 +47,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -299,7 +300,7 @@ public class CommandRegistry {
             return 0;
         }
 
-        Location loc = player.getTargetBlockExact(10).getLocation();
+        Location loc = Objects.requireNonNull(player.getTargetBlockExact(10)).getLocation();
         JsonObject locData = new JsonObject();
         locData.addProperty("x", loc.getX());
         locData.addProperty("y", loc.getY());
@@ -508,7 +509,7 @@ public class CommandRegistry {
             MessageUtil.reloadMessages();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            plugin.logDebug(Level.INFO, "Failed to reload messages", e);
         }
 
         plugin.reloadPluginConfig();
