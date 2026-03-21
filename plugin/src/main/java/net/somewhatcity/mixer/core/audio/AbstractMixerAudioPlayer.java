@@ -159,7 +159,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     }
 
     protected void initializeAsync() {
-        CompletableFuture.runAsync(() -> {
+        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
             synchronized(initializationLock) {
                 try {
                     lavaplayer = APM.createPlayer();
@@ -306,7 +306,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
             String nextUrl = loadingQueue.poll();
-            CompletableFuture.runAsync(() -> {
+            Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
                 try {
                     attemptLoad(nextUrl, 0);
                 } catch (Exception e) {
@@ -325,8 +325,11 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         String finalUrlToLoad = audioUrl;
 
-        if (audioUrl.startsWith("cobalt://")) {
-            String rawUrl = audioUrl.replace("cobalt://", "");
+        if (audioUrl.startsWith("cobalt://") || audioUrl.startsWith("cobalt:")) {
+            String rawUrl = audioUrl.replaceFirst("^cobalt:(//)?", "");
+            if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                rawUrl = "https://" + rawUrl;
+            }
             String resolvedUrl = Utils.requestCobaltMediaUrl(rawUrl);
             if (resolvedUrl == null || resolvedUrl.isEmpty()) {
                 if (retryCount < MAX_RETRIES) {
@@ -476,7 +479,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             return;
         }
 
-        CompletableFuture.runAsync(() -> {
+        new Thread(() -> {
             try {
                 // Short delay only on cold start if needed, but usually redundant if checks are correct
                 if (audioStream == null) {
@@ -522,7 +525,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             } catch (Exception e) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error in DSP processing", e);
             }
-        });
+        }, "Mixer-DSP-Thread").start();
     }
 
     private void updateActiveEffects() {

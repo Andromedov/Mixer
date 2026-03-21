@@ -98,22 +98,30 @@ public class PlayerInteractListener implements Listener {
                 audioPlayer.stop();
             }
         } else if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
+
+            boolean hasMixerDisc = e.getItem() != null && e.getItem().hasItemMeta() &&
+                    e.getItem().getItemMeta().getPersistentDataContainer().has(new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data"), PersistentDataType.STRING);
+
             if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
                 IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
-                MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
                 audioPlayer.stop();
                 e.setCancelled(true);
-                return;
+
+                if (!hasMixerDisc) {
+                    MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
+                    return;
+                }
             }
-            if (e.getItem() == null) return;
-            NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            if (!e.getItem().hasItemMeta() || !e.getItem().getItemMeta().getPersistentDataContainer().getKeys().contains(mixerData)) return;
-            String url = e.getItem().getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+
+            if (!hasMixerDisc) return;
+
+            String url = e.getItem().getItemMeta().getPersistentDataContainer().get(new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data"), PersistentDataType.STRING);
             e.setCancelled(true);
 
             try {
                 IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
                 audioPlayer.load(url);
+                MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
             } catch (Exception ex) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to create audio player", ex);
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
