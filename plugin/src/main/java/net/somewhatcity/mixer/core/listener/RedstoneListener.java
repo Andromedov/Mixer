@@ -63,9 +63,10 @@ public class RedstoneListener implements Listener {
         for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
             if(Utils.isDisc(item)) {
+                if (!item.hasItemMeta()) continue;
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) continue;
-                String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+                if (!item.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) continue;
+                String url = item.getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
                 loadList.add(url);
             }
             else if(item.getType().equals(Material.WRITABLE_BOOK)) {

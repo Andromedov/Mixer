@@ -15,7 +15,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
@@ -152,7 +151,7 @@ public class Utils {
             } else {
                 return null;
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error requesting Cobalt media URL", e);
             return null;
         }

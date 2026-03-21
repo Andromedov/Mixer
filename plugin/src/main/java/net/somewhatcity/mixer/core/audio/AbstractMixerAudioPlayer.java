@@ -118,7 +118,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected OpusEncoder encoder;
     protected LavaplayerAudioStream audioStream;
     protected volatile boolean running = true;
-    protected boolean playbackStarted = false;
+    protected volatile boolean playbackStarted = false;
     protected AudioDispatcher dispatcher;
     protected JVMAudioInputStream jvmAudioInputStream;
 
@@ -167,13 +167,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                         @Override
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
                             if (endReason.mayStartNext) {
-                                if (!playlist.isEmpty()) {
-                                    start();
-                                } else if (!loadingQueue.isEmpty()) {
-                                    loadNextFromQueue();
-                                } else {
-                                    playbackStarted = false;
-                                }
+                                start();
                             }
                         }
 
@@ -312,7 +306,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
             String nextUrl = loadingQueue.poll();
-            CompletableFuture.runAsync(() -> attemptLoad(nextUrl, 0));
+            CompletableFuture.runAsync(() -> {
+                try {
+                    attemptLoad(nextUrl, 0);
+                } catch (Exception e) {
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Unexpected error in attemptLoad", e);
+                    loadNextFromQueue();
+                }
+            });
         }
     }
 
@@ -402,7 +403,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         if (!playbackStarted) {
             loadDsp();
             start();
-            playbackStarted = true;
         }
     }
 
@@ -436,10 +436,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
                 MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
             }
+            playbackStarted = true;
             lavaplayer.playTrack(track);
         }
         else {
-            if (!loadingQueue.isEmpty()) { loadNextFromQueue(); }
+            playbackStarted = false;
+            if (!loadingQueue.isEmpty()) {
+                loadNextFromQueue();
+            }
         }
     }
 
@@ -582,6 +586,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         String errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>";
         notifyUser(errorMessage);
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "FriendlyException in track playback", exception);
-        if (!playlist.isEmpty()) { start(); }
+        start();
     }
 }
