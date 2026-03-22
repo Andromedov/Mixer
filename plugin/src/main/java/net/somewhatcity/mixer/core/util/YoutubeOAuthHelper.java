@@ -14,14 +14,11 @@ import java.util.logging.Level;
 
 /**
  * Helper for automatically getting a YouTube Refresh Token via Google Device Flow.
- * This saves administrators from having to manually extract tokens.
+ * Reads Client ID and Client Secret from config.yml.
  */
 public class YoutubeOAuthHelper {
 
     private static final OkHttpClient client = new OkHttpClient();
-    private static final String CLIENT_ID = "861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com"; // Standard TV Client ID
-    private static final String CLIENT_SECRET = "S0s110OjcGQjOAEoV9qJ_t1-";
-
     private static final AtomicBoolean isPolling = new AtomicBoolean(false);
 
     /**
@@ -30,17 +27,27 @@ public class YoutubeOAuthHelper {
      */
     public static void startOAuthFlow(Player admin) {
         LocalizationManager lang = MixerPlugin.getPlugin().getLocalizationManager();
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+
+        String clientId = plugin.getConfig().getString("mixer.youtube.clientId", "");
+        String clientSecret = plugin.getConfig().getString("mixer.youtube.clientSecret", "");
+
+        if (clientId.isEmpty() || clientSecret.isEmpty() || clientId.equals("YOUR_CLIENT_ID")) {
+            admin.sendMessage(MiniMessage.miniMessage().deserialize("<red>Google API Credentials are not configured!</red>"));
+            admin.sendMessage(MiniMessage.miniMessage().deserialize("<gray>Please create an OAuth 2.0 Client ID (TVs and Limited Input devices) in Google Cloud Console and add it to <yellow>config.yml</yellow>.</gray>"));
+            return;
+        }
 
         if (isPolling.get()) {
             admin.sendMessage(MiniMessage.miniMessage().deserialize(lang.getMessage("youtube.already_polling")));
             return;
         }
 
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 RequestBody body = new FormBody.Builder()
-                        .add("client_id", CLIENT_ID)
-                        .add("scope", "https://www.googleapis.com/auth/youtube.readonly")
+                        .add("client_id", clientId)
+                        .add("scope", "https://www.googleapis.com/auth/youtube")
                         .build();
 
                 Request request = new Request.Builder()
@@ -50,6 +57,9 @@ public class YoutubeOAuthHelper {
 
                 try (Response response = client.newCall(request).execute()) {
                     if (!response.isSuccessful() || response.body() == null) {
+                        String errorBody = response.body() != null ? response.body().string() : "Empty response body";
+                        plugin.logDebug(Level.SEVERE, "Google API OAuth Error (Step 1): HTTP " + response.code() + " - " + errorBody, null);
+
                         admin.sendMessage(MiniMessage.miniMessage().deserialize(lang.getMessage("youtube.api_error")));
                         return;
                     }
@@ -67,20 +77,21 @@ public class YoutubeOAuthHelper {
                     admin.sendMessage(MiniMessage.miniMessage().deserialize(instructions));
 
                     isPolling.set(true);
-                    pollForToken(admin, deviceCode, interval);
+                    pollForToken(admin, deviceCode, interval, clientId, clientSecret);
 
                 }
             } catch (Exception e) {
-                MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Error during OAuth flow", e);
+                plugin.logDebug(Level.SEVERE, "Error during OAuth flow", e);
                 isPolling.set(false);
             }
         });
     }
 
-    private static void pollForToken(Player admin, String deviceCode, int interval) {
+    private static void pollForToken(Player admin, String deviceCode, int interval, String clientId, String clientSecret) {
         LocalizationManager lang = MixerPlugin.getPlugin().getLocalizationManager();
+        MixerPlugin plugin = MixerPlugin.getPlugin();
 
-        Bukkit.getScheduler().runTaskTimerAsynchronously(MixerPlugin.getPlugin(), task -> {
+        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task -> {
             if (!isPolling.get()) {
                 task.cancel();
                 return;
@@ -88,8 +99,8 @@ public class YoutubeOAuthHelper {
 
             try {
                 RequestBody body = new FormBody.Builder()
-                        .add("client_id", CLIENT_ID)
-                        .add("client_secret", CLIENT_SECRET)
+                        .add("client_id", clientId)
+                        .add("client_secret", clientSecret)
                         .add("device_code", deviceCode)
                         .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
                         .build();
@@ -111,33 +122,34 @@ public class YoutubeOAuthHelper {
                         isPolling.set(false);
                         task.cancel();
                     } else {
-                        String error = json.get("error").getAsString();
+                        String error = json.has("error") ? json.get("error").getAsString() : "unknown_error";
+
                         if (error.equals("authorization_pending")) {
                             return;
-                        } else if (error.equals("expired_token")) {
+                        }
+
+                        if (error.equals("expired_token")) {
                             admin.sendMessage(MiniMessage.miniMessage().deserialize(lang.getMessage("youtube.timeout")));
-                            isPolling.set(false);
-                            task.cancel();
                         } else {
                             String errorMsg = lang.getMessage("youtube.auth_error").replace("%error%", error);
                             admin.sendMessage(MiniMessage.miniMessage().deserialize(errorMsg));
-                            isPolling.set(false);
-                            task.cancel();
+                            plugin.logDebug(Level.SEVERE, "Google Auth Error details (Step 4): " + resStr, null);
                         }
+                        isPolling.set(false);
+                        task.cancel();
                     }
                 }
             } catch (IOException e) {
-                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error during OAuth polling", e);
+                plugin.logDebug(Level.WARNING, "Error during OAuth polling", e);
             }
         }, interval * 20L, interval * 20L); // Bukkit timer ticks (1 sec = 20 ticks)
     }
 
     private static void saveTokenAndReload(Player admin, String token) {
         LocalizationManager lang = MixerPlugin.getPlugin().getLocalizationManager();
+        MixerPlugin plugin = MixerPlugin.getPlugin();
 
-        Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-            MixerPlugin plugin = MixerPlugin.getPlugin();
-
+        Bukkit.getScheduler().runTask(plugin, () -> {
             // Save to config
             plugin.getConfig().set("mixer.youtube.enabled", true);
             plugin.getConfig().set("mixer.youtube.useOAuth", true);

@@ -36,6 +36,8 @@ mixer:
   youtube:
     enabled: false
     useOAuth: false
+    clientId: "YOUR_CLIENT_ID"
+    clientSecret: "YOUR_CLIENT_SECRET"
     refreshToken: ""
 
   # Should the plugin notify players of playback errors?
