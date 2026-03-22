@@ -47,24 +47,31 @@ import java.util.concurrent.*;
 import java.util.logging.Level;
 
 public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
-    public static final AudioPlayerManager APM = new DefaultAudioPlayerManager();
+    public static AudioPlayerManager APM;
 
     // Retry settings
     protected static final int MAX_RETRIES = 3;
 
     static {
+        initApm();
+    }
+
+    public static void initApm() {
+        APM = new DefaultAudioPlayerManager();
         FileConfiguration config = MixerPlugin.getPlugin().getConfig();
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true,
-                    new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
-                    new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
+                    new TvHtml5EmbeddedWithThumbnail(), new TvHtml5Embedded(),
+                    new WebWithThumbnail(), new Web(),
+                    new MusicWithThumbnail(), new Music()
             );
 
             if (config.getBoolean("mixer.youtube.useOAuth", false)) {
                 String refreshToken = config.getString("mixer.youtube.refreshToken", "");
                 if (!refreshToken.isEmpty()) {
                     youtube.useOauth2(refreshToken, true);
+                    MixerPlugin.getPlugin().logDebug(Level.INFO, "YouTube OAuth token loaded successfully.", null);
                 } else {
                     youtube.useOauth2(null, false);
                 }
@@ -342,10 +349,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 return;
             }
             finalUrlToLoad = resolvedUrl;
-        }
-        else if (audioUrl.startsWith("https://youtube.com") || audioUrl.startsWith("https://www.youtube.com")) {
-            String resolvedUrl = Utils.requestCobaltMediaUrl(audioUrl);
-            if (resolvedUrl != null && !resolvedUrl.isEmpty()) finalUrlToLoad = resolvedUrl;
         }
 
         APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
