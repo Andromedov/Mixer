@@ -53,7 +53,15 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected static final int MAX_RETRIES = 3;
 
     static {
-        initApm();
+        try {
+            initApm();
+        } catch (Throwable t) {
+            if (MixerPlugin.getPlugin() != null) {
+                MixerPlugin.getPlugin().logDebug(Level.SEVERE, "CRITICAL: Failed to initialize AudioPlayerManager!", t);
+            } else {
+                t.printStackTrace();
+            }
+        }
     }
 
     public static void initApm() {
@@ -62,9 +70,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true,
-                    new TvHtml5EmbeddedWithThumbnail(), new TvHtml5Embedded(),
+                    new MusicWithThumbnail(), new Music(),
                     new WebWithThumbnail(), new Web(),
-                    new MusicWithThumbnail(), new Music()
+                    new TvHtml5EmbeddedWithThumbnail(), new TvHtml5Embedded()
             );
 
             if (config.getBoolean("mixer.youtube.useOAuth", false)) {
