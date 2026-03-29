@@ -112,12 +112,16 @@ public class CommandRegistry {
                     finalUrl = file.getAbsolutePath();
                 }
             }
-            if (finalUrl.startsWith("cobalt://")) {
-                String uri = finalUrl.substring(8);
+
+            if (finalUrl.startsWith("cobalt://") || finalUrl.startsWith("cobalt:")) {
+                String uri = finalUrl.replaceFirst("^cobalt:(//)?", "");
+                if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
+                    uri = "https://" + uri;
+                }
                 oldUrl = finalUrl;
                 finalUrl = Utils.requestCobaltMediaUrl(uri);
                 if (finalUrl == null) {
-                    player.sendMessage("<c>Error while loading cobalt media");
+                    player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link.</red>\n<gray>Check the server console. If you see an HTTP 403 error there, your hosting account has been blocked by Cobalt (Cloudflare).</gray>"));
                     return;
                 }
             } else {
@@ -130,7 +134,7 @@ public class CommandRegistry {
                 public void trackLoaded(AudioTrack audioTrack) {
                     AudioTrackInfo info = audioTrack.getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        String urlToSet =!oldUrl.isEmpty()? oldUrl : urlForLambda;
+                        String urlToSet = !oldUrl.isEmpty() ? oldUrl : urlForLambda;
                         applyDiscMeta(item, info, urlToSet);
                         MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });

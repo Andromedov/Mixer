@@ -28,6 +28,7 @@ dependencies {
     library("com.google.code.gson", "gson", "2.13.2")
 
     implementation("com.h2database:h2:2.4.240")
+    implementation("org.bstats:bstats-bukkit:3.1.0")
 
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
@@ -43,13 +44,15 @@ dependencies {
     implementation("de.maxhenkel.opus4j:opus4j:2.1.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    api(project(":api"))
+    implementation(project(":api"))
 }
 
 tasks {
     shadowJar {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
+
+        relocate("org.bstats", "net.somewhatcity.mixer.bstats")
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))

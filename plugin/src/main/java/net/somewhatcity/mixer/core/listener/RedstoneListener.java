@@ -63,9 +63,10 @@ public class RedstoneListener implements Listener {
         for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
             if(Utils.isDisc(item)) {
+                if (!item.hasItemMeta()) continue;
                 NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if(!item.getPersistentDataContainer().getKeys().contains(mixerData)) continue;
-                String url = item.getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+                if (!item.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) continue;
+                String url = item.getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
                 loadList.add(url);
             }
             else if(item.getType().equals(Material.WRITABLE_BOOK)) {
@@ -88,15 +89,13 @@ public class RedstoneListener implements Listener {
         final IMixerAudioPlayer targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
 
         final String[] urls = loadList.toArray(String[]::new);
-        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
-            targetPlayer.clearAndPlay(urls);
-        });
+        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> targetPlayer.clearAndPlay(urls));
     }
 
     private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
     public static String getTtsUrl(String text) {
         try {
-            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8.toString());
+            String encoded = URLEncoder.encode(text, StandardCharsets.UTF_8);
             return TTS_URL.formatted(encoded);
         } catch (Exception e) {
             return TTS_URL.formatted(text.replace(" ", "%20"));

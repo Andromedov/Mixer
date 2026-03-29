@@ -118,7 +118,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected OpusEncoder encoder;
     protected LavaplayerAudioStream audioStream;
     protected volatile boolean running = true;
-    protected boolean playbackStarted = false;
+    protected volatile boolean playbackStarted = false;
     protected AudioDispatcher dispatcher;
     protected JVMAudioInputStream jvmAudioInputStream;
 
@@ -159,7 +159,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     }
 
     protected void initializeAsync() {
-        CompletableFuture.runAsync(() -> {
+        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
             synchronized(initializationLock) {
                 try {
                     lavaplayer = APM.createPlayer();
@@ -167,13 +167,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                         @Override
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
                             if (endReason.mayStartNext) {
-                                if (!playlist.isEmpty()) {
-                                    start();
-                                } else if (!loadingQueue.isEmpty()) {
-                                    loadNextFromQueue();
-                                } else {
-                                    playbackStarted = false;
-                                }
+                                start();
                             }
                         }
 
@@ -312,7 +306,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
             String nextUrl = loadingQueue.poll();
-            CompletableFuture.runAsync(() -> attemptLoad(nextUrl, 0));
+            Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+                try {
+                    attemptLoad(nextUrl, 0);
+                } catch (Exception e) {
+                    MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Unexpected error in attemptLoad", e);
+                    loadNextFromQueue();
+                }
+            });
         }
     }
 
@@ -324,8 +325,11 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         String finalUrlToLoad = audioUrl;
 
-        if (audioUrl.startsWith("cobalt://")) {
-            String rawUrl = audioUrl.replace("cobalt://", "");
+        if (audioUrl.startsWith("cobalt://") || audioUrl.startsWith("cobalt:")) {
+            String rawUrl = audioUrl.replaceFirst("^cobalt:(//)?", "");
+            if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+                rawUrl = "https://" + rawUrl;
+            }
             String resolvedUrl = Utils.requestCobaltMediaUrl(rawUrl);
             if (resolvedUrl == null || resolvedUrl.isEmpty()) {
                 if (retryCount < MAX_RETRIES) {
@@ -402,7 +406,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         if (!playbackStarted) {
             loadDsp();
             start();
-            playbackStarted = true;
         }
     }
 
@@ -436,10 +439,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             if ("ALL".equals(MixerPlugin.getPlugin().getDebugLevel())) {
                 MixerPlugin.getPlugin().logDebug(Level.INFO, "Starting lavaplayer playback: " + track.getInfo().title, null);
             }
+            playbackStarted = true;
             lavaplayer.playTrack(track);
         }
         else {
-            if (!loadingQueue.isEmpty()) { loadNextFromQueue(); }
+            playbackStarted = false;
+            if (!loadingQueue.isEmpty()) {
+                loadNextFromQueue();
+            }
         }
     }
 
@@ -472,7 +479,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             return;
         }
 
-        CompletableFuture.runAsync(() -> {
+        new Thread(() -> {
             try {
                 // Short delay only on cold start if needed, but usually redundant if checks are correct
                 if (audioStream == null) {
@@ -518,7 +525,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             } catch (Exception e) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error in DSP processing", e);
             }
-        });
+        }, "Mixer-DSP-Thread").start();
     }
 
     private void updateActiveEffects() {
@@ -582,6 +589,6 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         String errorMessage = "<red>Playback error: " + exception.getMessage() + "</red>";
         notifyUser(errorMessage);
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "FriendlyException in track playback", exception);
-        if (!playlist.isEmpty()) { start(); }
+        start();
     }
 }
