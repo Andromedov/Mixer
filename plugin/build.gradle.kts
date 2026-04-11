@@ -32,11 +32,11 @@ dependencies {
 
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
-    compileOnly("me.clip:placeholderapi:2.11.7")
+    compileOnly("me.clip:placeholderapi:2.12.2")
 
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
-    implementation("dev.arbjerg:lavaplayer:2.2.4")
-    implementation("dev.lavalink.youtube:v2:1.14.0")
+    implementation("dev.arbjerg:lavaplayer:2.2.6")
+    implementation("dev.lavalink.youtube:v2:1.18.0")
 
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("be.tarsos.dsp:core:2.5")

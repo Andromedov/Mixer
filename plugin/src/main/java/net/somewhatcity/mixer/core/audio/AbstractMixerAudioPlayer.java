@@ -58,7 +58,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         if (config.getBoolean("mixer.youtube.enabled", false)) {
             YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true,
                     new Music(), new Web(), new MusicWithThumbnail(), new WebWithThumbnail(),
-                    new TvHtml5Embedded(), new TvHtml5EmbeddedWithThumbnail(), new Android(), new AndroidMusic()
+                    new Android(), new AndroidMusic()
             );
 
             if (config.getBoolean("mixer.youtube.useOAuth", false)) {
