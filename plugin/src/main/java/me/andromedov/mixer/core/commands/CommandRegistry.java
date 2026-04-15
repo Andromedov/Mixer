@@ -102,7 +102,7 @@ public class CommandRegistry {
             rawUrl = rawUrl.replaceAll(" --save$", "").replaceAll(" -s$", "").trim();
         }
 
-        String url = rawUrl;
+        String originalInput = rawUrl;
 
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item == null || item.getType() == Material.AIR) {
@@ -163,55 +163,70 @@ public class CommandRegistry {
         final boolean doSaveLocal = saveLocal;
 
         EXECUTOR_SERVICE.submit(() -> {
-            String oldUrl;
-            String finalUrl = url;
-            if (finalUrl.startsWith("file://")) {
-                String filename = finalUrl.substring(7);
+            String streamUrl = originalInput;
+            String urlToSaveOnDisc = originalInput;
+
+            // 1. Handle File URLs
+            if (streamUrl.startsWith("file://")) {
+                String filename = streamUrl.substring(7);
                 File file = new File(filename);
                 if (file.exists() && file.isFile()) {
-                    finalUrl = file.getAbsolutePath();
+                    streamUrl = file.getAbsolutePath();
+                    urlToSaveOnDisc = streamUrl;
                 }
             }
-
-            if (finalUrl.startsWith("cobalt://") || finalUrl.startsWith("cobalt:")) {
-                String uri = finalUrl.replaceFirst("^cobalt:(//)?", "");
+            // 2. Handle Cobalt URLs
+            else if (streamUrl.startsWith("cobalt://") || streamUrl.startsWith("cobalt:")) {
+                String uri = streamUrl.replaceFirst("^cobalt:(//)?", "");
                 if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
                     uri = "https://" + uri;
                 }
-                oldUrl = finalUrl;
-                finalUrl = Utils.requestCobaltMediaUrl(uri);
-                if (finalUrl == null) {
-                    player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link.</red>\n<gray>Check the server console. If you see an HTTP 403 error there, your hosting account has been blocked by Cobalt (Cloudflare).</gray>"));
-                    return;
+                streamUrl = Utils.requestCobaltMediaUrl(uri);
+                if (streamUrl == null) {
+                    player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link. Try again later.</red>"));
+                    return; // Stops here, no HTML downloading
                 }
-            } else {
-                oldUrl = "";
+                urlToSaveOnDisc = originalInput; // Keep cobalt://... on the disc if NOT saving locally
             }
 
-            // Handle local saving feature
-            if (doSaveLocal) {
+            // 3. Handle Local Saving (-s)
+            if (doSaveLocal && streamUrl.startsWith("http")) {
                 MessageUtil.sendMsg(player, "downloading_track");
-                String fileName = UUID.randomUUID().toString() + ".mp3";
-                File downloadedAudio = Utils.downloadFile(finalUrl, fileName);
 
+                // If we haven't already passed it through Cobalt, and it's a standard link like YouTube/SoundCloud
+                if (!originalInput.startsWith("cobalt") && !streamUrl.matches(".*\\.(mp3|wav|ogg|flac|m4a|aac)(\\?.*)?$")) {
+                    String resolved = Utils.requestCobaltMediaUrl(streamUrl);
+                    if (resolved != null && !resolved.isEmpty()) {
+                        streamUrl = resolved;
+                    } else {
+                        MessageUtil.sendErrMsg(player, "download_failed");
+                        plugin.logDebug(Level.WARNING, "Failed to resolve direct URL for local saving. Aborting download.", null);
+                        return;
+                    }
+                }
+
+                String fileName = UUID.randomUUID().toString() + ".mp3";
+                File downloadedAudio = Utils.downloadFile(streamUrl, fileName);
+
+                // Utils.downloadFile now checks for HTML, so it will return null if it's not media
                 if (downloadedAudio != null && downloadedAudio.exists()) {
-                    finalUrl = downloadedAudio.getAbsolutePath();
-                    oldUrl = ""; // So it uses the local path directly
+                    streamUrl = downloadedAudio.getAbsolutePath();
+                    urlToSaveOnDisc = streamUrl; // Store the local file path on the disc!
                 } else {
                     MessageUtil.sendErrMsg(player, "download_failed");
                     return;
                 }
             }
 
-            String urlForLambda = finalUrl;
-            String finalOldUrl = oldUrl;
+            final String urlForLambda = streamUrl;
+            final String finalUrlToSet = urlToSaveOnDisc;
+
             IMixerAudioPlayer.APM.loadItem(urlForLambda, new AudioLoadResultHandler() {
                 @Override
                 public void trackLoaded(AudioTrack audioTrack) {
                     AudioTrackInfo info = audioTrack.getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : urlForLambda;
-                        applyDiscMeta(item, info, urlToSet);
+                        applyDiscMeta(item, info, finalUrlToSet);
                         MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
                 }
@@ -220,8 +235,7 @@ public class CommandRegistry {
                 public void playlistLoaded(AudioPlaylist audioPlaylist) {
                     AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : urlForLambda;
-                        applyDiscMeta(item, info, urlToSet);
+                        applyDiscMeta(item, info, finalUrlToSet);
                         MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
                 }
