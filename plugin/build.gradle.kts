@@ -52,7 +52,7 @@ tasks {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
-        relocate("org.bstats", "net.somewhatcity.mixer.bstats")
+        relocate("org.bstats", "me.andromedov.mixer.bstats")
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))

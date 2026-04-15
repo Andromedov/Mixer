@@ -11,8 +11,8 @@ allprojects {
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
 
-    group = "net.somewhatcity"
-    version = "2.2.3"
+    group = "me.andromedov"
+    version = "2.3.0"
 
     repositories {
         maven("https://repo.papermc.io/repository/maven-public/")
