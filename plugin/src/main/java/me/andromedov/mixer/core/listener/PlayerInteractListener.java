@@ -103,6 +103,47 @@ public class PlayerInteractListener implements Listener {
             boolean hasMixerDisc = e.getItem() != null && e.getItem().hasItemMeta() &&
                     e.getItem().getItemMeta().getPersistentDataContainer().has(new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data"), PersistentDataType.STRING);
 
+            MixerPlugin plugin = MixerPlugin.getPlugin();
+
+            if (plugin.getDiscInserted()) {
+                Jukebox jukebox = (Jukebox) location.getBlock().getState();
+
+                // If there's already a record inside, pop it out and stop playing.
+                if (jukebox.hasRecord()) {
+                    if (plugin.playerHashMap().containsKey(location)) {
+                        plugin.playerHashMap().get(location).stop();
+                        MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
+                    }
+                    jukebox.eject(); // Pops out vanilla or custom record
+                    e.setCancelled(true);
+                    return;
+                } else {
+                    if (!hasMixerDisc) return; // If holding anything else, let vanilla handle it
+
+                    // Insert the disc inside the Jukebox
+                    ItemStack toInsert = e.getItem().clone();
+                    toInsert.setAmount(1);
+                    jukebox.setRecord(toInsert);
+                    jukebox.update();
+                    e.getItem().subtract(1);
+
+                    e.setCancelled(true); // Stop vanilla from doing default actions
+
+                    String url = toInsert.getItemMeta().getPersistentDataContainer().get(new NamespacedKey(plugin, "mixer_data"), PersistentDataType.STRING);
+
+                    try {
+                        IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
+                        audioPlayer.load(url);
+                        MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
+                    } catch (Exception ex) {
+                        plugin.logDebug(Level.WARNING, "Failed to create audio player", ex);
+                        MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
+                    }
+                    return;
+                }
+            }
+
+            // --- Old Behavior (Require Disc Inserted is FALSE) ---
             if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
                 IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
                 audioPlayer.stop();

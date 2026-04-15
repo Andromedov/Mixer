@@ -12,8 +12,11 @@ messages:
     loading_failed: "Error while loading: %s"
     must_be_player: "You must be a player to run this command."
     no_matches: "No matches found."
+    invalid_disc_model: "This item does not meet the requirements to be burned!"
+    download_failed: "Failed to download the audio file to the server."
   success:
     loading_track: "Loading track. Please wait..."
+    downloading_track: "Downloading file to server. This may take a moment..."
     location_link: "Location linked to jukebox"
     redstone_location_link: "Redstone location linked to jukebox"
     track_loaded: "Successfully loaded track: %s"

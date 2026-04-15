@@ -15,8 +15,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import javax.sound.sampled.AudioFormat;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.logging.Level;
 
 public class Utils {
@@ -126,6 +129,35 @@ public class Utils {
         plugin.logDebug(Level.INFO, "YouTube Enabled: " + plugin.isYoutubeEnabled(), null);
         plugin.logDebug(Level.INFO, "Language: " + plugin.getLanguage(), null);
         plugin.logDebug(Level.INFO, "===========================", null);
+    }
+
+    /**
+     * Downloads file to plugin data folder with error handling
+     * @param urlStr The URL to download
+     * @param fileName The name of the file to save
+     * @return The downloaded file, or null if download failed
+     */
+    public static File downloadFile(String urlStr, String fileName) {
+        File audioDir = new File(MixerPlugin.getPlugin().getDataFolder(), "audio");
+        if (!audioDir.exists() && !audioDir.mkdirs()) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Could not create audio directory.", null);
+            return null;
+        }
+
+        File target = new File(audioDir, fileName);
+        Request request = new Request.Builder().url(urlStr).build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                Files.copy(response.body().byteStream(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                return target;
+            } else {
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to download file: HTTP " + response.code(), null);
+            }
+        } catch (Exception e) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error downloading audio file", e);
+        }
+        return null;
     }
 
     public static String requestCobaltMediaUrl(String url) {

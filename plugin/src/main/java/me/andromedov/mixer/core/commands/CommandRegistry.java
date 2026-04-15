@@ -25,6 +25,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.block.Block;
@@ -92,15 +93,74 @@ public class CommandRegistry {
             return 0;
         }
 
-        String url = ctx.getArgument("url", String.class);
+        String rawUrl = ctx.getArgument("url", String.class);
+        boolean saveLocal = false;
+
+        // Parse the --save or -s argument from the greedy string
+        if (rawUrl.endsWith(" --save") || rawUrl.endsWith(" -s")) {
+            saveLocal = true;
+            rawUrl = rawUrl.replaceAll(" --save$", "").replaceAll(" -s$", "").trim();
+        }
+
+        String url = rawUrl;
 
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (!Utils.isDisc(item)) {
+        if (item == null || item.getType() == Material.AIR) {
             MessageUtil.sendErrMsg(player, "no_disc");
             return 0;
         }
 
+        // Check burn requirements
+        if (plugin.isBurnRequirementsEnabled()) {
+            boolean validMaterial = true;
+            boolean validModelData = true;
+            boolean validItemModel = true;
+
+            if (!plugin.getBurnMaterial().equalsIgnoreCase("ANY")) {
+                if (!item.getType().name().equalsIgnoreCase(plugin.getBurnMaterial())) {
+                    validMaterial = false;
+                }
+            }
+
+            ItemMeta meta = item.getItemMeta();
+
+            if (plugin.getBurnCustomModelData() != -1) {
+                if (meta == null || !meta.hasCustomModelData() || meta.getCustomModelData() != plugin.getBurnCustomModelData()) {
+                    validModelData = false;
+                }
+            }
+
+            if (!plugin.getBurnItemModel().isEmpty()) {
+                try {
+                    String modelStr = plugin.getBurnItemModel();
+                    if (!modelStr.contains(":")) {
+                        modelStr = "minecraft:" + modelStr;
+                    }
+                    NamespacedKey requiredModel = NamespacedKey.fromString(modelStr);
+
+                    if (meta == null || !meta.hasItemModel() || requiredModel == null || !requiredModel.equals(meta.getItemModel())) {
+                        validItemModel = false;
+                    }
+                } catch (Throwable e) {
+                    plugin.logDebug(Level.WARNING, "ItemModel check failed. This usually means your server version (<1.21.4) doesn't support item models, or the itemModel format in config is invalid.", null);
+                    validItemModel = false;
+                }
+            }
+
+            if (!validMaterial || !validModelData || !validItemModel) {
+                MessageUtil.sendErrMsg(player, "invalid_disc_model");
+                return 0;
+            }
+        } else {
+            if (!Utils.isDisc(item)) {
+                MessageUtil.sendErrMsg(player, "no_disc");
+                return 0;
+            }
+        }
+
         MessageUtil.sendMsg(player, "loading_track");
+
+        final boolean doSaveLocal = saveLocal;
 
         EXECUTOR_SERVICE.submit(() -> {
             String oldUrl;
@@ -128,13 +188,29 @@ public class CommandRegistry {
                 oldUrl = "";
             }
 
+            // Handle local saving feature
+            if (doSaveLocal) {
+                MessageUtil.sendMsg(player, "downloading_track");
+                String fileName = UUID.randomUUID().toString() + ".mp3";
+                File downloadedAudio = Utils.downloadFile(finalUrl, fileName);
+
+                if (downloadedAudio != null && downloadedAudio.exists()) {
+                    finalUrl = downloadedAudio.getAbsolutePath();
+                    oldUrl = ""; // So it uses the local path directly
+                } else {
+                    MessageUtil.sendErrMsg(player, "download_failed");
+                    return;
+                }
+            }
+
             String urlForLambda = finalUrl;
+            String finalOldUrl = oldUrl;
             IMixerAudioPlayer.APM.loadItem(urlForLambda, new AudioLoadResultHandler() {
                 @Override
                 public void trackLoaded(AudioTrack audioTrack) {
                     AudioTrackInfo info = audioTrack.getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        String urlToSet = !oldUrl.isEmpty() ? oldUrl : urlForLambda;
+                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : urlForLambda;
                         applyDiscMeta(item, info, urlToSet);
                         MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
@@ -144,7 +220,8 @@ public class CommandRegistry {
                 public void playlistLoaded(AudioPlaylist audioPlaylist) {
                     AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
                     Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        applyDiscMeta(item, info, urlForLambda);
+                        String urlToSet = !finalOldUrl.isEmpty() ? finalOldUrl : urlForLambda;
+                        applyDiscMeta(item, info, urlToSet);
                         MessageUtil.sendMsg(player, "track_loaded", info.title);
                     });
                 }
