@@ -51,6 +51,7 @@ public class MixerPlugin extends JavaPlugin {
 
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
+    private CommandRegistry commandRegistry;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
@@ -100,7 +101,8 @@ public class MixerPlugin extends JavaPlugin {
         database = new MixerDatabase(this);
         database.init();
 
-        new CommandRegistry(this).registerCommands();
+        commandRegistry = new CommandRegistry(this);
+        commandRegistry.registerCommands();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -394,6 +396,9 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (commandRegistry != null) {
+            commandRegistry.shutdown();
+        }
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try { player.stop(); } catch (Exception ignored) {}
         });

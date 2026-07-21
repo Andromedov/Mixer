@@ -16,6 +16,7 @@ import io.papermc.paper.math.BlockPosition;
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver;
 
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -56,7 +57,11 @@ public class CommandRegistry {
 
     private final MixerPlugin plugin;
     private static final MiniMessage MM = MiniMessage.miniMessage();
-    private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "Mixer-Burn-Thread");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public CommandRegistry(MixerPlugin plugin) {
         this.plugin = plugin;
@@ -161,10 +166,13 @@ public class CommandRegistry {
         MessageUtil.sendMsg(player, "loading_track");
 
         final boolean doSaveLocal = saveLocal;
+        final int sourceSlot = player.getInventory().getHeldItemSlot();
+        final ItemStack expectedItem = item.clone();
 
-        EXECUTOR_SERVICE.submit(() -> {
+        executorService.submit(() -> {
             String streamUrl = originalInput;
             String urlToSaveOnDisc = originalInput;
+            File localAudioFile = null;
 
             // 1. Handle File URLs
             if (streamUrl.startsWith("file://")) {
@@ -183,7 +191,7 @@ public class CommandRegistry {
                 }
                 streamUrl = Utils.requestCobaltMediaUrl(uri);
                 if (streamUrl == null) {
-                    player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link. Try again later.</red>"));
+                    runSync(() -> player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link. Try again later.</red>")));
                     return; // Stops here, no HTML downloading
                 }
                 urlToSaveOnDisc = originalInput; // Keep cobalt://... on the disc if NOT saving locally
@@ -191,7 +199,7 @@ public class CommandRegistry {
 
             // 3. Handle Local Saving (-s)
             if (doSaveLocal && streamUrl.startsWith("http")) {
-                MessageUtil.sendMsg(player, "downloading_track");
+                runSync(() -> MessageUtil.sendMsg(player, "downloading_track"));
 
                 // If we haven't already passed it through Cobalt, and it's a standard link like YouTube/SoundCloud
                 if (!originalInput.startsWith("cobalt") && !streamUrl.matches(".*\\.(mp3|wav|ogg|flac|m4a|aac)(\\?.*)?$")) {
@@ -199,7 +207,7 @@ public class CommandRegistry {
                     if (resolved != null && !resolved.isEmpty()) {
                         streamUrl = resolved;
                     } else {
-                        MessageUtil.sendErrMsg(player, "download_failed");
+                        runSync(() -> MessageUtil.sendErrMsg(player, "download_failed"));
                         plugin.logDebug(Level.WARNING, "Failed to resolve direct URL for local saving. Aborting download.", null);
                         return;
                     }
@@ -210,44 +218,50 @@ public class CommandRegistry {
 
                 // Utils.downloadFile now checks for HTML, so it will return null if it's not media
                 if (downloadedAudio != null && downloadedAudio.exists()) {
+                    localAudioFile = downloadedAudio;
                     streamUrl = downloadedAudio.getAbsolutePath();
                     urlToSaveOnDisc = streamUrl; // Store the local file path on the disc!
                 } else {
-                    MessageUtil.sendErrMsg(player, "download_failed");
+                    runSync(() -> MessageUtil.sendErrMsg(player, "download_failed"));
                     return;
                 }
             }
 
             final String urlForLambda = streamUrl;
             final String finalUrlToSet = urlToSaveOnDisc;
+            final File downloadedFile = localAudioFile;
 
             IMixerAudioPlayer.APM.loadItem(urlForLambda, new AudioLoadResultHandler() {
                 @Override
                 public void trackLoaded(AudioTrack audioTrack) {
                     AudioTrackInfo info = audioTrack.getInfo();
-                    Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        applyDiscMeta(item, info, finalUrlToSet);
-                        MessageUtil.sendMsg(player, "track_loaded", info.title);
-                    });
+                    finishBurn(player, sourceSlot, expectedItem, info, finalUrlToSet, downloadedFile);
                 }
 
                 @Override
                 public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                    AudioTrackInfo info = audioPlaylist.getSelectedTrack().getInfo();
-                    Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
-                        applyDiscMeta(item, info, finalUrlToSet);
-                        MessageUtil.sendMsg(player, "track_loaded", info.title);
-                    });
+                    AudioTrack selectedTrack = audioPlaylist.getSelectedTrack();
+                    if (selectedTrack == null && !audioPlaylist.getTracks().isEmpty()) {
+                        selectedTrack = audioPlaylist.getTracks().getFirst();
+                    }
+                    if (selectedTrack == null) {
+                        cleanupFailedDownload(downloadedFile);
+                        runSync(() -> MessageUtil.sendErrMsg(player, "no_matches"));
+                        return;
+                    }
+                    finishBurn(player, sourceSlot, expectedItem, selectedTrack.getInfo(), finalUrlToSet, downloadedFile);
                 }
 
                 @Override
                 public void noMatches() {
-                    MessageUtil.sendErrMsg(player, "no_matches");
+                    cleanupFailedDownload(downloadedFile);
+                    runSync(() -> MessageUtil.sendErrMsg(player, "no_matches"));
                 }
 
                 @Override
                 public void loadFailed(FriendlyException e) {
-                    MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage());
+                    cleanupFailedDownload(downloadedFile);
+                    runSync(() -> MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage()));
                 }
             });
         });
@@ -255,9 +269,53 @@ public class CommandRegistry {
         return Command.SINGLE_SUCCESS;
     }
 
+    private void finishBurn(Player player, int sourceSlot, ItemStack expectedItem, AudioTrackInfo info,
+                            String urlToSet, File downloadedFile) {
+        if (!plugin.isEnabled()) {
+            cleanupFailedDownload(downloadedFile);
+            return;
+        }
+        runSync(() -> {
+            if (!player.isOnline()) {
+                cleanupFailedDownload(downloadedFile);
+                return;
+            }
+
+            ItemStack currentItem = player.getInventory().getItem(sourceSlot);
+            if (currentItem == null || currentItem.getAmount() != expectedItem.getAmount()
+                    || !currentItem.isSimilar(expectedItem)) {
+                cleanupFailedDownload(downloadedFile);
+                MessageUtil.sendErrMsg(player, "burn_item_changed");
+                return;
+            }
+
+            applyDiscMeta(currentItem, info, urlToSet);
+            MessageUtil.sendMsg(player, "track_loaded", info.title);
+        });
+    }
+
+    private void runSync(Runnable action) {
+        if (!plugin.isEnabled()) return;
+        if (Bukkit.isPrimaryThread()) {
+            action.run();
+        } else {
+            Bukkit.getScheduler().runTask(plugin, action);
+        }
+    }
+
+    private void cleanupFailedDownload(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            plugin.logDebug(Level.WARNING, "Failed to remove incomplete audio file: " + file.getAbsolutePath(), null);
+        }
+    }
+
+    public void shutdown() {
+        executorService.shutdownNow();
+    }
+
     private void applyDiscMeta(ItemStack item, AudioTrackInfo info, String urlToSet) {
         item.editMeta(meta -> {
-            meta.displayName(MM.deserialize("<reset>" + info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
+            meta.displayName(Component.text(info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
             meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
             meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);

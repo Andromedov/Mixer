@@ -70,6 +70,7 @@ public class PlayerInteractListener implements Listener {
 
         if (e.getClickedBlock() == null) return;
         if (!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
+        if (e.getHand() != EquipmentSlot.HAND) return;
 
         Location location = e.getClickedBlock().getLocation();
         long currentTime = System.currentTimeMillis();
@@ -125,7 +126,9 @@ public class PlayerInteractListener implements Listener {
                     toInsert.setAmount(1);
                     jukebox.setRecord(toInsert);
                     jukebox.update();
-                    e.getItem().subtract(1);
+                    if (e.getPlayer().getGameMode() != org.bukkit.GameMode.CREATIVE) {
+                        e.getItem().subtract(1);
+                    }
 
                     e.setCancelled(true); // Stop vanilla from doing default actions
 

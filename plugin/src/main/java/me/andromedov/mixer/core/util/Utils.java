@@ -16,13 +16,18 @@ import org.bukkit.persistence.PersistentDataType;
 
 import javax.sound.sampled.AudioFormat;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.logging.Level;
 
 public class Utils {
+    private static final long MAX_AUDIO_DOWNLOAD_BYTES = 256L * 1024L * 1024L;
+
     public static boolean isDisc(ItemStack item) {
         return item.getType().name().contains("MUSIC_DISC");
     }
@@ -138,7 +143,13 @@ public class Utils {
             return null;
         }
 
-        File target = new File(audioDir, fileName);
+        Path audioPath = audioDir.toPath().toAbsolutePath().normalize();
+        Path targetPath = audioPath.resolve(fileName).normalize();
+        if (!targetPath.startsWith(audioPath)) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Refusing to write outside the audio directory.", null);
+            return null;
+        }
+        File target = targetPath.toFile();
         Request request = new Request.Builder()
                 .url(urlStr)
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -151,12 +162,37 @@ public class Utils {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "Blocked download: URL returned an HTML or JSON page instead of an audio stream. (" + urlStr + ")", null);
                     return null;
                 }
-                Files.copy(response.body().byteStream(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+                long contentLength = response.body().contentLength();
+                if (contentLength > MAX_AUDIO_DOWNLOAD_BYTES) {
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Blocked download larger than 256 MiB.", null);
+                    return null;
+                }
+
+                try (InputStream input = response.body().byteStream();
+                     OutputStream output = Files.newOutputStream(targetPath, StandardOpenOption.CREATE,
+                             StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                    byte[] buffer = new byte[8192];
+                    long downloaded = 0;
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        downloaded += read;
+                        if (downloaded > MAX_AUDIO_DOWNLOAD_BYTES) {
+                            throw new IllegalStateException("Audio download exceeded 256 MiB");
+                        }
+                        output.write(buffer, 0, read);
+                    }
+                }
                 return target;
             } else {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to download file: HTTP " + response.code(), null);
             }
         } catch (Exception e) {
+            try {
+                Files.deleteIfExists(targetPath);
+            } catch (Exception cleanupError) {
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to remove partial audio download", cleanupError);
+            }
             MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error downloading audio file", e);
         }
         return null;
