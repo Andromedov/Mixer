@@ -47,6 +47,21 @@ mixer:
   # This is a global multiplier. 50 = 50% volume.
   volume: 50
 
+  # Should the disc be physically placed inside the Jukebox
+  # If false, players just right-click the Jukebox with the disc.
+  disc-inserted: true
+
+  # Requirements to create (burn) a custom disc
+  burnRequirements:
+    enabled: false
+    # Required material (e.g. "PAPER", "MUSIC_DISC_11" or "ANY" to allow any item)
+    material: "ANY"
+    # Required Custom Model Data (-1 to ignore)
+    customModelData: -1
+    # Required Item Model (Paper 1.21.4+) (Leave empty "" to ignore)
+    # e.g. "mythic:drinks/second_pack/cherry_teteriv"
+    itemModel: ""
+
 # ===========================================
 # AUDIO SETTINGS | CHANGE ONLY OF YOU KNOW WHAT YOU'RE DOING
 # ===========================================

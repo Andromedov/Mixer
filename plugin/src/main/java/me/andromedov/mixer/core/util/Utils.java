@@ -15,11 +15,19 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import javax.sound.sampled.AudioFormat;
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.logging.Level;
 
 public class Utils {
+    private static final long MAX_AUDIO_DOWNLOAD_BYTES = 256L * 1024L * 1024L;
+
     public static boolean isDisc(ItemStack item) {
         return item.getType().name().contains("MUSIC_DISC");
     }
@@ -128,73 +136,112 @@ public class Utils {
         plugin.logDebug(Level.INFO, "===========================", null);
     }
 
+    public static File downloadFile(String urlStr, String fileName) {
+        File audioDir = new File(MixerPlugin.getPlugin().getDataFolder(), "audio");
+        if (!audioDir.exists() && !audioDir.mkdirs()) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Could not create audio directory.", null);
+            return null;
+        }
+
+        Path audioPath = audioDir.toPath().toAbsolutePath().normalize();
+        Path targetPath = audioPath.resolve(fileName).normalize();
+        if (!targetPath.startsWith(audioPath)) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Refusing to write outside the audio directory.", null);
+            return null;
+        }
+        File target = targetPath.toFile();
+        Request request = new Request.Builder()
+                .url(urlStr)
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful() && response.body() != null) {
+                String contentType = response.header("Content-Type", "");
+                if (contentType != null && (contentType.contains("text/html") || contentType.contains("application/json"))) {
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Blocked download: URL returned an HTML or JSON page instead of an audio stream. (" + urlStr + ")", null);
+                    return null;
+                }
+
+                long contentLength = response.body().contentLength();
+                if (contentLength > MAX_AUDIO_DOWNLOAD_BYTES) {
+                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Blocked download larger than 256 MiB.", null);
+                    return null;
+                }
+
+                try (InputStream input = response.body().byteStream();
+                     OutputStream output = Files.newOutputStream(targetPath, StandardOpenOption.CREATE,
+                             StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                    byte[] buffer = new byte[8192];
+                    long downloaded = 0;
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        downloaded += read;
+                        if (downloaded > MAX_AUDIO_DOWNLOAD_BYTES) {
+                            throw new IllegalStateException("Audio download exceeded 256 MiB");
+                        }
+                        output.write(buffer, 0, read);
+                    }
+                }
+                return target;
+            } else {
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to download file: HTTP " + response.code(), null);
+            }
+        } catch (Exception e) {
+            try {
+                Files.deleteIfExists(targetPath);
+            } catch (Exception cleanupError) {
+                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to remove partial audio download", cleanupError);
+            }
+            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error downloading audio file", e);
+        }
+        return null;
+    }
+
     public static String requestCobaltMediaUrl(String url) {
-        try {
-            JsonObject send = new JsonObject();
-            send.addProperty("url", url);
+        // Fallback instances for Cobalt to bypass rate-limits or Cloudflare issues
+        String[] instances = {
+                "https://api.cobalt.tools/",
+                "https://co.wuk.sh/",
+                "https://cobalt.kwiatekq.uk/",
+                "https://api.cobalt.rodeo/"
+        };
 
-            send.addProperty("downloadMode", "audio");
-            send.addProperty("isAudioOnly", true);
-            send.addProperty("audioFormat", "mp3");
-            send.addProperty("aFormat", "mp3");
+        JsonObject send = new JsonObject();
+        send.addProperty("url", url);
+        send.addProperty("downloadMode", "audio");
+        send.addProperty("isAudioOnly", true);
+        send.addProperty("aFormat", "mp3");
 
-            RequestBody body = RequestBody.create(send.toString().getBytes(StandardCharsets.UTF_8));
+        RequestBody body = RequestBody.create(send.toString().getBytes(StandardCharsets.UTF_8));
 
-            Request requestV7 = new Request.Builder()
-                    .url("https://api.cobalt.tools/")
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .post(body)
-                    .build();
+        for (String instance : instances) {
+            try {
+                Request request = new Request.Builder()
+                        .url(instance)
+                        .addHeader("Accept", "application/json")
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("User-Agent", "MixerPlugin/2.3.0 (Java)")
+                        .post(body)
+                        .build();
 
-            try (Response response = client.newCall(requestV7).execute()) {
-                String res = response.body() != null ? response.body().string() : "";
-                if (response.isSuccessful()) {
-                    JsonObject json = (JsonObject) JsonParser.parseString(res);
-                    if (json.has("url")) {
-                        return json.get("url").getAsString();
+                try (Response response = client.newCall(request).execute()) {
+                    String res = response.body() != null ? response.body().string() : "";
+                    if (response.isSuccessful()) {
+                        JsonObject json = (JsonObject) JsonParser.parseString(res);
+                        if (json.has("url")) {
+                            return json.get("url").getAsString();
+                        }
                     } else {
-                        MixerPlugin.getPlugin().logDebug(Level.WARNING, "Cobalt API answered correctly, but without a URL: " + res, null);
+                        MixerPlugin.getPlugin().logDebug(Level.INFO, "Cobalt API (" + instance + ") returned HTTP " + response.code() + ". Trying next mirror...", null);
                     }
-                } else {
-                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Cobalt API Error (v7): HTTP " + response.code() + " - " + res, null);
                 }
+            } catch (Exception e) {
+                MixerPlugin.getPlugin().logDebug(Level.INFO, "Cobalt API (" + instance + ") failed. Trying next mirror...", null);
             }
-        } catch (Exception e) {
-            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error connecting to Cobalt API v7", e);
         }
 
-        try {
-            JsonObject send = new JsonObject();
-            send.addProperty("url", url);
-            send.addProperty("isAudioOnly", true);
-
-            RequestBody body = RequestBody.create(send.toString().getBytes(StandardCharsets.UTF_8));
-
-            Request requestV6 = new Request.Builder()
-                    .url("https://api.cobalt.tools/api/json")
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                    .post(body)
-                    .build();
-
-            try (Response response = client.newCall(requestV6).execute()) {
-                String res = response.body() != null ? response.body().string() : "";
-                if (response.isSuccessful()) {
-                    JsonObject json = (JsonObject) JsonParser.parseString(res);
-                    if (json.has("url")) {
-                        return json.get("url").getAsString();
-                    }
-                } else {
-                    MixerPlugin.getPlugin().logDebug(Level.WARNING, "Cobalt API Error (v6 fallback): HTTP " + response.code() + " - " + res, null);
-                }
-            }
-        } catch (Exception e) {
-            MixerPlugin.getPlugin().logDebug(Level.WARNING, "Error connectiong to Cobalt API v6", e);
-        }
-
+        MixerPlugin.getPlugin().logDebug(Level.WARNING, "All Cobalt API instances failed to resolve URL: " + url, null);
         return null;
     }
 }

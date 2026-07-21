@@ -86,12 +86,23 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
       - name: Build project
         run: ./gradlew build
+
+      - name: Set up Java 25 for Paper 26.2 compatibility
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Check Paper 26.2 API compatibility
+        run: ./gradlew :api:compileJava :plugin:compileJava -PpaperApiVersion=26.2.build.+ -PjavaToolchainVersion=25 -PjavaReleaseVersion=25 --no-daemon
 
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
@@ -137,6 +148,6 @@ jobs:
             paper
             purpur
           game-versions: |
-            >=1.20.6 <=26.1.2
+            >=1.21.4 <=26.2
           dependencies: |
             simple-voice-chat(required){modrinth:9eGKb6K1}

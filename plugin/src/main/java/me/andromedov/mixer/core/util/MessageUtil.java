@@ -18,7 +18,7 @@ public class MessageUtil {
         }
 
         String prefix = localizationManager.getPrefix();
-        String message = localizationManager.getMessage("success." + messageKey, args);
+        String message = localizationManager.getMessage("success." + messageKey, escapeArgs(args));
 
         Component component = MM.deserialize(prefix + message);
         sender.sendMessage(component);
@@ -31,7 +31,7 @@ public class MessageUtil {
         }
 
         String prefix = localizationManager.getPrefix();
-        String message = localizationManager.getMessage("errors." + messageKey, args);
+        String message = localizationManager.getMessage("errors." + messageKey, escapeArgs(args));
 
         Component component = MM.deserialize(prefix + "<red>" + message);
         sender.sendMessage(component);
@@ -44,7 +44,7 @@ public class MessageUtil {
         }
 
         String prefix = localizationManager.getPrefix();
-        String message = localizationManager.getMessage("plugin." + messageKey, args);
+        String message = localizationManager.getMessage("plugin." + messageKey, escapeArgs(args));
 
         Component component = MM.deserialize(prefix + message);
         sender.sendMessage(component);
@@ -56,8 +56,18 @@ public class MessageUtil {
             return;
         }
 
-        String message = localizationManager.getMessage("actionBar." + messageKey, args);
+        String message = localizationManager.getMessage("actionBar." + messageKey, escapeArgs(args));
         sender.sendActionBar(MM.deserialize(message));
+    }
+
+    private static Object[] escapeArgs(Object[] args) {
+        Object[] escaped = args.clone();
+        for (int i = 0; i < escaped.length; i++) {
+            if (escaped[i] instanceof CharSequence value) {
+                escaped[i] = MM.escapeTags(value.toString());
+            }
+        }
+        return escaped;
     }
 
     public static void reloadMessages() {

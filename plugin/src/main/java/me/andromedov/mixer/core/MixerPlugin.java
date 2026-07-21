@@ -51,6 +51,7 @@ public class MixerPlugin extends JavaPlugin {
 
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
+    private CommandRegistry commandRegistry;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
@@ -67,6 +68,12 @@ public class MixerPlugin extends JavaPlugin {
     private String language;
     private String debugLevel; // "NONE", "WARNING", "ALL"
     private Boolean metrics;
+
+    private boolean discInserted;
+    private boolean burnRequirementsEnabled;
+    private String burnMaterial;
+    private int burnCustomModelData;
+    private String burnItemModel;
 
     // Portable Speaker Config
     private boolean portableSpeakerEnabled;
@@ -94,7 +101,8 @@ public class MixerPlugin extends JavaPlugin {
         database = new MixerDatabase(this);
         database.init();
 
-        new CommandRegistry(this).registerCommands();
+        commandRegistry = new CommandRegistry(this);
+        commandRegistry.registerCommands();
 
         BukkitVoicechatService vcService = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (vcService != null) {
@@ -279,6 +287,13 @@ public class MixerPlugin extends JavaPlugin {
         youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth", false);
         youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
         volumePercent = config.getInt("mixer.volume", 50);
+
+        discInserted = config.getBoolean("mixer.disc-inserted", false);
+        burnRequirementsEnabled = config.getBoolean("mixer.burnRequirements.enabled", false);
+        burnMaterial = config.getString("mixer.burnRequirements.material", "ANY");
+        burnCustomModelData = config.getInt("mixer.burnRequirements.customModelData", -1);
+        burnItemModel = config.getString("mixer.burnRequirements.itemModel", "");
+
         audioSampleRate = config.getInt("mixer.audio.sampleRate", 48000);
         audioBufferSize = config.getInt("mixer.audio.bufferSize", 960);
         audioFrameBufferDuration = config.getInt("mixer.audio.frameBufferDuration", 100);
@@ -381,6 +396,9 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (commandRegistry != null) {
+            commandRegistry.shutdown();
+        }
         new ArrayList<>(playerHashMap.values()).forEach(player -> {
             try { player.stop(); } catch (Exception ignored) {}
         });
@@ -410,6 +428,12 @@ public class MixerPlugin extends JavaPlugin {
     public String getLanguage() { return language; }
     public String getDebugLevel() { return debugLevel; }
     public Boolean getMetric() { return metrics; }
+
+    public boolean isBurnRequirementsEnabled() { return burnRequirementsEnabled; }
+    public boolean getDiscInserted() { return discInserted; }
+    public String getBurnMaterial() { return burnMaterial; }
+    public int getBurnCustomModelData() { return burnCustomModelData; }
+    public String getBurnItemModel() { return burnItemModel; }
 
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }

@@ -5,6 +5,13 @@ plugins {
     id("com.gradleup.shadow") version "9.2.2"
 }
 
+val javaToolchainVersion = providers.gradleProperty("javaToolchainVersion")
+    .map(String::toInt)
+    .orElse(21)
+val javaReleaseVersion = providers.gradleProperty("javaReleaseVersion")
+    .map(String::toInt)
+    .orElse(21)
+
 tasks["jar"].enabled = false
 
 allprojects {
@@ -20,10 +27,11 @@ allprojects {
 
     tasks.withType<JavaCompile> {
         options.encoding = Charsets.UTF_8.name()
+        options.release.set(javaReleaseVersion)
     }
 
     java {
-        toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+        toolchain.languageVersion.set(JavaLanguageVersion.of(javaToolchainVersion.get()))
     }
 }
 
