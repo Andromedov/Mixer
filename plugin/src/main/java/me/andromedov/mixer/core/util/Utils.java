@@ -146,7 +146,6 @@ public class Utils {
 
         try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
-                // Строга перевірка типу контенту, щоб уникнути збереження HTML сторінок
                 String contentType = response.header("Content-Type", "");
                 if (contentType != null && (contentType.contains("text/html") || contentType.contains("application/json"))) {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "Blocked download: URL returned an HTML or JSON page instead of an audio stream. (" + urlStr + ")", null);
