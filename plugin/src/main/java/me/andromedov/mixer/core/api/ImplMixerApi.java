@@ -3,6 +3,8 @@ package me.andromedov.mixer.core.api;
 import me.andromedov.mixer.api.MixerApi;
 import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
+import me.andromedov.mixer.api.disc.MixerDiscService;
+import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
@@ -18,12 +20,16 @@ import java.util.Optional;
 public final class ImplMixerApi implements MixerApi {
     private final MixerPlugin plugin;
     private final ImplMixerAudioSourceRegistry sources;
+    private final ImplMixerDiscService discs;
+    private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
     private final ImplMixerAddonManager addons;
 
     public ImplMixerApi(MixerPlugin plugin) {
         this.plugin = plugin;
         this.sources = new ImplMixerAudioSourceRegistry();
-        this.addons = new ImplMixerAddonManager(plugin, this, sources);
+        this.discs = new ImplMixerDiscService(plugin, sources);
+        this.playbackPolicies = new ImplMixerPlaybackPolicyRegistry(plugin);
+        this.addons = new ImplMixerAddonManager(plugin, this, sources, playbackPolicies);
     }
 
     @Override
@@ -108,6 +114,16 @@ public final class ImplMixerApi implements MixerApi {
     }
 
     @Override
+    public MixerDiscService discs() {
+        return discs;
+    }
+
+    @Override
+    public MixerPlaybackPolicyRegistry playbackPolicies() {
+        return playbackPolicies;
+    }
+
+    @Override
     public IMixerAudioPlayer getMixerAudioPlayer(Location location) {
         return plugin.playerHashMap().get(blockLocation(location));
     }
@@ -118,6 +134,7 @@ public final class ImplMixerApi implements MixerApi {
 
     public void shutdown() {
         addons.shutdown();
+        discs.shutdown();
     }
 
     private static Location blockLocation(Location location) {

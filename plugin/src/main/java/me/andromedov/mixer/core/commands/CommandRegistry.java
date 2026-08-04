@@ -16,7 +16,6 @@ import io.papermc.paper.math.BlockPosition;
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver;
 
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -24,10 +23,8 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
@@ -37,6 +34,8 @@ import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
 import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.Utils;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
+import me.andromedov.mixer.api.MixerTrack;
+import me.andromedov.mixer.api.disc.MixerDisc;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -298,7 +297,9 @@ public class CommandRegistry {
                 return;
             }
 
-            applyDiscMeta(currentItem, info, urlToSet);
+            MixerTrack track = new MixerTrack(info.title, info.author, info.uri, info.length, info.isStream);
+            ItemStack burnedDisc = plugin.api().discs().createDisc(currentItem, new MixerDisc(urlToSet, track));
+            player.getInventory().setItem(sourceSlot, burnedDisc);
             MessageUtil.sendMsg(player, "track_loaded", info.title);
         });
     }
@@ -320,50 +321,6 @@ public class CommandRegistry {
 
     public void shutdown() {
         executorService.shutdownNow();
-    }
-
-    private void applyDiscMeta(ItemStack item, AudioTrackInfo info, String urlToSet) {
-        item.editMeta(meta -> {
-            meta.displayName(Component.text(info.author + " - " + info.title).decoration(TextDecoration.ITALIC, false));
-            meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
-            NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-            meta.getPersistentDataContainer().set(mixerData, PersistentDataType.STRING, urlToSet);
-
-            JukeboxPlayableComponent playableComponent = meta.getJukeboxPlayable();
-            try {
-                playableComponent.setSongKey(getVanillaSongKey(item.getType()));
-            } catch (Exception e) {
-                MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to set custom jukebox key", e);
-            }
-            meta.setJukeboxPlayable(playableComponent);
-        });
-    }
-
-    // Obtaining the correct key
-    private NamespacedKey getVanillaSongKey(Material material) {
-        String key = switch (material) {
-            case MUSIC_DISC_13 -> "13";
-            case MUSIC_DISC_CAT -> "cat";
-            case MUSIC_DISC_BLOCKS -> "blocks";
-            case MUSIC_DISC_CHIRP -> "chirp";
-            case MUSIC_DISC_FAR -> "far";
-            case MUSIC_DISC_MALL -> "mall";
-            case MUSIC_DISC_MELLOHI -> "mellohi";
-            case MUSIC_DISC_STAL -> "stal";
-            case MUSIC_DISC_STRAD -> "strad";
-            case MUSIC_DISC_WARD -> "ward";
-            case MUSIC_DISC_11 -> "11";
-            case MUSIC_DISC_WAIT -> "wait";
-            case MUSIC_DISC_OTHERSIDE -> "otherside";
-            case MUSIC_DISC_5 -> "5";
-            case MUSIC_DISC_PIGSTEP -> "pigstep";
-            case MUSIC_DISC_RELIC -> "relic";
-            case MUSIC_DISC_PRECIPICE -> "precipice";
-            case MUSIC_DISC_CREATOR -> "creator";
-            case MUSIC_DISC_CREATOR_MUSIC_BOX -> "creator_music_box";
-            default -> "13"; // fallback
-        };
-        return NamespacedKey.minecraft(key);
     }
 
     // --- /mixer link ---

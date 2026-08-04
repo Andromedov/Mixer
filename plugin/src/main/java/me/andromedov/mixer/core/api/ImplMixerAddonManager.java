@@ -7,6 +7,8 @@ import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.addon.MixerAddonRegistration;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolver;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
+import me.andromedov.mixer.api.playback.MixerPlaybackPolicy;
+import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistration;
 import me.andromedov.mixer.core.MixerPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -29,12 +31,15 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     private final MixerPlugin plugin;
     private final MixerApi api;
     private final ImplMixerAudioSourceRegistry sources;
+    private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
     private final ConcurrentMap<String, Registration> registrations = new ConcurrentHashMap<>();
 
-    ImplMixerAddonManager(MixerPlugin plugin, MixerApi api, ImplMixerAudioSourceRegistry sources) {
+    ImplMixerAddonManager(MixerPlugin plugin, MixerApi api, ImplMixerAudioSourceRegistry sources,
+                          ImplMixerPlaybackPolicyRegistry playbackPolicies) {
         this.plugin = plugin;
         this.api = api;
         this.sources = sources;
+        this.playbackPolicies = playbackPolicies;
     }
 
     @Override
@@ -91,11 +96,13 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
                 .toList()
                 .forEach(Registration::close);
         sources.unregisterOwnedBy(owner);
+        playbackPolicies.unregisterOwnedBy(owner);
     }
 
     void shutdown() {
         List.copyOf(registrations.values()).forEach(Registration::close);
         sources.shutdown();
+        playbackPolicies.shutdown();
     }
 
     private static String validateAddonId(String id) {
@@ -141,6 +148,16 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
             MixerAudioSourceResolverRegistration sourceRegistration = sources.register(owner(), resolver);
             registration.resources.add(sourceRegistration);
             return sourceRegistration;
+        }
+
+        @Override
+        public MixerPlaybackPolicyRegistration registerPlaybackPolicy(MixerPlaybackPolicy policy) {
+            if (!registration.active()) {
+                throw new IllegalStateException("Addon is no longer active: " + registration.id);
+            }
+            MixerPlaybackPolicyRegistration policyRegistration = playbackPolicies.register(owner(), policy);
+            registration.resources.add(policyRegistration);
+            return policyRegistration;
         }
     }
 

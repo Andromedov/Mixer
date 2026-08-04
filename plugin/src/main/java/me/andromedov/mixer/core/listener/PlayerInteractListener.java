@@ -4,6 +4,9 @@ import com.destroystokyo.paper.event.block.BlockDestroyEvent;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.PlaybackAuthorization;
+import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -101,10 +104,9 @@ public class PlayerInteractListener implements Listener {
             }
         } else if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
 
-            boolean hasMixerDisc = e.getItem() != null && e.getItem().hasItemMeta() &&
-                    e.getItem().getItemMeta().getPersistentDataContainer().has(new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data"), PersistentDataType.STRING);
-
             MixerPlugin plugin = MixerPlugin.getPlugin();
+            java.util.Optional<MixerDisc> mixerDisc = plugin.api().discs().readDisc(e.getItem());
+            boolean hasMixerDisc = mixerDisc.isPresent();
 
             if (plugin.getDiscInserted()) {
                 Jukebox jukebox = (Jukebox) location.getBlock().getState();
@@ -121,6 +123,13 @@ public class PlayerInteractListener implements Listener {
                 } else {
                     if (!hasMixerDisc) return; // If holding anything else, let vanilla handle it
 
+                    String source = mixerDisc.orElseThrow().source();
+                    if (!PlaybackAuthorization.allow(MixerPlaybackOrigin.JUKEBOX, source,
+                            e.getItem(), e.getPlayer(), location)) {
+                        e.setCancelled(true);
+                        return;
+                    }
+
                     // Insert the disc inside the Jukebox
                     ItemStack toInsert = e.getItem().clone();
                     toInsert.setAmount(1);
@@ -132,11 +141,9 @@ public class PlayerInteractListener implements Listener {
 
                     e.setCancelled(true); // Stop vanilla from doing default actions
 
-                    String url = toInsert.getItemMeta().getPersistentDataContainer().get(new NamespacedKey(plugin, "mixer_data"), PersistentDataType.STRING);
-
                     try {
                         IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
-                        audioPlayer.load(url);
+                        audioPlayer.load(source);
                         MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
                     } catch (Exception ex) {
                         plugin.logDebug(Level.WARNING, "Failed to create audio player", ex);
@@ -147,25 +154,30 @@ public class PlayerInteractListener implements Listener {
             }
 
             // --- Old Behavior (Require Disc Inserted is FALSE) ---
-            if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
-                audioPlayer.stop();
-                e.setCancelled(true);
-
-                if (!hasMixerDisc) {
+            if (!hasMixerDisc) {
+                if (plugin.playerHashMap().containsKey(location)) {
+                    plugin.playerHashMap().get(location).stop();
+                    e.setCancelled(true);
                     MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_stop");
-                    return;
                 }
+                return;
             }
 
-            if (!hasMixerDisc) return;
+            String source = mixerDisc.orElseThrow().source();
+            if (!PlaybackAuthorization.allow(MixerPlaybackOrigin.JUKEBOX, source,
+                    e.getItem(), e.getPlayer(), location)) {
+                e.setCancelled(true);
+                return;
+            }
 
-            String url = e.getItem().getItemMeta().getPersistentDataContainer().get(new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data"), PersistentDataType.STRING);
+            if (plugin.playerHashMap().containsKey(location)) {
+                plugin.playerHashMap().get(location).stop();
+            }
             e.setCancelled(true);
 
             try {
                 IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
-                audioPlayer.load(url);
+                audioPlayer.load(source);
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
             } catch (Exception ex) {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to create audio player", ex);

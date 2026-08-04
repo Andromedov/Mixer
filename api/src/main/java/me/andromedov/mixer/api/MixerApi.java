@@ -1,6 +1,8 @@
 package me.andromedov.mixer.api;
 
 import me.andromedov.mixer.api.addon.MixerAddonManager;
+import me.andromedov.mixer.api.disc.MixerDiscService;
+import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -40,6 +42,10 @@ public interface MixerApi {
     MixerAddonManager addons();
 
     MixerAudioSourceRegistry sources();
+
+    MixerDiscService discs();
+
+    MixerPlaybackPolicyRegistry playbackPolicies();
 
     /**
      * @deprecated Use {@link #findPlayer(Location)} to make absence explicit.
