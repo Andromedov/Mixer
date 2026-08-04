@@ -34,6 +34,8 @@ import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import dev.lavalink.youtube.clients.*;
 import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.api.MixerDsp;
+import me.andromedov.mixer.api.MixerTrack;
+import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
@@ -125,7 +127,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected Deque<AudioTrack> playlist = new ConcurrentLinkedDeque<>();
     protected Queue<String> loadingQueue = new ConcurrentLinkedDeque<>();
     protected Queue<byte[]> audioQueue = new ConcurrentLinkedDeque<>();
-    protected JsonObject dspSettings;
+    protected volatile JsonObject dspSettings;
 
     // Debug counters
     protected long frameCount = 0;
@@ -148,6 +150,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         // Default empty settings
         this.dspSettings = new JsonObject();
+        this.dsp = new IMixerDsp(this);
     }
 
     public JsonObject getDspSettings() {
@@ -155,8 +158,19 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     }
 
     public void setDspSettings(JsonObject dspSettings) {
-        this.dspSettings = dspSettings;
+        this.dspSettings = dspSettings == null ? new JsonObject() : dspSettings.deepCopy();
     }
+
+    void applyDspSettingsFromApi(JsonObject dspSettings) {
+        setDspSettings(dspSettings);
+        updateVolume();
+        if (dispatcher != null && !dispatcher.isStopped()) {
+            updateActiveEffects();
+        }
+        persistDspSettings();
+    }
+
+    protected void persistDspSettings() { }
 
     protected void initializeAsync() {
         Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
@@ -286,6 +300,35 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     }
 
     @Override
+    public Optional<MixerTrack> currentTrack() {
+        AudioTrack track = getPlayingTrack();
+        if (track == null) return Optional.empty();
+        var info = track.getInfo();
+        return Optional.of(new MixerTrack(info.title, info.author, info.uri, info.length, info.isStream));
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    @Override
+    public boolean isPlaying() {
+        return playbackStarted && getPlayingTrack() != null;
+    }
+
+    @Override
+    public List<String> queuedSources() {
+        return List.copyOf(loadingQueue);
+    }
+
+    @Override
+    public void clearQueue() {
+        loadingQueue.clear();
+        playlist.clear();
+    }
+
+    @Override
     public void load(String... url) {
         loadingQueue.addAll(List.of(url));
         if (isInitialized && !playbackStarted && playlist.isEmpty()) {
@@ -293,9 +336,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         }
     }
 
+    @Override
     public void clearAndPlay(String... urls) {
-        loadingQueue.clear();
-        playlist.clear();
+        clearQueue();
         if (lavaplayer != null) {
             lavaplayer.stopTrack();
         }
@@ -325,8 +368,22 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         String finalUrlToLoad = audioUrl;
 
-        if (audioUrl.startsWith("cobalt://") || audioUrl.startsWith("cobalt:")) {
-            String rawUrl = audioUrl.replaceFirst("^cobalt:(//)?", "");
+        try {
+            finalUrlToLoad = MixerPlugin.getPlugin().api().sources().resolve(finalUrlToLoad);
+        } catch (MixerAudioSourceResolutionException exception) {
+            if (retryCount < MAX_RETRIES) {
+                scheduleRetry(audioUrl, retryCount, exception.getMessage());
+            } else {
+                MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                        "Addon source resolver failed for URL: " + audioUrl, exception);
+                notifyUser("<red>Error resolving addon audio source.</red>");
+                loadNextFromQueue();
+            }
+            return;
+        }
+
+        if (finalUrlToLoad.startsWith("cobalt://") || finalUrlToLoad.startsWith("cobalt:")) {
+            String rawUrl = finalUrlToLoad.replaceFirst("^cobalt:(//)?", "");
             if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
                 rawUrl = "https://" + rawUrl;
             }
@@ -343,8 +400,8 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             }
             finalUrlToLoad = resolvedUrl;
         }
-        else if (audioUrl.startsWith("https://youtube.com") || audioUrl.startsWith("https://www.youtube.com")) {
-            String resolvedUrl = Utils.requestCobaltMediaUrl(audioUrl);
+        else if (finalUrlToLoad.startsWith("https://youtube.com") || finalUrlToLoad.startsWith("https://www.youtube.com")) {
+            String resolvedUrl = Utils.requestCobaltMediaUrl(finalUrlToLoad);
             if (resolvedUrl != null && !resolvedUrl.isEmpty()) finalUrlToLoad = resolvedUrl;
         }
 
