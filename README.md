@@ -21,12 +21,15 @@ This plugin transforms standard Jukeboxes into a complete audio system, supporti
 * **🎧 VoiceChat Integration:** Adds a dedicated "Mixer" volume category to the Simple Voice Chat settings.
 * **🤖 Redstone Playlists:** Trigger playlists from Barrels (including Text-to-Speech!) using Redstone signals.
 * **🌐 Wide Source Support:** Works with YouTube, SoundCloud, Bandcamp, Twitch, direct HTTP links, and hundreds of sites via **Cobalt** protocol support (`cobalt://`).
+* **🧩 Addon API:** Build separate Paper plugins that register custom audio source protocols and control Mixer players or DSP without importing internal classes.
 
 ---
 
 ## 📚 Documentation (Wiki)
 
 For complete instructions on installation, configuration, and all commands, please visit our **[Official Wiki](https://github.com/Andromedov/Mixer/wiki)**.
+
+Addon developers can start with the **[Addon API guide](https://github.com/Andromedov/Mixer/wiki/Addon-API)**.
 
 ---
 
