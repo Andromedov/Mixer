@@ -4,3 +4,13 @@ val paperApiVersion = providers.gradleProperty("paperApiVersion")
 dependencies {
     compileOnlyApi("io.papermc.paper:paper-api:${paperApiVersion.get()}")
 }
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType<Javadoc>().configureEach {
+    (options as StandardJavadocDocletOptions)
+        .addStringOption("Xdoclint:all,-missing", "-quiet")
+}
