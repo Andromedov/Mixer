@@ -136,6 +136,7 @@ public class MixerPlugin extends JavaPlugin {
 
         this.api = new ImplMixerApi(this);
         Bukkit.getServicesManager().register(MixerApi.class, api, this, ServicePriority.Normal);
+        pm.registerEvents(api.addonManager(), this);
 
         setupLogFilters();
 
@@ -396,6 +397,10 @@ public class MixerPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (api != null) {
+            api.shutdown();
+            Bukkit.getServicesManager().unregisterAll(this);
+        }
         if (commandRegistry != null) {
             commandRegistry.shutdown();
         }

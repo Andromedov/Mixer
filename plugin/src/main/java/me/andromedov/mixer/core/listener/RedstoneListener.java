@@ -5,10 +5,11 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
-import me.andromedov.mixer.core.util.Utils;
+import me.andromedov.mixer.core.util.PlaybackAuthorization;
+import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.block.*;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Repeater;
@@ -17,7 +18,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -62,12 +62,13 @@ public class RedstoneListener implements Listener {
 
         for(ItemStack item : container.getInventory()) {
             if(item == null) continue;
-            if(Utils.isDisc(item)) {
-                if (!item.hasItemMeta()) continue;
-                NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if (!item.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) continue;
-                String url = item.getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
-                loadList.add(url);
+            java.util.Optional<MixerDisc> mixerDisc = MixerPlugin.getPlugin().api().discs().readDisc(item);
+            if(mixerDisc.isPresent()) {
+                String source = mixerDisc.orElseThrow().source();
+                if (PlaybackAuthorization.allow(MixerPlaybackOrigin.REDSTONE_PLAYLIST, source,
+                        item, null, jukebox.getLocation())) {
+                    loadList.add(source);
+                }
             }
             else if(item.getType().equals(Material.WRITABLE_BOOK)) {
                 BookMeta bookMeta = (BookMeta) item.getItemMeta();

@@ -6,6 +6,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.PlaybackAuthorization;
+import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -103,13 +106,17 @@ public class PortableSpeakerGui implements Listener {
                     return;
                 }
 
-                NamespacedKey mixerData = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_data");
-                if (!disc.hasItemMeta() || !disc.getItemMeta().getPersistentDataContainer().has(mixerData, PersistentDataType.STRING)) {
+                java.util.Optional<MixerDisc> mixerDisc = MixerPlugin.getPlugin().api().discs().readDisc(disc);
+                if (mixerDisc.isEmpty()) {
                     MessageUtil.sendActionBarMsg(player, "not_a_valid_disc");
                     return;
                 }
 
-                String url = disc.getItemMeta().getPersistentDataContainer().get(mixerData, PersistentDataType.STRING);
+                String url = mixerDisc.orElseThrow().source();
+                if (!PlaybackAuthorization.allow(MixerPlaybackOrigin.PORTABLE_SPEAKER, url,
+                        disc, player, player.getLocation())) {
+                    return;
+                }
 
                 if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(player.getUniqueId())) {
                     MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId()).stop();

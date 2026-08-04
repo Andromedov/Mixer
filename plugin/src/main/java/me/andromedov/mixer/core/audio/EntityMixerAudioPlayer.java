@@ -93,6 +93,14 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     }
 
     @Override
+    protected void persistDspSettings() {
+        if (sourceItemId == null) return;
+        JsonObject snapshot = dspSettings.deepCopy();
+        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () ->
+                MixerPlugin.getPlugin().getDatabase().saveSpeakerDsp(sourceItemId, snapshot));
+    }
+
+    @Override
     public Set<MixerSpeaker> speakers() {
         return Collections.emptySet();
     }
