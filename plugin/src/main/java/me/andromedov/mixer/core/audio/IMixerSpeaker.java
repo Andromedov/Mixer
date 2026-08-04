@@ -12,6 +12,6 @@ public class IMixerSpeaker implements MixerSpeaker {
 
     @Override
     public Location location() {
-        return location;
+        return location.clone();
     }
 }

@@ -71,11 +71,11 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
         if (this.dspSettings == null) this.dspSettings = new JsonObject();
 
         speakers.forEach(speaker -> {
-            speaker.location().toCenterLocation().add(0, 1, 0);
+            Location speakerLocation = speaker.location().toCenterLocation().add(0, 1, 0);
             LocationalAudioChannel channel = API.createLocationalAudioChannel(
                     UUID.randomUUID(),
-                    API.fromServerLevel(speaker.location().getWorld()),
-                    API.createPosition(speaker.location().getX(), speaker.location().getY(), speaker.location().getZ())
+                    API.fromServerLevel(speakerLocation.getWorld()),
+                    API.createPosition(speakerLocation.getX(), speakerLocation.getY(), speakerLocation.getZ())
             );
             channel.setCategory("mixer");
             channel.setDistance(100);
@@ -86,10 +86,15 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
     }
 
     @Override
-    public Location location() { return location; }
+    public Location location() { return location.clone(); }
 
     @Override
-    public Set<MixerSpeaker> speakers() { return speakers; }
+    public Set<MixerSpeaker> speakers() { return Set.copyOf(speakers); }
+
+    @Override
+    protected void persistDspSettings() {
+        Utils.saveNbtData(location, "mixer_dsp", dspSettings);
+    }
 
     @Override
     protected void broadcastAudio(byte[] data) {

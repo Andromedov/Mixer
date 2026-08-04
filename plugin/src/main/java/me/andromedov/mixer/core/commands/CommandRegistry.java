@@ -36,6 +36,7 @@ import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
 import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.Utils;
+import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
@@ -173,6 +174,14 @@ public class CommandRegistry {
             String streamUrl = originalInput;
             String urlToSaveOnDisc = originalInput;
             File localAudioFile = null;
+
+            try {
+                streamUrl = plugin.api().sources().resolve(streamUrl);
+            } catch (MixerAudioSourceResolutionException exception) {
+                plugin.logDebug(Level.WARNING, "Addon source resolver failed", exception);
+                runSync(() -> MessageUtil.sendErrMsg(player, "loading_failed", exception.getMessage()));
+                return;
+            }
 
             // 1. Handle File URLs
             if (streamUrl.startsWith("file://")) {
