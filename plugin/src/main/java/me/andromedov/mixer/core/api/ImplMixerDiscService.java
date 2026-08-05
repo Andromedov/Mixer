@@ -13,6 +13,7 @@ import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.AbstractMixerAudioPlayer;
 import me.andromedov.mixer.core.util.Utils;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -20,7 +21,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.logging.Level;
 
 final class ImplMixerDiscService implements MixerDiscService {
     private final MixerPlugin plugin;
@@ -97,14 +96,10 @@ final class ImplMixerDiscService implements MixerDiscService {
             });
 
             meta.addItemFlags(ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
-            try {
-                JukeboxPlayableComponent playable = meta.getJukeboxPlayable();
-                playable.setSongKey(vanillaSongKey(result.getType()));
-                meta.setJukeboxPlayable(playable);
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING, "Failed to set Mixer disc jukebox key", exception);
-            }
         });
+        // Mixer discs are inserted by PlayerInteractListener and played through
+        // Mixer audio. A vanilla jukebox component would start a second song.
+        result.unsetData(DataComponentTypes.JUKEBOX_PLAYABLE);
         return result;
     }
 
@@ -210,32 +205,6 @@ final class ImplMixerDiscService implements MixerDiscService {
 
     private static MixerTrack toApiTrack(AudioTrackInfo info) {
         return new MixerTrack(info.title, info.author, info.uri, info.length, info.isStream);
-    }
-
-    private static NamespacedKey vanillaSongKey(Material material) {
-        String key = switch (material) {
-            case MUSIC_DISC_13 -> "13";
-            case MUSIC_DISC_CAT -> "cat";
-            case MUSIC_DISC_BLOCKS -> "blocks";
-            case MUSIC_DISC_CHIRP -> "chirp";
-            case MUSIC_DISC_FAR -> "far";
-            case MUSIC_DISC_MALL -> "mall";
-            case MUSIC_DISC_MELLOHI -> "mellohi";
-            case MUSIC_DISC_STAL -> "stal";
-            case MUSIC_DISC_STRAD -> "strad";
-            case MUSIC_DISC_WARD -> "ward";
-            case MUSIC_DISC_11 -> "11";
-            case MUSIC_DISC_WAIT -> "wait";
-            case MUSIC_DISC_OTHERSIDE -> "otherside";
-            case MUSIC_DISC_5 -> "5";
-            case MUSIC_DISC_PIGSTEP -> "pigstep";
-            case MUSIC_DISC_RELIC -> "relic";
-            case MUSIC_DISC_PRECIPICE -> "precipice";
-            case MUSIC_DISC_CREATOR -> "creator";
-            case MUSIC_DISC_CREATOR_MUSIC_BOX -> "creator_music_box";
-            default -> "13";
-        };
-        return NamespacedKey.minecraft(key);
     }
 
     private static void requireMainThread(String action) {

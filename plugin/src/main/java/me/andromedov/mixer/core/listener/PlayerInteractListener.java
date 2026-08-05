@@ -7,6 +7,7 @@ import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.PlaybackAuthorization;
 import me.andromedov.mixer.api.disc.MixerDisc;
 import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -142,6 +143,10 @@ public class PlayerInteractListener implements Listener {
 
                         ItemStack toInsert = e.getItem().clone();
                         toInsert.setAmount(1);
+                        // Mixer owns playback. Keeping JUKEBOX_PLAYABLE on the stored
+                        // item makes modern clients start its vanilla registry song too.
+                        // This also normalizes discs created by older Mixer builds.
+                        toInsert.unsetData(DataComponentTypes.JUKEBOX_PLAYABLE);
                         // JukeboxInventory is live; unlike a BlockState snapshot it does not
                         // require a second update that can replay a partially-applied change.
                         jukebox.getInventory().setRecord(toInsert);
@@ -222,7 +227,7 @@ public class PlayerInteractListener implements Listener {
             if (!plugin.playerHashMap().containsKey(location)) return;
             if (!(location.getBlock().getState() instanceof Jukebox jukebox)) return;
             if (!plugin.api().discs().isMixerDisc(jukebox.getRecord())) return;
-            jukebox.stopPlaying();
+            stopVanillaPlayback(location);
         });
     }
 
