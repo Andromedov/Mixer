@@ -12,6 +12,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Jukebox;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -31,7 +32,7 @@ public class PlayerInteractListener implements Listener {
     private final Map<Location, Long> lastInteractTime = new ConcurrentHashMap<>();
     private static final long INTERACT_COOLDOWN = 500; // 0.5 second
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent e) {
         // --- Portable Speaker Mechanic ---
         if (e.getHand() == EquipmentSlot.HAND && e.getAction().toString().contains("RIGHT_CLICK")) {
@@ -130,25 +131,37 @@ public class PlayerInteractListener implements Listener {
                         return;
                     }
 
-                    // Insert the disc inside the Jukebox
-                    ItemStack toInsert = e.getItem().clone();
-                    toInsert.setAmount(1);
-                    jukebox.setRecord(toInsert);
-                    jukebox.update();
-                    if (e.getPlayer().getGameMode() != org.bukkit.GameMode.CREATIVE) {
-                        e.getItem().subtract(1);
-                    }
-
-                    e.setCancelled(true); // Stop vanilla from doing default actions
-
+                    // Own the interaction completely. Letting vanilla run after changing the
+                    // jukebox can duplicate/eject the record during the client inventory sync.
+                    e.setCancelled(true);
+                    IMixerAudioPlayer audioPlayer = null;
+                    boolean recordInserted = false;
                     try {
-                        IMixerAudioPlayer audioPlayer = new IMixerAudioPlayer(location);
+                        audioPlayer = new IMixerAudioPlayer(location);
+
+                        ItemStack toInsert = e.getItem().clone();
+                        toInsert.setAmount(1);
+                        // JukeboxInventory is live; unlike a BlockState snapshot it does not
+                        // require a second update that can replay a partially-applied change.
+                        jukebox.getInventory().setRecord(toInsert);
+                        recordInserted = true;
+                        // The jukebox_playable component starts a vanilla song automatically.
+                        // Mixer supplies the audio, so silence only the vanilla playback while
+                        // keeping the physical record inside the block.
+                        jukebox.stopPlaying();
+
                         audioPlayer.load(source);
-                        MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
+                        consumeMainHandDisc(e.getPlayer());
                     } catch (Exception ex) {
+                        if (audioPlayer != null) audioPlayer.stop();
+                        // No item has been consumed before the player is ready. Remove a
+                        // partially inserted record without ejecting a duplicate into the world.
+                        if (recordInserted) jukebox.getInventory().setRecord(null);
                         plugin.logDebug(Level.WARNING, "Failed to create audio player", ex);
                         MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
+                        return;
                     }
+                    MessageUtil.sendActionBarMsg(e.getPlayer(), "playback_start");
                     return;
                 }
             }
@@ -183,6 +196,17 @@ public class PlayerInteractListener implements Listener {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING, "Failed to create audio player", ex);
                 MessageUtil.sendActionBarMsg(e.getPlayer(), "failed_to_start");
             }
+        }
+    }
+
+    private static void consumeMainHandDisc(org.bukkit.entity.Player player) {
+        if (player.getGameMode() == org.bukkit.GameMode.CREATIVE) return;
+
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held.getAmount() <= 1) {
+            player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+        } else {
+            held.setAmount(held.getAmount() - 1);
         }
     }
 

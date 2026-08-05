@@ -24,8 +24,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 
 public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
-    private static final VoicechatServerApi API = (VoicechatServerApi) MixerVoicechatPlugin.api;
-
     private Location location;
     private Block block;
     private Set<MixerSpeaker> speakers;
@@ -37,11 +35,10 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
             throw new IllegalArgumentException("no jukebox at location");
         }
 
-        if (MixerPlugin.getPlugin().playerHashMap().containsKey(location)) {
-            MixerPlugin.getPlugin().playerHashMap().get(location).stop();
+        VoicechatServerApi api = (VoicechatServerApi) MixerVoicechatPlugin.api;
+        if (api == null) {
+            throw new IllegalStateException("VoiceChat API is not initialized");
         }
-
-        MixerPlugin.getPlugin().playerHashMap().put(location, this);
 
         this.location = location;
         this.block = location.getBlock();
@@ -72,15 +69,21 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
         speakers.forEach(speaker -> {
             Location speakerLocation = speaker.location().toCenterLocation().add(0, 1, 0);
-            LocationalAudioChannel channel = API.createLocationalAudioChannel(
+            LocationalAudioChannel channel = api.createLocationalAudioChannel(
                     UUID.randomUUID(),
-                    API.fromServerLevel(speakerLocation.getWorld()),
-                    API.createPosition(speakerLocation.getX(), speakerLocation.getY(), speakerLocation.getZ())
+                    api.fromServerLevel(speakerLocation.getWorld()),
+                    api.createPosition(speakerLocation.getX(), speakerLocation.getY(), speakerLocation.getZ())
             );
             channel.setCategory("mixer");
             channel.setDistance(100);
             channels.add(channel);
         });
+
+        // Publish the player only after every synchronous initialization step has
+        // succeeded. A failed constructor must not leave a broken map entry behind.
+        IMixerAudioPlayer previous = MixerPlugin.getPlugin().playerHashMap().get(location);
+        if (previous != null) previous.stop();
+        MixerPlugin.getPlugin().playerHashMap().put(location, this);
 
         initializeAsync();
     }
