@@ -3,6 +3,9 @@ plugins {
     id("com.gradleup.shadow") version "9.2.2"
 }
 
+val paperApiVersion = providers.gradleProperty("paperApiVersion")
+    .orElse("1.21.4-R0.1-SNAPSHOT")
+
 repositories {
     mavenCentral()
     maven ("https://maven.maxhenkel.de/repository/public")
@@ -25,17 +28,17 @@ repositories {
 }
 
 dependencies {
-    library("com.google.code.gson", "gson", "2.13.2")
+    library("com.google.code.gson:gson:2.13.2")
 
     implementation("com.h2database:h2:2.4.240")
     implementation("org.bstats:bstats-bukkit:3.1.0")
 
-    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:${paperApiVersion.get()}")
     compileOnly("org.apache.logging.log4j:log4j-core:2.25.3")
     compileOnly("me.clip:placeholderapi:2.12.2")
 
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
-    implementation("dev.arbjerg:lavaplayer:2.2.6")
+    implementation("dev.arbjerg:lavaplayer:2.2.7")
     implementation("dev.lavalink.youtube:v2:1.18.0")
 
     implementation("org.apache.commons:commons-math3:3.6.1")
@@ -52,7 +55,7 @@ tasks {
         destinationDirectory.set(layout.buildDirectory.dir("../../build/libs"))
         archiveBaseName.set(rootProject.name)
 
-        relocate("org.bstats", "net.somewhatcity.mixer.bstats")
+        relocate("org.bstats", "me.andromedov.mixer.bstats")
 
         dependencies {
             exclude(dependency("de.maxhenkel.voicechat:voicechat-api:2.6.0"))
@@ -70,14 +73,10 @@ tasks {
 
 bukkit {
     main = "$group.mixer.core.MixerPlugin"
-    apiVersion = "1.20.6"
+    apiVersion = "1.21.4"
     authors = listOf("Andromedov", "mrmrmystery")
     name = rootProject.name
     depend = listOf("voicechat")
     softDepend = listOf("PlaceholderAPI")
     version = rootProject.version.toString()
-}
-
-java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(21))
 }

@@ -5,14 +5,21 @@ plugins {
     id("com.gradleup.shadow") version "9.2.2"
 }
 
+val javaToolchainVersion = providers.gradleProperty("javaToolchainVersion")
+    .map(String::toInt)
+    .orElse(21)
+val javaReleaseVersion = providers.gradleProperty("javaReleaseVersion")
+    .map(String::toInt)
+    .orElse(21)
+
 tasks["jar"].enabled = false
 
 allprojects {
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
 
-    group = "net.somewhatcity"
-    version = "2.2.3"
+    group = "me.andromedov"
+    version = "2.3.0"
 
     repositories {
         maven("https://repo.papermc.io/repository/maven-public/")
@@ -20,10 +27,11 @@ allprojects {
 
     tasks.withType<JavaCompile> {
         options.encoding = Charsets.UTF_8.name()
+        options.release.set(javaReleaseVersion)
     }
 
     java {
-        toolchain.languageVersion.set(JavaLanguageVersion.of(21))
+        toolchain.languageVersion.set(JavaLanguageVersion.of(javaToolchainVersion.get()))
     }
 }
 
