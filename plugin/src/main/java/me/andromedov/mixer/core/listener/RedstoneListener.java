@@ -12,8 +12,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.*;
 import org.bukkit.block.data.Directional;
-import org.bukkit.block.data.type.Repeater;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.inventory.ItemStack;
@@ -30,13 +30,15 @@ public class RedstoneListener implements Listener {
     private final Map<Location, Long> cooldowns = new HashMap<>();
     private static final long COOLDOWN_MS = 1000;
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onRedstone(BlockRedstoneEvent e) {
         Block block = e.getBlock();
         if(!block.getType().equals(Material.REPEATER)) return;
 
-        Repeater repeater = (Repeater) block.getBlockData();
-        if(repeater.isPowered()) return;
+        // Trigger once, on the rising edge. Reading Repeater#isPowered() here is
+        // version-dependent because BlockRedstoneEvent may expose either the old
+        // or already-updated block-data snapshot.
+        if (e.getOldCurrent() != 0 || e.getNewCurrent() <= 0) return;
 
         Directional directional = (Directional) block.getBlockData();
         BlockFace facing = directional.getFacing().getOppositeFace();
@@ -55,8 +57,7 @@ public class RedstoneListener implements Listener {
         BlockState containerState = containerBlock.getState();
 
 
-        if (!(containerState instanceof Barrel) && !(containerState instanceof ShulkerBox)) return;
-        Container container = (Container) containerState;
+        if (!(containerState instanceof Container container)) return;
 
         List<String> loadList = new ArrayList<>();
 
@@ -88,9 +89,7 @@ public class RedstoneListener implements Listener {
         }
 
         final IMixerAudioPlayer targetPlayer = (IMixerAudioPlayer) MixerPlugin.getPlugin().api().createPlayer(jukebox.getLocation());
-
-        final String[] urls = loadList.toArray(String[]::new);
-        org.bukkit.Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> targetPlayer.clearAndPlay(urls));
+        targetPlayer.clearAndPlay(loadList.toArray(String[]::new));
     }
 
     private static final String TTS_URL = "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=uk&q=%s";
