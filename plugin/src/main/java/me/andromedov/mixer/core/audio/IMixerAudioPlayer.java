@@ -3,6 +3,7 @@ package me.andromedov.mixer.core.audio;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
@@ -10,6 +11,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import me.andromedov.mixer.api.MixerSpeaker;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.MixerVoicechatPlugin;
+import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -21,6 +23,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
@@ -28,6 +31,7 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private Block block;
     private Set<MixerSpeaker> speakers;
     private List<LocationalAudioChannel> channels = new CopyOnWriteArrayList<>();
+    private final AtomicBoolean playbackFailureHandled = new AtomicBoolean();
 
     public IMixerAudioPlayer(Location location) {
         super();
@@ -118,6 +122,29 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
             location.getNearbyPlayers(10).forEach(p -> {
                 p.sendMessage(MiniMessage.miniMessage().deserialize(message));
             });
+        });
+    }
+
+    @Override
+    protected void handlePlaybackException(FriendlyException exception) {
+        if (!playbackFailureHandled.compareAndSet(false, true)) return;
+
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        plugin.logDebug(Level.WARNING, "FriendlyException in track playback", exception);
+
+        // Lavaplayer invokes this callback from its own executor. Jukebox state,
+        // nearby players and the active-player map must only be touched on the
+        // Bukkit main thread.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            stop();
+
+            if (location.getBlock().getState() instanceof Jukebox jukebox) {
+                jukebox.stopPlaying();
+                if (jukebox.hasRecord()) jukebox.eject();
+            }
+
+            location.getNearbyPlayers(10).forEach(player ->
+                    MessageUtil.sendActionBarMsg(player, "playback_failed_ejected"));
         });
     }
 

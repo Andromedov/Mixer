@@ -15,6 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -148,7 +149,7 @@ public class PlayerInteractListener implements Listener {
                         // The jukebox_playable component starts a vanilla song automatically.
                         // Mixer supplies the audio, so silence only the vanilla playback while
                         // keeping the physical record inside the block.
-                        jukebox.stopPlaying();
+                        silenceVanillaPlayback(location);
 
                         audioPlayer.load(source);
                         consumeMainHandDisc(e.getPlayer());
@@ -210,15 +211,45 @@ public class PlayerInteractListener implements Listener {
         }
     }
 
+    private static void silenceVanillaPlayback(Location location) {
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        stopVanillaPlayback(location);
+
+        // Paper may finish the vanilla jukebox interaction after listeners return.
+        // Re-check next tick so its start packet cannot leave the vanilla song
+        // playing alongside Mixer audio.
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!plugin.playerHashMap().containsKey(location)) return;
+            if (!(location.getBlock().getState() instanceof Jukebox jukebox)) return;
+            if (!plugin.api().discs().isMixerDisc(jukebox.getRecord())) return;
+            jukebox.stopPlaying();
+        });
+    }
+
+    private static void stopVanillaPlayback(Location location) {
+        if (location.getBlock().getState() instanceof Jukebox jukebox) {
+            jukebox.stopPlaying();
+        }
+    }
+
+    private void stopMixerAt(Location location) {
+        stopVanillaPlayback(location);
+        IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
+        if (audioPlayer != null) audioPlayer.stop();
+        lastInteractTime.remove(location);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPlayerBreakJukebox(BlockBreakEvent e) {
+        if (e.getBlock().getType() == Material.JUKEBOX) {
+            stopMixerAt(e.getBlock().getLocation());
+        }
+    }
+
     @EventHandler
     public void onBlockBreak(BlockDestroyEvent e) {
         if (e.getBlock().getType().equals(Material.JUKEBOX)) {
-            Location loc = e.getBlock().getLocation();
-            if (MixerPlugin.getPlugin().playerHashMap().containsKey(loc)) {
-                IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(loc);
-                audioPlayer.stop();
-            }
-            lastInteractTime.remove(loc);
+            stopMixerAt(e.getBlock().getLocation());
         }
     }
 }

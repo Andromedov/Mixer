@@ -26,6 +26,7 @@ messages:
   actionBar:
     playback_stop: "<red>playback stopped"
     playback_start: "<green>playback started"
+    playback_failed_ejected: "<red>playback failed; the disc was ejected"
     failed_to_start: "<red>failed to start playback"
     failed_to_stop: "<red>nothing is playing"
     no_disc_inserted: "<red>no disc inserted"

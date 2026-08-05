@@ -38,7 +38,7 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.12.2")
 
     implementation("de.maxhenkel.voicechat:voicechat-api:2.6.0")
-    implementation("dev.arbjerg:lavaplayer:2.2.6")
+    implementation("dev.arbjerg:lavaplayer:2.2.7")
     implementation("dev.lavalink.youtube:v2:1.18.0")
 
     implementation("org.apache.commons:commons-math3:3.6.1")

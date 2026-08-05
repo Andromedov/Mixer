@@ -26,6 +26,7 @@ messages:
   actionBar:
     playback_stop: "<red>відтворення зупинено"
     playback_start: "<green>відтворення запущено"
+    playback_failed_ejected: "<red>помилка відтворення; платівку викинуто з програвача"
     failed_to_start: "<red>не вдалось розпочати відтворення"
     failed_to_stop: "<red>нічого не відтворюється"
     no_disc_inserted: "<red>платівки не було вставлено</red>"

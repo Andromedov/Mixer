@@ -210,8 +210,7 @@ public class Utils {
         JsonObject send = new JsonObject();
         send.addProperty("url", url);
         send.addProperty("downloadMode", "audio");
-        send.addProperty("isAudioOnly", true);
-        send.addProperty("aFormat", "mp3");
+        send.addProperty("audioFormat", "mp3");
 
         RequestBody body = RequestBody.create(send.toString().getBytes(StandardCharsets.UTF_8));
 

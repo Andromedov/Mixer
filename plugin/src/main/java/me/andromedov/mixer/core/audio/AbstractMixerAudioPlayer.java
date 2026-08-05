@@ -74,7 +74,9 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             APM.registerSourceManager(youtube);
         }
 
-        APM.registerSourceManager(SoundCloudAudioSourceManager.createDefault());
+        APM.registerSourceManager(SoundCloudAudioSourceManager.builder()
+                .withFormatHandler(new MixerSoundCloudFormatHandler())
+                .build());
         APM.registerSourceManager(new BandcampAudioSourceManager());
         APM.registerSourceManager(new VimeoAudioSourceManager());
         APM.registerSourceManager(new TwitchStreamAudioSourceManager());
