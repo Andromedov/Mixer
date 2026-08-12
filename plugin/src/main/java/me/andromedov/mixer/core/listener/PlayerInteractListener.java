@@ -10,7 +10,6 @@ import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.block.Jukebox;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,11 +19,8 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
@@ -35,58 +31,26 @@ public class PlayerInteractListener implements Listener {
     private static final long INTERACT_COOLDOWN = 500; // 0.5 second
 
     @EventHandler(priority = EventPriority.LOWEST)
-    public void onUsePlaylistCartridge(PlayerInteractEvent e) {
+    public void onUsePortableItem(PlayerInteractEvent e) {
         if (e.getHand() != EquipmentSlot.HAND) return;
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         MixerPlugin plugin = MixerPlugin.getPlugin();
         ItemStack item = e.getItem();
-        if (!plugin.arePlaylistCartridgesEnabled() || !plugin.getPlaylistCartridges().isCartridge(item)) return;
-
-        e.setCancelled(true);
-        plugin.getPlaylistEditorGui().open(
-                e.getPlayer(), e.getPlayer().getInventory().getHeldItemSlot(), item);
+        if (plugin.arePlaylistCartridgesEnabled() && plugin.getPlaylistCartridges().isCartridge(item)) {
+            e.setCancelled(true);
+            plugin.getPlaylistEditorGui().open(
+                    e.getPlayer(), e.getPlayer().getInventory().getHeldItemSlot(), item);
+            return;
+        }
+        if (plugin.isPortableSpeakerEnabled() && plugin.getPortableSpeakers().isSpeaker(item)) {
+            e.setCancelled(true);
+            plugin.getPortableSpeakerGui().open(e.getPlayer(), plugin.getPortableSpeakers().ensureId(item));
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent e) {
-        // --- Portable Speaker Mechanic ---
-        if (e.getHand() == EquipmentSlot.HAND && e.getAction().toString().contains("RIGHT_CLICK")) {
-            ItemStack item = e.getItem();
-            if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
-                String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
-                Material mat = Material.getMaterial(matName);
-                if (mat == null) mat = Material.NOTE_BLOCK; // Fallback
-
-                if (item != null && item.getType() == mat) {
-                    NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
-                    if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
-
-                        // Ensure item has a unique ID
-                        NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
-                        UUID speakerId;
-
-                        if (!item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
-                            speakerId = UUID.randomUUID();
-                            ItemMeta meta = item.getItemMeta();
-                            meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, speakerId.toString());
-                            item.setItemMeta(meta);
-                        } else {
-                            try {
-                                speakerId = UUID.fromString(Objects.requireNonNull(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING)));
-                            } catch (Exception ex) {
-                                speakerId = UUID.randomUUID();
-                            }
-                        }
-
-                        e.setCancelled(true);
-                        MixerPlugin.getPlugin().getPortableSpeakerGui().open(e.getPlayer(), speakerId);
-                        return;
-                    }
-                }
-            }
-        }
-
         if (e.getClickedBlock() == null) return;
         if (!e.getClickedBlock().getType().equals(Material.JUKEBOX)) return;
         if (e.getHand() != EquipmentSlot.HAND) return;

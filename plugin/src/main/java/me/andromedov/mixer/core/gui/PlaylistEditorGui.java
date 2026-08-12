@@ -94,7 +94,7 @@ public final class PlaylistEditorGui implements Listener {
         java.util.Optional<MixerDisc> disc = plugin.api().discs().readDisc(clicked);
         if (disc.isEmpty()) return;
         event.setCancelled(true);
-        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow()));
+        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow(), clicked));
     }
 
     @EventHandler
@@ -111,7 +111,7 @@ public final class PlaylistEditorGui implements Listener {
             MessageUtil.sendActionBarMsg(player, "place_mixer_disc");
             return;
         }
-        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow()));
+        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow(), item));
     }
 
     private void addTrack(Player player, EditorHolder holder, MixerPlaylistTrack track) {
@@ -174,9 +174,15 @@ public final class PlaylistEditorGui implements Listener {
         for (int slot = 0; slot < TRACK_SLOTS; slot++) {
             if (slot < cartridge.tracks().size()) {
                 MixerPlaylistTrack track = cartridge.tracks().get(slot);
-                ItemStack icon = new ItemStack(Material.MUSIC_DISC_13);
+                Material iconMaterial = Material.matchMaterial(track.iconMaterial());
+                ItemStack icon = new ItemStack(iconMaterial == null ? Material.MUSIC_DISC_13 : iconMaterial);
                 int number = slot + 1;
                 icon.editMeta(meta -> {
+                    if (track.iconCustomModelData() != null) meta.setCustomModelData(track.iconCustomModelData());
+                    if (track.iconItemModel() != null) {
+                        org.bukkit.NamespacedKey itemModel = org.bukkit.NamespacedKey.fromString(track.iconItemModel());
+                        if (itemModel != null) meta.setItemModel(itemModel);
+                    }
                     meta.displayName(Component.text(number + ". " + track.title(), NamedTextColor.AQUA)
                             .decoration(TextDecoration.ITALIC, false));
                     meta.lore(List.of(

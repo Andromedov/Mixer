@@ -13,6 +13,7 @@ import me.andromedov.mixer.core.gui.PortableSpeakerGui;
 import me.andromedov.mixer.core.listener.*;
 import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
 import me.andromedov.mixer.core.playlist.PortablePlaylistSession;
+import me.andromedov.mixer.core.portable.PortableSpeakerService;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
@@ -64,6 +65,7 @@ public class MixerPlugin extends JavaPlugin {
     private DspGui dspGui;
     private PlaylistEditorGui playlistEditorGui;
     private PlaylistCartridgeService playlistCartridges;
+    private PortableSpeakerService portableSpeakers;
 
     // Config
     private boolean youtubeEnabled;
@@ -110,6 +112,7 @@ public class MixerPlugin extends JavaPlugin {
         MessageUtil.initialize(localizationManager);
 
         playlistCartridges = new PlaylistCartridgeService(this);
+        portableSpeakers = new PortableSpeakerService(this);
 
         // Initialize Database
         database = new MixerDatabase(this);
@@ -443,6 +446,7 @@ public class MixerPlugin extends JavaPlugin {
     public DspGui getDspGui() { return dspGui; }
     public PlaylistEditorGui getPlaylistEditorGui() { return playlistEditorGui; }
     public PlaylistCartridgeService getPlaylistCartridges() { return playlistCartridges; }
+    public PortableSpeakerService getPortableSpeakers() { return portableSpeakers; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }

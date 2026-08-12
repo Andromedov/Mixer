@@ -618,7 +618,7 @@ public class CommandRegistry {
         player.getInventory().addItem(speaker).values().forEach(leftover ->
                 player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
-        MessageUtil.sendMsg(player, "speaker_received", name);
+        MessageUtil.sendMsg(player, "speaker_received", MM.stripTags(name));
     }
 
     // --- /mixer cartridge ---
