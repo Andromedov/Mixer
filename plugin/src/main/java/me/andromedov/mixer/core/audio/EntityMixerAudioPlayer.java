@@ -1,6 +1,8 @@
 package me.andromedov.mixer.core.audio;
 
 import com.google.gson.JsonObject;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.EntityAudioChannel;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -23,6 +25,7 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private EntityAudioChannel channel;
     private UUID sourceItemId;
     private BukkitTask particleTask;
+    private Runnable trackFinishedHandler;
 
     public EntityMixerAudioPlayer(Player player) {
         super();
@@ -53,6 +56,26 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     public UUID getSourceItemId() {
         return sourceItemId;
+    }
+
+    public void setTrackFinishedHandler(Runnable trackFinishedHandler) {
+        this.trackFinishedHandler = trackFinishedHandler;
+    }
+
+    public void setPlaybackPaused(boolean paused) {
+        if (lavaplayer != null) lavaplayer.setPaused(paused);
+    }
+
+    @Override
+    protected void onTrackEnded(AudioTrack track, AudioTrackEndReason endReason) {
+        if (endReason == AudioTrackEndReason.FINISHED && trackFinishedHandler != null && running) {
+            trackFinishedHandler.run();
+        }
+    }
+
+    @Override
+    protected void onTrackLoadFailed(String source) {
+        if (trackFinishedHandler != null && running) trackFinishedHandler.run();
     }
 
     private void loadSettingsFromDb() {
@@ -126,6 +149,8 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
             particleTask.cancel();
             particleTask = null;
         }
+        var session = MixerPlugin.getPlugin().getPortablePlaylistSessions().remove(owner.getUniqueId());
+        if (session != null) session.cancel();
         MixerPlugin.getPlugin().getPortablePlayerMap().remove(owner.getUniqueId());
     }
 }

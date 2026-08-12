@@ -5,6 +5,7 @@ import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.disc.MixerDiscService;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
+import me.andromedov.mixer.api.playlist.MixerPlaylistService;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
@@ -116,6 +117,11 @@ public final class ImplMixerApi implements MixerApi {
     @Override
     public MixerDiscService discs() {
         return discs;
+    }
+
+    @Override
+    public MixerPlaylistService playlists() {
+        return plugin.getPlaylistCartridges();
     }
 
     @Override

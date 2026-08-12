@@ -84,3 +84,9 @@ portableSpeakers:
   # The block that will be used as a portable speaker.
   # Supported materials: https://jd.papermc.io/paper/1.21.11/org/bukkit/Material.html
   portableSpeakerItemMaterial: "NOTE_BLOCK"
+  # Playlist cartridges are portable items that store track metadata, not disc items.
+  playlistCartridges:
+    enabled: true
+    material: "MUSIC_DISC_11"
+    # The first editor page currently supports up to 18 tracks.
+    maxTracks: 18

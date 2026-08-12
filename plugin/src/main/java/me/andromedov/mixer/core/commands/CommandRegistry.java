@@ -77,6 +77,7 @@ public class CommandRegistry {
                     .then(registerRedstoneCommand())
                     .then(registerDspCommand())
                     .then(registerSpeakerCommand())
+                    .then(registerCartridgeCommand())
                     .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
@@ -605,6 +606,64 @@ public class CommandRegistry {
         player.getInventory().addItem(speaker);
         String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
         MessageUtil.sendMsg(player, "speaker_received", name);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // --- /mixer cartridge ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerCartridgeCommand() {
+        return Commands.literal("cartridge")
+                .requires(source -> source.getSender().hasPermission("mixer.command.cartridge"))
+                .executes(this::executeCartridge)
+                .then(Commands.literal("rename")
+                        .then(Commands.argument("name", StringArgumentType.greedyString())
+                                .executes(this::executeCartridgeRename)));
+    }
+
+    private int executeCartridge(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+        if (!plugin.arePlaylistCartridgesEnabled()) {
+            MessageUtil.sendErrMsg(sender, "feature_disabled");
+            return 0;
+        }
+
+        ItemStack cartridge = plugin.getPlaylistCartridges().createCartridge();
+        player.getInventory().addItem(cartridge).values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        MessageUtil.sendMsg(player, "cartridge_received");
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int executeCartridgeRename(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+
+        ItemStack item = player.getInventory().getItemInMainHand();
+        var service = plugin.getPlaylistCartridges();
+        UUID id = service.id(item).orElse(null);
+        var playlist = service.read(item).orElse(null);
+        if (id == null || playlist == null) {
+            MessageUtil.sendErrMsg(player, "must_hold_cartridge");
+            return 0;
+        }
+
+        String name = ctx.getArgument("name", String.class).strip();
+        if (name.isEmpty() || name.length() > 32) {
+            MessageUtil.sendErrMsg(player, "invalid_cartridge_name");
+            return 0;
+        }
+        if (!service.write(item, id, new me.andromedov.mixer.api.playlist.MixerPlaylist(
+                playlist.version(), name, playlist.tracks()))) {
+            MessageUtil.sendErrMsg(player, "cartridge_rename_failed");
+            return 0;
+        }
+        MessageUtil.sendMsg(player, "cartridge_renamed", name);
         return Command.SINGLE_SUCCESS;
     }
 
