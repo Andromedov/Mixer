@@ -34,19 +34,25 @@ public class PlayerInteractListener implements Listener {
     private final Map<Location, Long> lastInteractTime = new ConcurrentHashMap<>();
     private static final long INTERACT_COOLDOWN = 500; // 0.5 second
 
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onUsePlaylistCartridge(PlayerInteractEvent e) {
+        if (e.getHand() != EquipmentSlot.HAND) return;
+        if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        ItemStack item = e.getItem();
+        if (!plugin.arePlaylistCartridgesEnabled() || !plugin.getPlaylistCartridges().isCartridge(item)) return;
+
+        e.setCancelled(true);
+        plugin.getPlaylistEditorGui().open(
+                e.getPlayer(), e.getPlayer().getInventory().getHeldItemSlot(), item);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent e) {
         // --- Portable Speaker Mechanic ---
         if (e.getHand() == EquipmentSlot.HAND && e.getAction().toString().contains("RIGHT_CLICK")) {
             ItemStack item = e.getItem();
-            if (MixerPlugin.getPlugin().arePlaylistCartridgesEnabled()
-                    && MixerPlugin.getPlugin().getPlaylistCartridges().isCartridge(item)) {
-                e.setCancelled(true);
-                MixerPlugin.getPlugin().getPlaylistEditorGui().open(
-                        e.getPlayer(), e.getPlayer().getInventory().getHeldItemSlot(), item);
-                return;
-            }
-
             if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
                 String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
                 Material mat = Material.getMaterial(matName);
