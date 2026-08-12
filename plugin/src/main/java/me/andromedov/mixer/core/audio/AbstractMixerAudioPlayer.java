@@ -75,6 +75,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         APM.registerSourceManager(SoundCloudAudioSourceManager.builder()
                 .withFormatHandler(new MixerSoundCloudFormatHandler())
+                .withFilterOutPreviewTracks(MixerPlugin.getPlugin().isSoundCloudFilterOutPreviewTracks())
                 .build());
         APM.registerSourceManager(new BandcampAudioSourceManager());
         APM.registerSourceManager(new VimeoAudioSourceManager());

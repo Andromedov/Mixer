@@ -38,6 +38,13 @@ mixer:
     useOAuth: false
     refreshToken: ""
 
+  # SoundCloud integration settings
+  soundcloud:
+    # Reject tracks for which SoundCloud only exposes a short subscription preview.
+    # If false, these tracks may play for about 15 seconds and then stop.
+    # Changing this setting requires a server restart.
+    filterOutPreviewTracks: false
+
   # Should the plugin notify players of playback errors?
   errorsNotifiers:
     notifyPlayer: false

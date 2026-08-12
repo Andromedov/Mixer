@@ -71,6 +71,7 @@ public class MixerPlugin extends JavaPlugin {
     private boolean youtubeEnabled;
     private boolean youtubeUseOAuth;
     private String youtubeRefreshToken;
+    private boolean soundCloudFilterOutPreviewTracks;
     private int volumePercent;
     private int audioSampleRate;
     private int audioBufferSize;
@@ -307,6 +308,8 @@ public class MixerPlugin extends JavaPlugin {
         youtubeEnabled = config.getBoolean("mixer.youtube.enabled", false);
         youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth", false);
         youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        soundCloudFilterOutPreviewTracks = config.getBoolean(
+                "mixer.soundcloud.filterOutPreviewTracks", false);
         volumePercent = config.getInt("mixer.volume", 50);
 
         discInserted = config.getBoolean("mixer.disc-inserted", false);
@@ -456,6 +459,7 @@ public class MixerPlugin extends JavaPlugin {
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
     public String getYoutubeRefreshToken() { return youtubeRefreshToken; }
+    public boolean isSoundCloudFilterOutPreviewTracks() { return soundCloudFilterOutPreviewTracks; }
     public int getVolumePercent() { return volumePercent; }
     public float getVolumeMultiplier() { return volumePercent / 100.0f; }
     public int getAudioSampleRate() { return audioSampleRate; }
