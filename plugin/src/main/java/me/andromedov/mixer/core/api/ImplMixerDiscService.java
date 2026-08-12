@@ -13,10 +13,10 @@ import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.AbstractMixerAudioPlayer;
 import me.andromedov.mixer.core.util.Utils;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;
@@ -208,8 +208,6 @@ final class ImplMixerDiscService implements MixerDiscService {
     }
 
     private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        MixerScheduler.requireTickThread(action);
     }
 }

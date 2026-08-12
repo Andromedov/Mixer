@@ -7,11 +7,11 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import me.andromedov.mixer.api.MixerSpeaker;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.MixerVoicechatPlugin;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 
 import java.util.Collections;
 import java.util.Set;
@@ -22,7 +22,7 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private final Player owner;
     private EntityAudioChannel channel;
     private UUID sourceItemId;
-    private BukkitTask particleTask;
+    private ScheduledTask particleTask;
 
     public EntityMixerAudioPlayer(Player player) {
         super();
@@ -57,7 +57,7 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     private void loadSettingsFromDb() {
         if (sourceItemId == null) return;
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAsync(() -> {
             JsonObject loadedSettings = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp(sourceItemId);
             if (loadedSettings != null) {
                 this.setDspSettings(loadedSettings);
@@ -77,14 +77,14 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private void startParticles() {
         if (particleTask != null && !particleTask.isCancelled()) return;
 
-        particleTask = org.bukkit.Bukkit.getScheduler().runTaskTimer(MixerPlugin.getPlugin(), () -> {
+        particleTask = MixerPlugin.getPlugin().scheduler().runForAtFixedRate(owner, () -> {
             if (!owner.isOnline() || !running) {
                 if (particleTask != null) particleTask.cancel();
                 return;
             }
             Location loc = owner.getLocation().add(0, 2.2, 0);
             owner.getWorld().spawnParticle(Particle.NOTE, loc, 1, 0.3, 0.2, 0.3, 0.5);
-        }, 0L, 10L); // Every 0.5 seconds
+        }, this::stop, 1L, 10L); // Every 0.5 seconds
     }
 
     @Override
@@ -96,7 +96,7 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     protected void persistDspSettings() {
         if (sourceItemId == null) return;
         JsonObject snapshot = dspSettings.deepCopy();
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () ->
+        MixerPlugin.getPlugin().scheduler().runAsync(() ->
                 MixerPlugin.getPlugin().getDatabase().saveSpeakerDsp(sourceItemId, snapshot));
     }
 
@@ -114,9 +114,16 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     @Override
     protected void notifyUser(String message) {
-        if (owner.isOnline()) {
-            owner.sendMessage(MiniMessage.miniMessage().deserialize(message));
-        }
+        MixerPlugin.getPlugin().scheduler().runFor(owner, () -> {
+            if (owner.isOnline()) {
+                owner.sendMessage(MiniMessage.miniMessage().deserialize(message));
+            }
+        }, this::stop);
+    }
+
+    @Override
+    protected void requireOwnedThread(String action) {
+        MixerScheduler.requireOwned(owner, action);
     }
 
     @Override

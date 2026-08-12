@@ -4,7 +4,7 @@ import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolver;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
@@ -42,8 +42,8 @@ final class ImplMixerAudioSourceRegistry implements MixerAudioSourceRegistry {
     @Override
     public String resolve(String source) throws MixerAudioSourceResolutionException {
         Objects.requireNonNull(source, "source");
-        if (Bukkit.isPrimaryThread()) {
-            throw new MixerAudioSourceResolutionException("Audio sources must be resolved off the Bukkit main thread");
+        if (MixerScheduler.isTickThread()) {
+            throw new MixerAudioSourceResolutionException("Audio sources must be resolved off server tick threads");
         }
 
         List<Registration> ordered = registrations.values().stream()
@@ -92,9 +92,7 @@ final class ImplMixerAudioSourceRegistry implements MixerAudioSourceRegistry {
     }
 
     private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        MixerScheduler.requireGlobalThread(action);
     }
 
     private final class Registration implements MixerAudioSourceResolverRegistration {

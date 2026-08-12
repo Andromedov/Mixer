@@ -27,11 +27,12 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class PortableSpeakerGui implements Listener {
 
-    private final Map<UUID, UUID> openSpeakers = new HashMap<>();
+    private final Map<UUID, UUID> openSpeakers = new ConcurrentHashMap<>();
 
     private Component getTitle() {
         String title = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_gui_name");

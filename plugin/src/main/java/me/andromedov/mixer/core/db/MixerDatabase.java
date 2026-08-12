@@ -3,14 +3,13 @@ package me.andromedov.mixer.core.db;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.andromedov.mixer.core.MixerPlugin;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.h2.jdbcx.JdbcDataSource;
 
 import java.io.File;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -112,8 +111,8 @@ public class MixerDatabase {
         }
     }
 
-    public Map<Location, String> loadMixers() {
-        Map<Location, String> mixers = new HashMap<>();
+    public List<StoredMixer> loadMixers() {
+        List<StoredMixer> mixers = new ArrayList<>();
         String sql = "SELECT * FROM active_mixers";
 
         try (Connection conn = getConnection();
@@ -127,11 +126,7 @@ public class MixerDatabase {
                 int z = rs.getInt("z");
                 String uri = rs.getString("uri");
 
-                org.bukkit.World world = Bukkit.getWorld(worldName);
-                if (world != null) {
-                    Location loc = new Location(world, x, y, z);
-                    mixers.put(loc, uri);
-                }
+                mixers.add(new StoredMixer(worldName, x, y, z, uri));
             }
         } catch (SQLException e) {
             plugin.logDebug(Level.SEVERE, "Failed to load mixers from DB", e);
@@ -139,6 +134,8 @@ public class MixerDatabase {
 
         return mixers;
     }
+
+    public record StoredMixer(String worldName, int x, int y, int z, String uri) { }
 
     // --- Portable Speaker DSP Settings ---
 

@@ -13,6 +13,7 @@ import me.andromedov.mixer.core.listener.*;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import me.andromedov.mixer.core.util.UpdateChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -52,6 +53,7 @@ public class MixerPlugin extends JavaPlugin {
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
     private CommandRegistry commandRegistry;
+    private MixerScheduler scheduler;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
@@ -87,9 +89,10 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
+        scheduler = new MixerScheduler(this);
 
         // Async cleanup
-        Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
+        scheduler.runAsync(this::cleanupOpusTemp);
 
         initializeConfig();
 
@@ -421,6 +424,7 @@ public class MixerPlugin extends JavaPlugin {
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public MixerDatabase getDatabase() { return database; }
+    public MixerScheduler scheduler() { return scheduler; }
 
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }

@@ -78,5 +78,6 @@ bukkit {
     name = rootProject.name
     depend = listOf("voicechat")
     softDepend = listOf("PlaceholderAPI")
+    foliaSupported = true
     version = rootProject.version.toString()
 }

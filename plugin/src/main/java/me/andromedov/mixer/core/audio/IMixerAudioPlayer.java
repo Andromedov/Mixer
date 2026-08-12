@@ -12,6 +12,7 @@ import me.andromedov.mixer.api.MixerSpeaker;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.MixerVoicechatPlugin;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import me.andromedov.mixer.core.util.Utils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -118,11 +119,16 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     @Override
     protected void notifyUser(String message) {
-        Bukkit.getScheduler().runTask(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAt(location, () -> {
             location.getNearbyPlayers(10).forEach(p -> {
                 p.sendMessage(MiniMessage.miniMessage().deserialize(message));
             });
         });
+    }
+
+    @Override
+    protected void requireOwnedThread(String action) {
+        MixerScheduler.requireOwned(location, action);
     }
 
     @Override
@@ -134,8 +140,8 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
         // Lavaplayer invokes this callback from its own executor. Jukebox state,
         // nearby players and the active-player map must only be touched on the
-        // Bukkit main thread.
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        // owning region thread.
+        plugin.scheduler().runAt(location, () -> {
             stop();
 
             if (location.getBlock().getState() instanceof Jukebox jukebox) {
@@ -151,7 +157,7 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
     @Override
     protected void configureAndPlay(AudioTrack track) {
         // Save to Database
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAsync(() -> {
             MixerPlugin.getPlugin().getDatabase().saveMixer(location, track.getInfo().uri);
         });
 
@@ -164,7 +170,7 @@ public class IMixerAudioPlayer extends AbstractMixerAudioPlayer {
         MixerPlugin.getPlugin().playerHashMap().remove(location);
 
         // Remove from Database
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAsync(() -> {
             MixerPlugin.getPlugin().getDatabase().removeMixer(location);
         });
     }

@@ -223,12 +223,12 @@ public class PlayerInteractListener implements Listener {
         // Paper may finish the vanilla jukebox interaction after listeners return.
         // Re-check next tick so its start packet cannot leave the vanilla song
         // playing alongside Mixer audio.
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
+        plugin.scheduler().runAtLater(location, () -> {
             if (!plugin.playerHashMap().containsKey(location)) return;
             if (!(location.getBlock().getState() instanceof Jukebox jukebox)) return;
             if (!plugin.api().discs().isMixerDisc(jukebox.getRecord())) return;
             stopVanillaPlayback(location);
-        });
+        }, 1L);
     }
 
     private static void stopVanillaPlayback(Location location) {
