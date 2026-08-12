@@ -5,7 +5,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Creates and reads portable Music Cartridge items. All methods require the Bukkit main thread. */
+/** Creates and reads portable Music Cartridge items. All item methods require a server tick thread. */
 public interface MixerPlaylistService {
     ItemStack createCartridge();
 

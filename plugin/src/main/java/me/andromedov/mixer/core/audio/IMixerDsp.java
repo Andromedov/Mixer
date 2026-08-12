@@ -5,8 +5,6 @@ import me.andromedov.mixer.api.MixerDsp;
 import me.andromedov.mixer.api.dsp.Flanger;
 import me.andromedov.mixer.api.dsp.HighPass;
 import me.andromedov.mixer.api.dsp.LowPass;
-import org.bukkit.Bukkit;
-
 import java.util.Optional;
 
 public final class IMixerDsp implements MixerDsp {
@@ -112,7 +110,7 @@ public final class IMixerDsp implements MixerDsp {
 
     @Override
     public void reset() {
-        requireMainThread();
+        requireOwnedThread();
         player.applyDspSettingsFromApi(new JsonObject());
     }
 
@@ -121,7 +119,7 @@ public final class IMixerDsp implements MixerDsp {
     }
 
     private void mutate(java.util.function.Consumer<JsonObject> mutation) {
-        requireMainThread();
+        requireOwnedThread();
         JsonObject copy = settings().deepCopy();
         mutation.accept(copy);
         player.applyDspSettingsFromApi(copy);
@@ -137,10 +135,8 @@ public final class IMixerDsp implements MixerDsp {
         }
     }
 
-    private static void requireMainThread() {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("DSP settings must be changed on the Bukkit main thread");
-        }
+    private void requireOwnedThread() {
+        player.requireOwnedThread("change DSP settings");
     }
 
     private record FlangerSettings(double maxFlangerLength, double wet, double lfoFrequency) implements Flanger { }

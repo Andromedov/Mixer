@@ -10,7 +10,7 @@ import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicy;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistration;
 import me.andromedov.mixer.core.MixerPlugin;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
@@ -118,9 +118,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     }
 
     private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        MixerScheduler.requireGlobalThread(action);
     }
 
     private final class Context implements MixerAddonContext {

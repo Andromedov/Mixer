@@ -6,8 +6,8 @@ import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistration;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
 import me.andromedov.mixer.api.playback.MixerPlaybackRequest;
 import me.andromedov.mixer.core.MixerPlugin;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
@@ -32,7 +32,7 @@ final class ImplMixerPlaybackPolicyRegistry implements MixerPlaybackPolicyRegist
     public MixerPlaybackPolicyRegistration register(Plugin owner, MixerPlaybackPolicy policy) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(policy, "policy");
-        requireMainThread("register a playback policy");
+        MixerScheduler.requireGlobalThread("register a playback policy");
 
         String policyId = validateId(policy.id());
         String key = owner.getName().toLowerCase(Locale.ROOT) + ":" + policyId;
@@ -96,9 +96,7 @@ final class ImplMixerPlaybackPolicyRegistry implements MixerPlaybackPolicyRegist
     }
 
     private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        MixerScheduler.requireTickThread(action);
     }
 
     private final class Registration implements MixerPlaybackPolicyRegistration {

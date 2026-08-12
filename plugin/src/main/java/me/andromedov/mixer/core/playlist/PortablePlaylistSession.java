@@ -37,7 +37,7 @@ public final class PortablePlaylistSession {
     private int cursor;
     private boolean shuffle;
     private boolean paused;
-    private boolean active = true;
+    private volatile boolean active = true;
     private RepeatMode repeatMode = RepeatMode.OFF;
 
     public PortablePlaylistSession(MixerPlugin plugin, Player owner, UUID speakerId,
@@ -123,7 +123,7 @@ public final class PortablePlaylistSession {
     }
 
     private void scheduleTrackFinished() {
-        plugin.getServer().getScheduler().runTask(plugin, this::onTrackFinished);
+        plugin.scheduler().runFor(owner, this::onTrackFinished, this::cancel);
     }
 
     private void onTrackFinished() {

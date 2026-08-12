@@ -28,7 +28,9 @@ import java.util.UUID;
 public final class PlaylistEditorGui implements Listener {
     private static final int INVENTORY_SIZE = 27;
     private static final int TRACK_SLOTS = 18;
-    private static final int CLEAR_SLOT = 22;
+    private static final int HELP_SLOT = 18;
+    private static final int ADD_TRACK_SLOT = 22;
+    private static final int CLEAR_SLOT = 24;
     private static final int CLOSE_SLOT = 26;
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
@@ -71,6 +73,8 @@ public final class PlaylistEditorGui implements Listener {
                 } else if (event.isRightClick()) {
                     moveTrack(player, holder, event.getSlot(), 1);
                 }
+            } else if (event.getSlot() == ADD_TRACK_SLOT) {
+                addDiscFromCursor(player, holder, event.getCursor());
             } else if (event.getSlot() == CLEAR_SLOT) {
                 update(player, holder, cartridge -> cartridge.withTracks(List.of()));
             } else if (event.getSlot() == CLOSE_SLOT) {
@@ -90,7 +94,7 @@ public final class PlaylistEditorGui implements Listener {
         java.util.Optional<MixerDisc> disc = plugin.api().discs().readDisc(clicked);
         if (disc.isEmpty()) return;
         event.setCancelled(true);
-        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow()));
+        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow(), clicked));
     }
 
     @EventHandler
@@ -99,6 +103,15 @@ public final class PlaylistEditorGui implements Listener {
         if (event.getRawSlots().stream().anyMatch(slot -> slot < INVENTORY_SIZE)) {
             event.setCancelled(true);
         }
+    }
+
+    private void addDiscFromCursor(Player player, EditorHolder holder, ItemStack item) {
+        java.util.Optional<MixerDisc> disc = plugin.api().discs().readDisc(item);
+        if (disc.isEmpty()) {
+            MessageUtil.sendActionBarMsg(player, "place_mixer_disc");
+            return;
+        }
+        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow(), item));
     }
 
     private void addTrack(Player player, EditorHolder holder, MixerPlaylistTrack track) {
@@ -161,9 +174,15 @@ public final class PlaylistEditorGui implements Listener {
         for (int slot = 0; slot < TRACK_SLOTS; slot++) {
             if (slot < cartridge.tracks().size()) {
                 MixerPlaylistTrack track = cartridge.tracks().get(slot);
-                ItemStack icon = new ItemStack(Material.MUSIC_DISC_13);
+                Material iconMaterial = Material.matchMaterial(track.iconMaterial());
+                ItemStack icon = new ItemStack(iconMaterial == null ? Material.MUSIC_DISC_13 : iconMaterial);
                 int number = slot + 1;
                 icon.editMeta(meta -> {
+                    if (track.iconCustomModelData() != null) meta.setCustomModelData(track.iconCustomModelData());
+                    if (track.iconItemModel() != null) {
+                        org.bukkit.NamespacedKey itemModel = org.bukkit.NamespacedKey.fromString(track.iconItemModel());
+                        if (itemModel != null) meta.setItemModel(itemModel);
+                    }
                     meta.displayName(Component.text(number + ". " + track.title(), NamedTextColor.AQUA)
                             .decoration(TextDecoration.ITALIC, false));
                     meta.lore(List.of(
@@ -186,6 +205,26 @@ public final class PlaylistEditorGui implements Listener {
         ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         filler.editMeta(meta -> meta.displayName(Component.empty()));
         for (int slot = TRACK_SLOTS; slot < INVENTORY_SIZE; slot++) inventory.setItem(slot, filler);
+
+        ItemStack help = new ItemStack(Material.BOOK);
+        help.editMeta(meta -> {
+            meta.displayName(MM.deserialize(plugin.getLocalizationManager()
+                    .getMessage("playlist.help_name")).decoration(TextDecoration.ITALIC, false));
+            meta.lore(plugin.getLocalizationManager().getMessageList("playlist.help_lore").stream()
+                    .map(line -> MM.deserialize(line).decoration(TextDecoration.ITALIC, false))
+                    .toList());
+        });
+        inventory.setItem(HELP_SLOT, help);
+
+        ItemStack addTrack = new ItemStack(Material.JUKEBOX);
+        addTrack.editMeta(meta -> {
+            meta.displayName(MM.deserialize(plugin.getLocalizationManager()
+                    .getMessage("playlist.add_track_name")).decoration(TextDecoration.ITALIC, false));
+            meta.lore(plugin.getLocalizationManager().getMessageList("playlist.add_track_lore").stream()
+                    .map(line -> MM.deserialize(line).decoration(TextDecoration.ITALIC, false))
+                    .toList());
+        });
+        inventory.setItem(ADD_TRACK_SLOT, addTrack);
 
         ItemStack clear = new ItemStack(Material.BARRIER);
         clear.editMeta(meta -> meta.displayName(MM.deserialize(plugin.getLocalizationManager()

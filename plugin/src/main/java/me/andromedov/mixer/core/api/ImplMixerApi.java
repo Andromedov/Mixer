@@ -10,7 +10,7 @@ import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -40,8 +40,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public IMixerAudioPlayer createPlayer(Location location) {
-        requireMainThread("create a locational audio player");
         Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "create a locational audio player");
         if (plugin.playerHashMap().containsKey(blockLocation)) {
             throw new IllegalStateException("Player at this location already exists");
         }
@@ -50,8 +50,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public MixerAudioPlayer getOrCreatePlayer(Location location) {
-        requireMainThread("create a locational audio player");
         Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "create a locational audio player");
         IMixerAudioPlayer existing = plugin.playerHashMap().get(blockLocation);
         return existing != null ? existing : createPlayer(blockLocation);
     }
@@ -70,8 +70,9 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public boolean stopPlayer(Location location) {
-        requireMainThread("stop a locational audio player");
-        IMixerAudioPlayer player = plugin.playerHashMap().get(blockLocation(location));
+        Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "stop a locational audio player");
+        IMixerAudioPlayer player = plugin.playerHashMap().get(blockLocation);
         if (player == null) return false;
         player.stop();
         return true;
@@ -79,8 +80,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public MixerAudioPlayer createPortablePlayer(Player owner) {
-        requireMainThread("create a portable audio player");
         if (owner == null) throw new IllegalArgumentException("Owner must not be null");
+        MixerScheduler.requireOwned(owner, "create a portable audio player");
         EntityMixerAudioPlayer existing = plugin.getPortablePlayerMap().remove(owner.getUniqueId());
         if (existing != null) existing.stop();
         EntityMixerAudioPlayer created = new EntityMixerAudioPlayer(owner);
@@ -96,8 +97,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public boolean stopPortablePlayer(Player owner) {
-        requireMainThread("stop a portable audio player");
         if (owner == null) return false;
+        MixerScheduler.requireOwned(owner, "stop a portable audio player");
         EntityMixerAudioPlayer player = plugin.getPortablePlayerMap().get(owner.getUniqueId());
         if (player == null) return false;
         player.stop();
@@ -147,12 +148,6 @@ public final class ImplMixerApi implements MixerApi {
         if (location == null || location.getWorld() == null) {
             throw new IllegalArgumentException("Location and its world must not be null");
         }
-        return location.getBlock().getLocation();
-    }
-
-    private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        return new Location(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 }

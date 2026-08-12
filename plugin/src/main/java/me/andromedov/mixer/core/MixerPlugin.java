@@ -13,9 +13,11 @@ import me.andromedov.mixer.core.gui.PortableSpeakerGui;
 import me.andromedov.mixer.core.listener.*;
 import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
 import me.andromedov.mixer.core.playlist.PortablePlaylistSession;
+import me.andromedov.mixer.core.portable.PortableSpeakerService;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import me.andromedov.mixer.core.util.UpdateChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -56,12 +58,14 @@ public class MixerPlugin extends JavaPlugin {
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
     private CommandRegistry commandRegistry;
+    private MixerScheduler scheduler;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
     private DspGui dspGui;
     private PlaylistEditorGui playlistEditorGui;
     private PlaylistCartridgeService playlistCartridges;
+    private PortableSpeakerService portableSpeakers;
 
     // Config
     private boolean youtubeEnabled;
@@ -96,9 +100,10 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
+        scheduler = new MixerScheduler(this);
 
         // Async cleanup
-        Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
+        scheduler.runAsync(this::cleanupOpusTemp);
 
         initializeConfig();
 
@@ -107,6 +112,7 @@ public class MixerPlugin extends JavaPlugin {
         MessageUtil.initialize(localizationManager);
 
         playlistCartridges = new PlaylistCartridgeService(this);
+        portableSpeakers = new PortableSpeakerService(this);
 
         // Initialize Database
         database = new MixerDatabase(this);
@@ -440,10 +446,12 @@ public class MixerPlugin extends JavaPlugin {
     public DspGui getDspGui() { return dspGui; }
     public PlaylistEditorGui getPlaylistEditorGui() { return playlistEditorGui; }
     public PlaylistCartridgeService getPlaylistCartridges() { return playlistCartridges; }
+    public PortableSpeakerService getPortableSpeakers() { return portableSpeakers; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public MixerDatabase getDatabase() { return database; }
+    public MixerScheduler scheduler() { return scheduler; }
 
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }

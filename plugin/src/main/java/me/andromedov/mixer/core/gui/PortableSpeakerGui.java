@@ -32,6 +32,16 @@ import java.util.List;
 import java.util.UUID;
 
 public class PortableSpeakerGui implements Listener {
+    private static final int INVENTORY_SIZE = 18;
+    private static final int MEDIA_SLOT = 4;
+    private static final int START_SLOT = 0;
+    private static final int DSP_SLOT = 2;
+    private static final int STOP_SLOT = 8;
+    private static final int PREVIOUS_SLOT = 10;
+    private static final int SHUFFLE_SLOT = 11;
+    private static final int REPEAT_SLOT = 13;
+    private static final int PAUSE_SLOT = 15;
+    private static final int NEXT_SLOT = 16;
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private Component getTitle() {
@@ -42,20 +52,20 @@ public class PortableSpeakerGui implements Listener {
 
     public void open(Player player, UUID speakerId) {
         PortableSpeakerHolder holder = new PortableSpeakerHolder(speakerId);
-        Inventory inv = Bukkit.createInventory(holder, 9, getTitle());
+        Inventory inv = Bukkit.createInventory(holder, INVENTORY_SIZE, getTitle());
         holder.inventory = inv;
 
         ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta fillerMeta = filler.getItemMeta();
         fillerMeta.displayName(Component.empty());
         filler.setItemMeta(fillerMeta);
-        for (int i = 0; i < 9; i++) if (i != 4) inv.setItem(i, filler);
+        for (int i = 0; i < INVENTORY_SIZE; i++) if (i != MEDIA_SLOT) inv.setItem(i, filler);
 
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         start.editMeta(meta -> meta.displayName(MM.deserialize(MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessage("portableSpeaker.portable_speaker_start_button"))
                 .decoration(TextDecoration.ITALIC, false)));
-        inv.setItem(0, start);
+        inv.setItem(START_SLOT, start);
 
         ItemStack dsp = new ItemStack(Material.AMETHYST_SHARD);
         dsp.editMeta(meta -> {
@@ -63,13 +73,22 @@ public class PortableSpeakerGui implements Listener {
                     .getMessage("dsp.gui_title")).decoration(TextDecoration.ITALIC, false));
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         });
-        inv.setItem(2, dsp);
+        inv.setItem(DSP_SLOT, dsp);
 
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         stop.editMeta(meta -> meta.displayName(MM.deserialize(MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessage("portableSpeaker.portable_speaker_stop_button"))
                 .decoration(TextDecoration.ITALIC, false)));
-        inv.setItem(8, stop);
+        inv.setItem(STOP_SLOT, stop);
+        EntityMixerAudioPlayer active = MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId());
+        ItemStack storedMedia = MixerPlugin.getPlugin().getPortableSpeakers().peek(player, speakerId).orElse(null);
+        if (active != null && speakerId.equals(active.getSourceItemId()) && storedMedia != null) {
+            holder.mediaLocked = true;
+            inv.setItem(MEDIA_SLOT, storedMedia);
+        } else {
+            MixerPlugin.getPlugin().getPortableSpeakers().take(player, speakerId)
+                    .ifPresent(media -> inv.setItem(MEDIA_SLOT, media));
+        }
         updateControls(inv, holder, player);
         player.openInventory(inv);
     }
@@ -79,7 +98,7 @@ public class PortableSpeakerGui implements Listener {
         if (!(event.getView().getTopInventory().getHolder(false) instanceof PortableSpeakerHolder holder)) return;
 
         if (event.getClickedInventory() == event.getView().getTopInventory()) {
-            if (event.getSlot() != 4) event.setCancelled(true);
+            if (event.getSlot() != MEDIA_SLOT || holder.mediaLocked) event.setCancelled(true);
         } else if (event.getClickedInventory() == event.getView().getBottomInventory()) {
             if (event.isShiftClick()) event.setCancelled(true);
             return;
@@ -88,32 +107,41 @@ public class PortableSpeakerGui implements Listener {
         Player player = (Player) event.getWhoClicked();
         if (event.getClickedInventory() != event.getView().getTopInventory()) return;
 
-        if (event.getSlot() == 0) {
-            play(player, holder, event.getView().getTopInventory().getItem(4));
-        } else if (event.getSlot() == 1) {
+        if (event.getSlot() == START_SLOT) {
+            if (holder.mediaLocked) {
+                MessageUtil.sendActionBarMsg(player, "playlist_control_unavailable");
+                return;
+            }
+            play(player, holder, event.getView().getTopInventory().getItem(MEDIA_SLOT));
+        } else if (event.getSlot() == PREVIOUS_SLOT) {
             control(player, holder, PortablePlaylistSession::previous);
             updateControls(event.getView().getTopInventory(), holder, player);
-        } else if (event.getSlot() == 2) {
+        } else if (event.getSlot() == DSP_SLOT) {
             MixerPlugin.getPlugin().getDspGui().open(player, holder.speakerId);
-        } else if (event.getSlot() == 3) {
+        } else if (event.getSlot() == SHUFFLE_SLOT) {
             PortablePlaylistSession session = session(player, holder);
             if (session != null) session.toggleShuffle();
             updateControls(event.getView().getTopInventory(), holder, player);
-        } else if (event.getSlot() == 5) {
+        } else if (event.getSlot() == REPEAT_SLOT) {
             PortablePlaylistSession session = session(player, holder);
             if (session != null) session.cycleRepeatMode();
             updateControls(event.getView().getTopInventory(), holder, player);
-        } else if (event.getSlot() == 6) {
+        } else if (event.getSlot() == PAUSE_SLOT) {
             PortablePlaylistSession session = session(player, holder);
             if (session != null) session.togglePause();
             updateControls(event.getView().getTopInventory(), holder, player);
-        } else if (event.getSlot() == 7) {
+        } else if (event.getSlot() == NEXT_SLOT) {
             control(player, holder, PortablePlaylistSession::next);
             updateControls(event.getView().getTopInventory(), holder, player);
-        } else if (event.getSlot() == 8) {
+        } else if (event.getSlot() == STOP_SLOT) {
             EntityMixerAudioPlayer active = MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId());
             if (active != null) {
+                boolean stoppedThisSpeaker = holder.speakerId.equals(active.getSourceItemId());
                 active.stop();
+                if (stoppedThisSpeaker && holder.mediaLocked) {
+                    holder.mediaLocked = false;
+                    event.getView().getTopInventory().setItem(MEDIA_SLOT, null);
+                }
                 MessageUtil.sendActionBarMsg(player, "playback_stop");
             } else {
                 MessageUtil.sendActionBarMsg(player, "failed_to_stop");
@@ -158,6 +186,19 @@ public class PortableSpeakerGui implements Listener {
         EntityMixerAudioPlayer existing = plugin.getPortablePlayerMap().get(player.getUniqueId());
         if (existing != null) existing.stop();
 
+        if (!plugin.getPortableSpeakers().store(player, holder.speakerId, media)) {
+            MessageUtil.sendActionBarMsg(player, "failed_to_start");
+            return;
+        }
+        if (media.getAmount() > 1) {
+            ItemStack remainder = media.clone();
+            remainder.setAmount(media.getAmount() - 1);
+            player.getInventory().addItem(remainder).values().forEach(leftover ->
+                    player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        }
+        holder.mediaLocked = true;
+        holder.inventory.setItem(MEDIA_SLOT, null);
+
         EntityMixerAudioPlayer portablePlayer = new EntityMixerAudioPlayer(player);
         portablePlayer.setSourceItemId(holder.speakerId);
         PortablePlaylistSession session = new PortablePlaylistSession(
@@ -186,14 +227,14 @@ public class PortableSpeakerGui implements Listener {
 
     private void updateControls(Inventory inventory, PortableSpeakerHolder holder, Player player) {
         PortablePlaylistSession session = session(player, holder);
-        inventory.setItem(1, button(Material.ARROW, "playlist.previous_button"));
-        inventory.setItem(3, button(session != null && session.shuffle() ? Material.LIME_DYE : Material.GRAY_DYE,
+        inventory.setItem(PREVIOUS_SLOT, button(Material.ARROW, "playlist.previous_button"));
+        inventory.setItem(SHUFFLE_SLOT, button(session != null && session.shuffle() ? Material.LIME_DYE : Material.GRAY_DYE,
                 "playlist.shuffle_button", session != null && session.shuffle() ? "ON" : "OFF"));
-        inventory.setItem(5, button(Material.REPEATER, "playlist.repeat_button",
+        inventory.setItem(REPEAT_SLOT, button(Material.REPEATER, "playlist.repeat_button",
                 session == null ? "OFF" : session.repeatMode().name()));
-        inventory.setItem(6, button(session != null && session.paused() ? Material.LIME_CONCRETE : Material.YELLOW_CONCRETE,
+        inventory.setItem(PAUSE_SLOT, button(session != null && session.paused() ? Material.LIME_CONCRETE : Material.YELLOW_CONCRETE,
                 session != null && session.paused() ? "playlist.resume_button" : "playlist.pause_button"));
-        inventory.setItem(7, button(Material.ARROW, "playlist.next_button"));
+        inventory.setItem(NEXT_SLOT, button(Material.ARROW, "playlist.next_button"));
     }
 
     private ItemStack button(Material material, String messageKey, Object... args) {
@@ -205,16 +246,18 @@ public class PortableSpeakerGui implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (!(event.getView().getTopInventory().getHolder(false) instanceof PortableSpeakerHolder)) return;
-        if (event.getRawSlots().stream().anyMatch(slot -> slot < 9 && slot != 4)) {
+        if (!(event.getView().getTopInventory().getHolder(false) instanceof PortableSpeakerHolder holder)) return;
+        if (event.getRawSlots().stream().anyMatch(slot -> slot < INVENTORY_SIZE
+                && (slot != MEDIA_SLOT || holder.mediaLocked))) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (!(event.getView().getTopInventory().getHolder(false) instanceof PortableSpeakerHolder)) return;
-        ItemStack media = event.getInventory().getItem(4);
+        if (!(event.getView().getTopInventory().getHolder(false) instanceof PortableSpeakerHolder holder)) return;
+        if (holder.mediaLocked) return;
+        ItemStack media = event.getInventory().getItem(MEDIA_SLOT);
         if (media == null || media.getType().isAir()) return;
         HashMap<Integer, ItemStack> leftover = event.getPlayer().getInventory().addItem(media);
         leftover.values().forEach(item -> event.getPlayer().getWorld()
@@ -224,6 +267,7 @@ public class PortableSpeakerGui implements Listener {
     private static final class PortableSpeakerHolder implements InventoryHolder {
         private final UUID speakerId;
         private Inventory inventory;
+        private boolean mediaLocked;
 
         private PortableSpeakerHolder(UUID speakerId) {
             this.speakerId = speakerId;

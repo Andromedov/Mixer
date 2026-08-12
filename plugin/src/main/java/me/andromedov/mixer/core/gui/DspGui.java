@@ -8,6 +8,7 @@ import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
 import me.andromedov.mixer.core.util.Utils;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,10 +23,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DspGui implements Listener {
 
-    private final Map<UUID, Object> editingSession = new HashMap<>();
+    private final Map<UUID, Object> editingSession = new ConcurrentHashMap<>();
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private Component getTitle() {
@@ -34,6 +36,7 @@ public class DspGui implements Listener {
     }
 
     public void open(Player player, Location location) {
+        MixerScheduler.requireOwned(location, "open the DSP editor");
         editingSession.put(player.getUniqueId(), location);
         Inventory inv = Bukkit.createInventory(null, 27, getTitle());
         updateInventory(inv, location);
@@ -164,6 +167,10 @@ public class DspGui implements Listener {
         }
 
         if (target instanceof Location loc) {
+            if (!Bukkit.isOwnedByCurrentRegion(loc)) {
+                player.closeInventory();
+                return;
+            }
             if (loc.getBlock().getType() != Material.JUKEBOX) {
                 player.closeInventory();
                 return;

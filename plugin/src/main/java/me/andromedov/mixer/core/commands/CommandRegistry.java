@@ -179,7 +179,7 @@ public class CommandRegistry {
                 streamUrl = plugin.api().sources().resolve(streamUrl);
             } catch (MixerAudioSourceResolutionException exception) {
                 plugin.logDebug(Level.WARNING, "Addon source resolver failed", exception);
-                runSync(() -> MessageUtil.sendErrMsg(player, "loading_failed", exception.getMessage()));
+                runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "loading_failed", exception.getMessage()));
                 return;
             }
 
@@ -200,7 +200,7 @@ public class CommandRegistry {
                 }
                 streamUrl = Utils.requestCobaltMediaUrl(uri);
                 if (streamUrl == null) {
-                    runSync(() -> player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link. Try again later.</red>")));
+                    runForPlayer(player, () -> player.sendMessage(MM.deserialize("<red>Cobalt API Error: unable to obtain a direct link. Try again later.</red>")));
                     return; // Stops here, no HTML downloading
                 }
                 urlToSaveOnDisc = originalInput; // Keep cobalt://... on the disc if NOT saving locally
@@ -208,7 +208,7 @@ public class CommandRegistry {
 
             // 3. Handle Local Saving (-s)
             if (doSaveLocal && streamUrl.startsWith("http")) {
-                runSync(() -> MessageUtil.sendMsg(player, "downloading_track"));
+                runForPlayer(player, () -> MessageUtil.sendMsg(player, "downloading_track"));
 
                 // If we haven't already passed it through Cobalt, and it's a standard link like YouTube/SoundCloud
                 if (!originalInput.startsWith("cobalt") && !streamUrl.matches(".*\\.(mp3|wav|ogg|flac|m4a|aac)(\\?.*)?$")) {
@@ -216,7 +216,7 @@ public class CommandRegistry {
                     if (resolved != null && !resolved.isEmpty()) {
                         streamUrl = resolved;
                     } else {
-                        runSync(() -> MessageUtil.sendErrMsg(player, "download_failed"));
+                        runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "download_failed"));
                         plugin.logDebug(Level.WARNING, "Failed to resolve direct URL for local saving. Aborting download.", null);
                         return;
                     }
@@ -231,7 +231,7 @@ public class CommandRegistry {
                     streamUrl = downloadedAudio.getAbsolutePath();
                     urlToSaveOnDisc = streamUrl; // Store the local file path on the disc!
                 } else {
-                    runSync(() -> MessageUtil.sendErrMsg(player, "download_failed"));
+                    runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "download_failed"));
                     return;
                 }
             }
@@ -255,7 +255,7 @@ public class CommandRegistry {
                     }
                     if (selectedTrack == null) {
                         cleanupFailedDownload(downloadedFile);
-                        runSync(() -> MessageUtil.sendErrMsg(player, "no_matches"));
+                        runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "no_matches"));
                         return;
                     }
                     finishBurn(player, sourceSlot, expectedItem, selectedTrack.getInfo(), finalUrlToSet, downloadedFile);
@@ -264,13 +264,13 @@ public class CommandRegistry {
                 @Override
                 public void noMatches() {
                     cleanupFailedDownload(downloadedFile);
-                    runSync(() -> MessageUtil.sendErrMsg(player, "no_matches"));
+                    runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "no_matches"));
                 }
 
                 @Override
                 public void loadFailed(FriendlyException e) {
                     cleanupFailedDownload(downloadedFile);
-                    runSync(() -> MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage()));
+                    runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "loading_failed", e.getMessage()));
                 }
             });
         });
@@ -284,7 +284,7 @@ public class CommandRegistry {
             cleanupFailedDownload(downloadedFile);
             return;
         }
-        runSync(() -> {
+        runForPlayer(player, () -> {
             if (!player.isOnline()) {
                 cleanupFailedDownload(downloadedFile);
                 return;
@@ -305,12 +305,12 @@ public class CommandRegistry {
         });
     }
 
-    private void runSync(Runnable action) {
+    private void runForPlayer(Player player, Runnable action) {
         if (!plugin.isEnabled()) return;
-        if (Bukkit.isPrimaryThread()) {
+        if (Bukkit.isOwnedByCurrentRegion(player)) {
             action.run();
         } else {
-            Bukkit.getScheduler().runTask(plugin, action);
+            plugin.scheduler().runFor(player, action, () -> { });
         }
     }
 
@@ -345,6 +345,7 @@ public class CommandRegistry {
             MessageUtil.sendErrMsg(player, "invalid_location");
             return 0;
         }
+        if (!requireOwnedLocation(player, jukeboxLoc)) return 0;
 
         Block block = jukeboxLoc.getBlock();
         if (!block.getType().equals(Material.JUKEBOX)) {
@@ -396,6 +397,7 @@ public class CommandRegistry {
             MessageUtil.sendErrMsg(player, "invalid_location");
             return 0;
         }
+        if (!requireOwnedLocation(player, jukeboxLoc)) return 0;
 
         Block block = jukeboxLoc.getBlock();
         if (!block.getType().equals(Material.JUKEBOX)) {
@@ -471,6 +473,7 @@ public class CommandRegistry {
             ctx.getSource().getSender().sendMessage(MM.deserialize("<red>Invalid location or not a player."));
             return 0;
         }
+        if (!requireOwnedLocation(ctx.getSource().getSender(), location)) return 0;
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
         if (obj == null) {
@@ -485,6 +488,7 @@ public class CommandRegistry {
 
     private int executeDspGain(CommandContext<CommandSourceStack> ctx) {
         Location location = getBukkitLocation(ctx, "jukebox");
+        if (location == null || !requireOwnedLocation(ctx.getSource().getSender(), location)) return 0;
         double gain = ctx.getArgument("gain", Double.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
@@ -509,6 +513,7 @@ public class CommandRegistry {
 
     private int executeDspHighPass(CommandContext<CommandSourceStack> ctx) {
         Location location = getBukkitLocation(ctx, "jukebox");
+        if (location == null || !requireOwnedLocation(ctx.getSource().getSender(), location)) return 0;
         float frequency = ctx.getArgument("frequency", Float.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
@@ -527,6 +532,7 @@ public class CommandRegistry {
 
     private int executeDspLowPass(CommandContext<CommandSourceStack> ctx) {
         Location location = getBukkitLocation(ctx, "jukebox");
+        if (location == null || !requireOwnedLocation(ctx.getSource().getSender(), location)) return 0;
         float frequency = ctx.getArgument("frequency", Float.class);
 
         JsonObject obj = Utils.loadNbtData(location, "mixer_dsp");
@@ -545,6 +551,7 @@ public class CommandRegistry {
 
     private int executeDspFlanger(CommandContext<CommandSourceStack> ctx) {
         Location location = getBukkitLocation(ctx, "jukebox");
+        if (location == null || !requireOwnedLocation(ctx.getSource().getSender(), location)) return 0;
         double maxFlangerLength = ctx.getArgument("maxFlangerLength", Double.class);
         double wet = ctx.getArgument("wet", Double.class);
         double lfoFrequency = ctx.getArgument("lfoFrequency", Double.class);
@@ -579,9 +586,14 @@ public class CommandRegistry {
             return 0;
         }
 
+        runForPlayer(player, () -> givePortableSpeaker(player));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void givePortableSpeaker(Player player) {
         if (!MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
-            MessageUtil.sendErrMsg(sender, "feature_disabled");
-            return 0;
+            MessageUtil.sendErrMsg(player, "feature_disabled");
+            return;
         }
 
         String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
@@ -603,10 +615,10 @@ public class CommandRegistry {
             meta.getPersistentDataContainer().set(idKey, PersistentDataType.STRING, UUID.randomUUID().toString());
         });
 
-        player.getInventory().addItem(speaker);
+        player.getInventory().addItem(speaker).values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
-        MessageUtil.sendMsg(player, "speaker_received", name);
-        return Command.SINGLE_SUCCESS;
+        MessageUtil.sendMsg(player, "speaker_received", MM.stripTags(name));
     }
 
     // --- /mixer cartridge ---
@@ -625,16 +637,21 @@ public class CommandRegistry {
             MessageUtil.sendErrMsg(sender, "must_be_player");
             return 0;
         }
+
+        runForPlayer(player, () -> givePlaylistCartridge(player));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void givePlaylistCartridge(Player player) {
         if (!plugin.arePlaylistCartridgesEnabled()) {
-            MessageUtil.sendErrMsg(sender, "feature_disabled");
-            return 0;
+            MessageUtil.sendErrMsg(player, "feature_disabled");
+            return;
         }
 
         ItemStack cartridge = plugin.getPlaylistCartridges().createCartridge();
         player.getInventory().addItem(cartridge).values().forEach(leftover ->
                 player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         MessageUtil.sendMsg(player, "cartridge_received");
-        return Command.SINGLE_SUCCESS;
     }
 
     private int executeCartridgeRename(CommandContext<CommandSourceStack> ctx) {
@@ -644,27 +661,31 @@ public class CommandRegistry {
             return 0;
         }
 
+        String name = ctx.getArgument("name", String.class).strip();
+        runForPlayer(player, () -> renamePlaylistCartridge(player, name));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void renamePlaylistCartridge(Player player, String name) {
         ItemStack item = player.getInventory().getItemInMainHand();
         var service = plugin.getPlaylistCartridges();
         UUID id = service.id(item).orElse(null);
         var playlist = service.read(item).orElse(null);
         if (id == null || playlist == null) {
             MessageUtil.sendErrMsg(player, "must_hold_cartridge");
-            return 0;
+            return;
         }
 
-        String name = ctx.getArgument("name", String.class).strip();
         if (name.isEmpty() || name.length() > 32) {
             MessageUtil.sendErrMsg(player, "invalid_cartridge_name");
-            return 0;
+            return;
         }
         if (!service.write(item, id, new me.andromedov.mixer.api.playlist.MixerPlaylist(
                 playlist.version(), name, playlist.tracks()))) {
             MessageUtil.sendErrMsg(player, "cartridge_rename_failed");
-            return 0;
+            return;
         }
         MessageUtil.sendMsg(player, "cartridge_renamed", name);
-        return Command.SINGLE_SUCCESS;
     }
 
     // --- /mixer reload ---
@@ -717,5 +738,11 @@ public class CommandRegistry {
         catch (Exception e) {
             return null;
         }
+    }
+
+    private boolean requireOwnedLocation(CommandSender sender, Location location) {
+        if (Bukkit.isOwnedByCurrentRegion(location)) return true;
+        sender.sendMessage(MM.deserialize("<red>That block is outside the command sender's current Folia region.</red>"));
+        return false;
     }
 }

@@ -38,7 +38,6 @@ import me.andromedov.mixer.api.MixerTrack;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.util.Utils;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -175,7 +174,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void persistDspSettings() { }
 
     protected void initializeAsync() {
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAsync(() -> {
             synchronized(initializationLock) {
                 try {
                     lavaplayer = APM.createPlayer();
@@ -250,6 +249,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected abstract void broadcastAudio(byte[] data);
     protected abstract void notifyUser(String message);
+    protected abstract void requireOwnedThread(String action);
 
     protected void onTrackEnded(AudioTrack track, AudioTrackEndReason endReason) { }
 
@@ -356,7 +356,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
             String nextUrl = loadingQueue.poll();
-            Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            MixerPlugin.getPlugin().scheduler().runAsync(() -> {
                 try {
                     attemptLoad(nextUrl, 0);
                 } catch (Exception e) {
@@ -466,7 +466,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         int nextRetry = currentRetry + 1;
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES, null);
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
-        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> attemptLoad(url, nextRetry), 60L);
+        MixerPlugin.getPlugin().scheduler().runAsyncLater(() -> attemptLoad(url, nextRetry), 60L);
     }
 
     // Subclasses can override this to save config

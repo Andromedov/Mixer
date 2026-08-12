@@ -6,11 +6,11 @@ import me.andromedov.mixer.api.playlist.MixerPlaylist;
 import me.andromedov.mixer.api.playlist.MixerPlaylistService;
 import me.andromedov.mixer.api.playlist.MixerPlaylistTrack;
 import me.andromedov.mixer.core.MixerPlugin;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -43,7 +43,7 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
 
     @Override
     public ItemStack createCartridge() {
-        requireMainThread("create a playlist cartridge");
+        requireTickThread("create a playlist cartridge");
         Material material = Material.getMaterial(plugin.getPlaylistCartridgeMaterial());
         if (material == null || material.isAir()) {
             material = Material.MUSIC_DISC_11;
@@ -58,14 +58,14 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
 
     @Override
     public boolean isCartridge(ItemStack item) {
-        requireMainThread("inspect a playlist cartridge");
+        requireTickThread("inspect a playlist cartridge");
         return item != null && item.hasItemMeta()
                 && item.getItemMeta().getPersistentDataContainer().has(markerKey, PersistentDataType.BYTE);
     }
 
     @Override
     public Optional<UUID> id(ItemStack item) {
-        requireMainThread("read a playlist cartridge ID");
+        requireTickThread("read a playlist cartridge ID");
         if (!isCartridge(item)) return Optional.empty();
         String value = item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING);
         try {
@@ -77,7 +77,7 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
 
     @Override
     public Optional<MixerPlaylist> read(ItemStack item) {
-        requireMainThread("read a playlist cartridge");
+        requireTickThread("read a playlist cartridge");
         if (!isCartridge(item)) return Optional.empty();
         String json = item.getItemMeta().getPersistentDataContainer().get(dataKey, PersistentDataType.STRING);
         if (json == null || json.isBlank() || json.length() > MAX_SERIALIZED_LENGTH) return Optional.empty();
@@ -98,7 +98,7 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
 
     @Override
     public boolean write(ItemStack item, UUID id, MixerPlaylist cartridge) {
-        requireMainThread("write a playlist cartridge");
+        requireTickThread("write a playlist cartridge");
         if (id == null || !isCartridge(item) || !id.equals(id(item).orElse(null))) return false;
         return writeData(item, id, cartridge);
     }
@@ -136,9 +136,7 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
         return MM.stripTags(plugin.getLocalizationManager().getMessage("playlist.cartridge_item_name"));
     }
 
-    private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+    private static void requireTickThread(String action) {
+        MixerScheduler.requireTickThread(action);
     }
 }
