@@ -39,6 +39,9 @@ messages:
     cartridge_full: "<red>ця музична касета заповнена</red>"
     cartridge_moved: "<red>музичну касету переміщено; редактор закрито</red>"
     cartridge_save_failed: "<red>не вдалося зберегти музичну касету</red>"
+    playlist_control_unavailable: "<red>це керування плейлистом недоступне</red>"
+    playlist_finished: "<gray>плейлист завершено</gray>"
+    now_playing: "<aqua>Зараз грає: <white>%s</white></aqua>"
   portableSpeaker:
     portable_speaker_item_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
     portable_speaker_gui_name: "<gradient:#7277D8:#4851F5>Portable Speaker</gradient>"
@@ -52,6 +55,12 @@ messages:
     remove_track: "<red>Натисніть, щоб видалити</red>"
     clear_button: "<red>Очистити плейлист</red>"
     close_button: "<green>Закрити</green>"
+    previous_button: "<yellow>Попередній</yellow>"
+    next_button: "<yellow>Наступний</yellow>"
+    shuffle_button: "<aqua>Перемішування: <white>%s</white></aqua>"
+    repeat_button: "<light_purple>Повтор: <white>%s</white></light_purple>"
+    pause_button: "<yellow>Пауза</yellow>"
+    resume_button: "<green>Продовжити</green>"
   dsp:
     gui_title: "<gradient:#7277D8:#4851F5>Аудіо Ефекти (DSP)</gradient>"
     gain_name: "<green>Гучність (Gain)</green>"

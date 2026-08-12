@@ -12,6 +12,7 @@ import me.andromedov.mixer.core.gui.PlaylistEditorGui;
 import me.andromedov.mixer.core.gui.PortableSpeakerGui;
 import me.andromedov.mixer.core.listener.*;
 import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
+import me.andromedov.mixer.core.playlist.PortablePlaylistSession;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
@@ -50,6 +51,7 @@ public class MixerPlugin extends JavaPlugin {
 
     // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
+    private final Map<UUID, PortablePlaylistSession> portablePlaylistSessions = new ConcurrentHashMap<>();
 
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
@@ -428,10 +430,12 @@ public class MixerPlugin extends JavaPlugin {
             try { player.stop(); } catch (Exception ignored) {}
         });
         portablePlayerMap.clear();
+        portablePlaylistSessions.clear();
     }
 
     public Map<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
+    public Map<UUID, PortablePlaylistSession> getPortablePlaylistSessions() { return portablePlaylistSessions; }
     public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
     public DspGui getDspGui() { return dspGui; }
     public PlaylistEditorGui getPlaylistEditorGui() { return playlistEditorGui; }
