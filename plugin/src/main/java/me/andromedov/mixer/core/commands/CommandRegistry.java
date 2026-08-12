@@ -77,6 +77,7 @@ public class CommandRegistry {
                     .then(registerRedstoneCommand())
                     .then(registerDspCommand())
                     .then(registerSpeakerCommand())
+                    .then(registerCartridgeCommand())
                     .then(registerReloadCommand());
 
             commands.register(mixerCommand.build(), "Main command for the Mixer plugin.");
@@ -605,6 +606,31 @@ public class CommandRegistry {
         player.getInventory().addItem(speaker);
         String name = MixerPlugin.getPlugin().getLocalizationManager().getMessage("portableSpeaker.portable_speaker_item_name");
         MessageUtil.sendMsg(player, "speaker_received", name);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    // --- /mixer cartridge ---
+    private LiteralArgumentBuilder<CommandSourceStack> registerCartridgeCommand() {
+        return Commands.literal("cartridge")
+                .requires(source -> source.getSender().hasPermission("mixer.command.cartridge"))
+                .executes(this::executeCartridge);
+    }
+
+    private int executeCartridge(CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            MessageUtil.sendErrMsg(sender, "must_be_player");
+            return 0;
+        }
+        if (!plugin.arePlaylistCartridgesEnabled()) {
+            MessageUtil.sendErrMsg(sender, "feature_disabled");
+            return 0;
+        }
+
+        ItemStack cartridge = plugin.getPlaylistCartridges().createCartridge();
+        player.getInventory().addItem(cartridge).values().forEach(leftover ->
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        MessageUtil.sendMsg(player, "cartridge_received");
         return Command.SINGLE_SUCCESS;
     }
 
