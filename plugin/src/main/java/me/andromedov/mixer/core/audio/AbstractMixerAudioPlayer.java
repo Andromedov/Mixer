@@ -181,6 +181,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                     lavaplayer.addListener(new AudioEventAdapter() {
                         @Override
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
+                            onTrackEnded(track, endReason);
                             if (endReason.mayStartNext) {
                                 start();
                             }
@@ -249,6 +250,10 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected abstract void broadcastAudio(byte[] data);
     protected abstract void notifyUser(String message);
     protected abstract void requireOwnedThread(String action);
+
+    protected void onTrackEnded(AudioTrack track, AudioTrackEndReason endReason) { }
+
+    protected void onTrackLoadFailed(String source) { }
 
     protected void processAudioFrame() {
         try {
@@ -364,6 +369,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void attemptLoad(String audioUrl, int retryCount) {
         if (audioUrl == null || audioUrl.isEmpty()) {
+            onTrackLoadFailed(audioUrl);
             loadNextFromQueue();
             return;
         }
@@ -379,6 +385,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING,
                         "Addon source resolver failed for URL: " + audioUrl, exception);
                 notifyUser("<red>Error resolving addon audio source.</red>");
+                onTrackLoadFailed(audioUrl);
                 loadNextFromQueue();
             }
             return;
@@ -396,6 +403,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl, null);
                     notifyUser("<red>Error resolving Cobalt media. Max retries reached.</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
                 return;
@@ -435,6 +443,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl, null);
                     notifyUser("<red>No matches found after retries</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
             }
@@ -446,6 +455,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl, e);
                     notifyUser("<red>Error loading: " + e.getMessage() + "</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
             }

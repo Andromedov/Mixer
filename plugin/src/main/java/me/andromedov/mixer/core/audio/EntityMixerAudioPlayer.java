@@ -1,8 +1,11 @@
 package me.andromedov.mixer.core.audio;
 
 import com.google.gson.JsonObject;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.EntityAudioChannel;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import me.andromedov.mixer.api.MixerSpeaker;
 import me.andromedov.mixer.core.MixerPlugin;
@@ -11,7 +14,6 @@ import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 
 import java.util.Collections;
 import java.util.Set;
@@ -21,8 +23,9 @@ import java.util.logging.Level;
 public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     private final Player owner;
     private EntityAudioChannel channel;
-    private UUID sourceItemId;
-    private ScheduledTask particleTask;
+    private volatile UUID sourceItemId;
+    private volatile ScheduledTask particleTask;
+    private volatile Runnable trackFinishedHandler;
 
     public EntityMixerAudioPlayer(Player player) {
         super();
@@ -53,6 +56,26 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     public UUID getSourceItemId() {
         return sourceItemId;
+    }
+
+    public void setTrackFinishedHandler(Runnable trackFinishedHandler) {
+        this.trackFinishedHandler = trackFinishedHandler;
+    }
+
+    public void setPlaybackPaused(boolean paused) {
+        if (lavaplayer != null) lavaplayer.setPaused(paused);
+    }
+
+    @Override
+    protected void onTrackEnded(AudioTrack track, AudioTrackEndReason endReason) {
+        if (endReason == AudioTrackEndReason.FINISHED && trackFinishedHandler != null && running) {
+            trackFinishedHandler.run();
+        }
+    }
+
+    @Override
+    protected void onTrackLoadFailed(String source) {
+        if (trackFinishedHandler != null && running) trackFinishedHandler.run();
     }
 
     private void loadSettingsFromDb() {
@@ -115,9 +138,7 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
     @Override
     protected void notifyUser(String message) {
         MixerPlugin.getPlugin().scheduler().runFor(owner, () -> {
-            if (owner.isOnline()) {
-                owner.sendMessage(MiniMessage.miniMessage().deserialize(message));
-            }
+            if (owner.isOnline()) owner.sendMessage(MiniMessage.miniMessage().deserialize(message));
         }, this::stop);
     }
 
@@ -133,6 +154,8 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
             particleTask.cancel();
             particleTask = null;
         }
+        var session = MixerPlugin.getPlugin().getPortablePlaylistSessions().remove(owner.getUniqueId());
+        if (session != null) session.cancel();
         MixerPlugin.getPlugin().getPortablePlayerMap().remove(owner.getUniqueId());
     }
 }

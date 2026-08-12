@@ -38,9 +38,16 @@ public class PlayerInteractListener implements Listener {
     public void onInteract(PlayerInteractEvent e) {
         // --- Portable Speaker Mechanic ---
         if (e.getHand() == EquipmentSlot.HAND && e.getAction().toString().contains("RIGHT_CLICK")) {
-            if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
-                ItemStack item = e.getItem();
+            ItemStack item = e.getItem();
+            if (MixerPlugin.getPlugin().arePlaylistCartridgesEnabled()
+                    && MixerPlugin.getPlugin().getPlaylistCartridges().isCartridge(item)) {
+                e.setCancelled(true);
+                MixerPlugin.getPlugin().getPlaylistEditorGui().open(
+                        e.getPlayer(), e.getPlayer().getInventory().getHeldItemSlot(), item);
+                return;
+            }
 
+            if (MixerPlugin.getPlugin().isPortableSpeakerEnabled()) {
                 String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
                 Material mat = Material.getMaterial(matName);
                 if (mat == null) mat = Material.NOTE_BLOCK; // Fallback
