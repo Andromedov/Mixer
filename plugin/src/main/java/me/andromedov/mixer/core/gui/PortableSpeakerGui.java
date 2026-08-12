@@ -2,9 +2,9 @@ package me.andromedov.mixer.core.gui;
 
 import me.andromedov.mixer.api.disc.MixerDisc;
 import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
+import me.andromedov.mixer.api.playlist.MixerPlaylist;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
-import me.andromedov.mixer.core.playlist.PlaylistCartridge;
 import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.PlaybackAuthorization;
 import net.kyori.adventure.text.Component;
@@ -115,7 +115,7 @@ public class PortableSpeakerGui implements Listener {
             if (PlaybackAuthorization.allow(MixerPlaybackOrigin.PORTABLE_SPEAKER, source,
                     media, player, player.getLocation())) sources.add(source);
         } else if (plugin.arePlaylistCartridgesEnabled() && plugin.getPlaylistCartridges().isCartridge(media)) {
-            PlaylistCartridge cartridge = plugin.getPlaylistCartridges().read(media).orElse(null);
+            MixerPlaylist cartridge = plugin.getPlaylistCartridges().read(media).orElse(null);
             if (cartridge == null) {
                 MessageUtil.sendActionBarMsg(player, "invalid_cartridge");
                 return;

@@ -1,10 +1,10 @@
 package me.andromedov.mixer.core.gui;
 
 import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.playlist.MixerPlaylist;
+import me.andromedov.mixer.api.playlist.MixerPlaylistTrack;
 import me.andromedov.mixer.core.MixerPlugin;
-import me.andromedov.mixer.core.playlist.PlaylistCartridge;
 import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
-import me.andromedov.mixer.core.playlist.PlaylistTrack;
 import me.andromedov.mixer.core.util.MessageUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -42,7 +42,7 @@ public final class PlaylistEditorGui implements Listener {
 
     public void open(Player player, int inventorySlot, ItemStack item) {
         UUID cartridgeId = cartridges.id(item).orElse(null);
-        PlaylistCartridge cartridge = cartridges.read(item).orElse(null);
+        MixerPlaylist cartridge = cartridges.read(item).orElse(null);
         if (cartridgeId == null || cartridge == null) {
             MessageUtil.sendActionBarMsg(player, "invalid_cartridge");
             return;
@@ -84,7 +84,7 @@ public final class PlaylistEditorGui implements Listener {
         java.util.Optional<MixerDisc> disc = plugin.api().discs().readDisc(clicked);
         if (disc.isEmpty()) return;
         event.setCancelled(true);
-        addTrack(player, holder, PlaylistTrack.fromDisc(disc.orElseThrow()));
+        addTrack(player, holder, MixerPlaylistTrack.fromDisc(disc.orElseThrow()));
     }
 
     @EventHandler
@@ -95,13 +95,13 @@ public final class PlaylistEditorGui implements Listener {
         }
     }
 
-    private void addTrack(Player player, EditorHolder holder, PlaylistTrack track) {
+    private void addTrack(Player player, EditorHolder holder, MixerPlaylistTrack track) {
         update(player, holder, cartridge -> {
             if (cartridge.tracks().size() >= plugin.getPlaylistCartridgeMaxTracks()) {
                 MessageUtil.sendActionBarMsg(player, "cartridge_full");
                 return cartridge;
             }
-            List<PlaylistTrack> tracks = new ArrayList<>(cartridge.tracks());
+            List<MixerPlaylistTrack> tracks = new ArrayList<>(cartridge.tracks());
             tracks.add(track);
             return cartridge.withTracks(tracks);
         });
@@ -110,27 +110,27 @@ public final class PlaylistEditorGui implements Listener {
     private void removeTrack(Player player, EditorHolder holder, int index) {
         update(player, holder, cartridge -> {
             if (index >= cartridge.tracks().size()) return cartridge;
-            List<PlaylistTrack> tracks = new ArrayList<>(cartridge.tracks());
+            List<MixerPlaylistTrack> tracks = new ArrayList<>(cartridge.tracks());
             tracks.remove(index);
             return cartridge.withTracks(tracks);
         });
     }
 
     private void update(Player player, EditorHolder holder,
-                        java.util.function.UnaryOperator<PlaylistCartridge> operation) {
+                        java.util.function.UnaryOperator<MixerPlaylist> operation) {
         ItemStack item = player.getInventory().getItem(holder.inventorySlot);
         if (!holder.cartridgeId.equals(cartridges.id(item).orElse(null))) {
             MessageUtil.sendActionBarMsg(player, "cartridge_moved");
             player.closeInventory();
             return;
         }
-        PlaylistCartridge current = cartridges.read(item).orElse(null);
+        MixerPlaylist current = cartridges.read(item).orElse(null);
         if (current == null) {
             MessageUtil.sendActionBarMsg(player, "invalid_cartridge");
             player.closeInventory();
             return;
         }
-        PlaylistCartridge updated = operation.apply(current);
+        MixerPlaylist updated = operation.apply(current);
         if (!cartridges.write(item, holder.cartridgeId, updated)) {
             MessageUtil.sendActionBarMsg(player, "cartridge_save_failed");
             return;
@@ -138,11 +138,11 @@ public final class PlaylistEditorGui implements Listener {
         render(holder.inventory, updated);
     }
 
-    private void render(Inventory inventory, PlaylistCartridge cartridge) {
+    private void render(Inventory inventory, MixerPlaylist cartridge) {
         inventory.clear();
         for (int slot = 0; slot < TRACK_SLOTS; slot++) {
             if (slot < cartridge.tracks().size()) {
-                PlaylistTrack track = cartridge.tracks().get(slot);
+                MixerPlaylistTrack track = cartridge.tracks().get(slot);
                 ItemStack icon = new ItemStack(Material.MUSIC_DISC_13);
                 int number = slot + 1;
                 icon.editMeta(meta -> {
