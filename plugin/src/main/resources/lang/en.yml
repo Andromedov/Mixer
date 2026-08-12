@@ -16,6 +16,9 @@ messages:
     burn_item_changed: "The item changed while the track was loading. Nothing was burned."
     download_failed: "Failed to download the audio file to the server."
     feature_disabled: "This feature is disabled."
+    must_hold_cartridge: "You must hold a Music Cartridge in your main hand."
+    invalid_cartridge_name: "The cartridge name must contain 1-32 characters."
+    cartridge_rename_failed: "Could not rename this Music Cartridge."
   success:
     loading_track: "Loading track. Please wait..."
     downloading_track: "Downloading file to server. This may take a moment..."
@@ -25,6 +28,7 @@ messages:
     config_reloaded: "Configuration reloaded successfully!"
     speaker_received: "%s received!"
     cartridge_received: "Music Cartridge received!"
+    cartridge_renamed: "Music Cartridge renamed to %s."
   actionBar:
     playback_stop: "<red>playback stopped"
     playback_start: "<green>playback started"
@@ -52,7 +56,8 @@ messages:
     cartridge_tracks: "<gray>Tracks: <aqua>%s<gray>/<aqua>%s"
     editor_title: "<gradient:#D872C9:#7557F5>Music Cartridge Editor</gradient>"
     empty_slot: "<gray>Empty track slot</gray>"
-    remove_track: "<red>Click to remove</red>"
+    move_track: "<yellow>Left/Right click: move</yellow>"
+    remove_track: "<red>Shift-click: remove</red>"
     clear_button: "<red>Clear playlist</red>"
     close_button: "<green>Close</green>"
     previous_button: "<yellow>Previous</yellow>"

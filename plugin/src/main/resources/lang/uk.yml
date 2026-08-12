@@ -16,6 +16,9 @@ messages:
     burn_item_changed: "Предмет змінився під час завантаження треку. Платівку не створено."
     download_failed: "Не вдалося завантажити аудіофайл на сервер."
     feature_disabled: "Цю функцію вимкнено."
+    must_hold_cartridge: "Тримайте музичну касету в головній руці."
+    invalid_cartridge_name: "Назва касети повинна містити від 1 до 32 символів."
+    cartridge_rename_failed: "Не вдалося перейменувати музичну касету."
   success:
     loading_track: "Завантаження треку. Будь ласка, зачекайте..."
     downloading_track: "Завантаження файлу на сервер. Це може зайняти час..."
@@ -25,6 +28,7 @@ messages:
     config_reloaded: "Конфігурацію успішно перезавантажено!"
     speaker_received: "%s отримано!"
     cartridge_received: "Музичну касету отримано!"
+    cartridge_renamed: "Музичну касету перейменовано на %s."
   actionBar:
     playback_stop: "<red>відтворення зупинено"
     playback_start: "<green>відтворення запущено"
@@ -52,7 +56,8 @@ messages:
     cartridge_tracks: "<gray>Треки: <aqua>%s<gray>/<aqua>%s"
     editor_title: "<gradient:#D872C9:#7557F5>Редактор музичної касети</gradient>"
     empty_slot: "<gray>Порожній слот треку</gray>"
-    remove_track: "<red>Натисніть, щоб видалити</red>"
+    move_track: "<yellow>Ліва/права кнопка: перемістити</yellow>"
+    remove_track: "<red>Shift-клік: видалити</red>"
     clear_button: "<red>Очистити плейлист</red>"
     close_button: "<green>Закрити</green>"
     previous_button: "<yellow>Попередній</yellow>"

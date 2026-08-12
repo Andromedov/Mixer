@@ -64,7 +64,13 @@ public final class PlaylistEditorGui implements Listener {
         if (event.getClickedInventory() == event.getView().getTopInventory()) {
             event.setCancelled(true);
             if (event.getSlot() < TRACK_SLOTS) {
-                removeTrack(player, holder, event.getSlot());
+                if (event.isShiftClick()) {
+                    removeTrack(player, holder, event.getSlot());
+                } else if (event.isLeftClick()) {
+                    moveTrack(player, holder, event.getSlot(), -1);
+                } else if (event.isRightClick()) {
+                    moveTrack(player, holder, event.getSlot(), 1);
+                }
             } else if (event.getSlot() == CLEAR_SLOT) {
                 update(player, holder, cartridge -> cartridge.withTracks(List.of()));
             } else if (event.getSlot() == CLOSE_SLOT) {
@@ -116,6 +122,18 @@ public final class PlaylistEditorGui implements Listener {
         });
     }
 
+    private void moveTrack(Player player, EditorHolder holder, int index, int offset) {
+        update(player, holder, cartridge -> {
+            int target = index + offset;
+            if (index >= cartridge.tracks().size() || target < 0 || target >= cartridge.tracks().size()) {
+                return cartridge;
+            }
+            List<MixerPlaylistTrack> tracks = new ArrayList<>(cartridge.tracks());
+            java.util.Collections.swap(tracks, index, target);
+            return cartridge.withTracks(tracks);
+        });
+    }
+
     private void update(Player player, EditorHolder holder,
                         java.util.function.UnaryOperator<MixerPlaylist> operation) {
         ItemStack item = player.getInventory().getItem(holder.inventorySlot);
@@ -150,6 +168,8 @@ public final class PlaylistEditorGui implements Listener {
                             .decoration(TextDecoration.ITALIC, false));
                     meta.lore(List.of(
                             Component.text(track.author(), NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                            MM.deserialize(plugin.getLocalizationManager().getMessage("playlist.move_track"))
+                                    .decoration(TextDecoration.ITALIC, false),
                             MM.deserialize(plugin.getLocalizationManager().getMessage("playlist.remove_track"))
                                     .decoration(TextDecoration.ITALIC, false)
                     ));

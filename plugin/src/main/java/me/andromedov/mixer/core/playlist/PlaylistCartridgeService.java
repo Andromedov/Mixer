@@ -114,8 +114,7 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
             pdc.set(markerKey, PersistentDataType.BYTE, (byte) 1);
             pdc.set(idKey, PersistentDataType.STRING, id.toString());
             pdc.set(dataKey, PersistentDataType.STRING, json);
-            meta.displayName(MM.deserialize(plugin.getLocalizationManager()
-                    .getMessage("playlist.cartridge_item_name"))
+            meta.displayName(Component.text(cartridge.name(), NamedTextColor.LIGHT_PURPLE)
                     .decoration(TextDecoration.ITALIC, false));
             List<Component> lore = new ArrayList<>();
             lore.add(MM.deserialize(plugin.getLocalizationManager().getMessage(
