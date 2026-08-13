@@ -21,7 +21,7 @@ This plugin transforms standard Jukeboxes into a complete audio system, supporti
 * **🎧 VoiceChat Integration:** Adds a dedicated "Mixer" volume category to the Simple Voice Chat settings.
 * **🤖 Redstone Playlists:** Trigger playlists from Barrels (including Text-to-Speech!) using Redstone signals.
 * **🌐 Wide Source Support:** Works with YouTube, SoundCloud, Bandcamp, Twitch, direct HTTP links, and hundreds of sites via **Cobalt** protocol support (`cobalt://`).
-* **🧩 Addon API:** Build separate Paper plugins that register custom audio source protocols and control Mixer players or DSP without importing internal classes.
+* **🧩 Addon API:** Build separate Paper plugins that register custom audio source protocols, playback policies, and portable-speaker menu themes or control Mixer players and DSP without importing internal classes.
 
 ---
 
