@@ -5,6 +5,7 @@ import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.disc.MixerDiscService;
 import me.andromedov.mixer.api.gui.PortableSpeakerMenuRegistry;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuRegistry;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
 import me.andromedov.mixer.api.playlist.MixerPlaylistService;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
@@ -25,6 +26,7 @@ public final class ImplMixerApi implements MixerApi {
     private final ImplMixerDiscService discs;
     private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
     private final ImplPortableSpeakerMenuRegistry portableSpeakerMenus;
+    private final ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus;
     private final ImplMixerAddonManager addons;
 
     public ImplMixerApi(MixerPlugin plugin) {
@@ -33,8 +35,10 @@ public final class ImplMixerApi implements MixerApi {
         this.discs = new ImplMixerDiscService(plugin, sources);
         this.playbackPolicies = new ImplMixerPlaybackPolicyRegistry(plugin);
         this.portableSpeakerMenus = new ImplPortableSpeakerMenuRegistry(plugin);
+        this.playlistCartridgeMenus = new ImplPlaylistCartridgeMenuRegistry(plugin);
         this.addons = new ImplMixerAddonManager(
-                plugin, this, sources, playbackPolicies, portableSpeakerMenus);
+                plugin, this, sources, playbackPolicies, portableSpeakerMenus,
+                playlistCartridgeMenus);
     }
 
     @Override
@@ -132,6 +136,11 @@ public final class ImplMixerApi implements MixerApi {
     @Override
     public PortableSpeakerMenuRegistry portableSpeakerMenus() {
         return portableSpeakerMenus;
+    }
+
+    @Override
+    public PlaylistCartridgeMenuRegistry playlistCartridgeMenus() {
+        return playlistCartridgeMenus;
     }
 
     @Override

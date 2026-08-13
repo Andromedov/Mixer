@@ -11,6 +11,8 @@ import me.andromedov.mixer.api.playback.MixerPlaybackPolicy;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistration;
 import me.andromedov.mixer.api.gui.PortableSpeakerMenuProvider;
 import me.andromedov.mixer.api.gui.PortableSpeakerMenuProviderRegistration;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuProvider;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuProviderRegistration;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.event.EventHandler;
@@ -35,16 +37,19 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     private final ImplMixerAudioSourceRegistry sources;
     private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
     private final ImplPortableSpeakerMenuRegistry portableSpeakerMenus;
+    private final ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus;
     private final ConcurrentMap<String, Registration> registrations = new ConcurrentHashMap<>();
 
     ImplMixerAddonManager(MixerPlugin plugin, MixerApi api, ImplMixerAudioSourceRegistry sources,
                           ImplMixerPlaybackPolicyRegistry playbackPolicies,
-                          ImplPortableSpeakerMenuRegistry portableSpeakerMenus) {
+                          ImplPortableSpeakerMenuRegistry portableSpeakerMenus,
+                          ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus) {
         this.plugin = plugin;
         this.api = api;
         this.sources = sources;
         this.playbackPolicies = playbackPolicies;
         this.portableSpeakerMenus = portableSpeakerMenus;
+        this.playlistCartridgeMenus = playlistCartridgeMenus;
     }
 
     @Override
@@ -103,6 +108,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
         sources.unregisterOwnedBy(owner);
         playbackPolicies.unregisterOwnedBy(owner);
         portableSpeakerMenus.unregisterOwnedBy(owner);
+        playlistCartridgeMenus.unregisterOwnedBy(owner);
     }
 
     void shutdown() {
@@ -110,6 +116,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
         sources.shutdown();
         playbackPolicies.shutdown();
         portableSpeakerMenus.shutdown();
+        playlistCartridgeMenus.shutdown();
     }
 
     private static String validateAddonId(String id) {
@@ -173,6 +180,18 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
             }
             PortableSpeakerMenuProviderRegistration menuRegistration =
                     portableSpeakerMenus.register(owner(), provider);
+            registration.resources.add(menuRegistration);
+            return menuRegistration;
+        }
+
+        @Override
+        public PlaylistCartridgeMenuProviderRegistration registerPlaylistCartridgeMenuProvider(
+                PlaylistCartridgeMenuProvider provider) {
+            if (!registration.active()) {
+                throw new IllegalStateException("Addon is no longer active: " + registration.id);
+            }
+            PlaylistCartridgeMenuProviderRegistration menuRegistration =
+                    playlistCartridgeMenus.register(owner(), provider);
             registration.resources.add(menuRegistration);
             return menuRegistration;
         }

@@ -172,6 +172,7 @@ public class PortableSpeakerGui implements Listener {
             if (PlaybackAuthorization.allow(MixerPlaybackOrigin.PORTABLE_SPEAKER, source,
                     media, player, player.getLocation())) tracks.add(MixerPlaylistTrack.fromDisc(disc.orElseThrow()));
         } else if (plugin.arePlaylistCartridgesEnabled() && plugin.getPlaylistCartridges().isCartridge(media)) {
+            plugin.getPlaylistCartridges().ensureInitialized(media);
             MixerPlaylist cartridge = plugin.getPlaylistCartridges().read(media).orElse(null);
             if (cartridge == null) {
                 MessageUtil.sendActionBarMsg(player, "invalid_cartridge");

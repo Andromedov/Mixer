@@ -76,6 +76,32 @@ public final class PlaylistCartridgeService implements MixerPlaylistService {
     }
 
     @Override
+    public Optional<UUID> ensureInitialized(ItemStack item) {
+        requireTickThread("initialize a playlist cartridge");
+        if (!isCartridge(item)) return Optional.empty();
+
+        UUID existingId = id(item).orElse(null);
+        MixerPlaylist existingPlaylist = read(item).orElse(null);
+        String storedData = item.getItemMeta().getPersistentDataContainer()
+                .get(dataKey, PersistentDataType.STRING);
+
+        // Never erase a non-empty but malformed payload. An administrator may
+        // still recover or inspect it manually instead of Mixer replacing it.
+        if (existingPlaylist == null && storedData != null && !storedData.isBlank()) {
+            return Optional.empty();
+        }
+
+        UUID ensuredId = existingId != null ? existingId : UUID.randomUUID();
+        MixerPlaylist ensuredPlaylist = existingPlaylist != null
+                ? existingPlaylist
+                : MixerPlaylist.empty(defaultName());
+        if (existingId == null || existingPlaylist == null) {
+            if (!writeData(item, ensuredId, ensuredPlaylist)) return Optional.empty();
+        }
+        return Optional.of(ensuredId);
+    }
+
+    @Override
     public Optional<MixerPlaylist> read(ItemStack item) {
         requireTickThread("read a playlist cartridge");
         if (!isCartridge(item)) return Optional.empty();

@@ -1,6 +1,9 @@
 package me.andromedov.mixer.core.gui;
 
 import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuContext;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuElement;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuItemContext;
 import me.andromedov.mixer.api.playlist.MixerPlaylist;
 import me.andromedov.mixer.api.playlist.MixerPlaylistTrack;
 import me.andromedov.mixer.core.MixerPlugin;
@@ -43,7 +46,7 @@ public final class PlaylistEditorGui implements Listener {
     }
 
     public void open(Player player, int inventorySlot, ItemStack item) {
-        UUID cartridgeId = cartridges.id(item).orElse(null);
+        UUID cartridgeId = cartridges.ensureInitialized(item).orElse(null);
         MixerPlaylist cartridge = cartridges.read(item).orElse(null);
         if (cartridgeId == null || cartridge == null) {
             MessageUtil.sendActionBarMsg(player, "invalid_cartridge");
@@ -51,10 +54,13 @@ public final class PlaylistEditorGui implements Listener {
         }
 
         EditorHolder holder = new EditorHolder(player.getUniqueId(), inventorySlot, cartridgeId);
-        Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
+        PlaylistCartridgeMenuContext context = menuContext(player, cartridgeId, cartridge);
+        Component title = plugin.api().playlistCartridgeMenus().renderTitle(context,
                 MM.deserialize(plugin.getLocalizationManager().getMessage("playlist.editor_title")));
+        Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
+                title);
         holder.inventory = inventory;
-        render(inventory, cartridge);
+        render(inventory, player, cartridgeId, cartridge);
         player.openInventory(inventory);
     }
 
@@ -166,10 +172,12 @@ public final class PlaylistEditorGui implements Listener {
             MessageUtil.sendActionBarMsg(player, "cartridge_save_failed");
             return;
         }
-        render(holder.inventory, updated);
+        render(holder.inventory, player, holder.cartridgeId, updated);
     }
 
-    private void render(Inventory inventory, MixerPlaylist cartridge) {
+    private void render(Inventory inventory, Player player, UUID cartridgeId,
+                        MixerPlaylist cartridge) {
+        PlaylistCartridgeMenuContext context = menuContext(player, cartridgeId, cartridge);
         inventory.clear();
         for (int slot = 0; slot < TRACK_SLOTS; slot++) {
             if (slot < cartridge.tracks().size()) {
@@ -193,18 +201,24 @@ public final class PlaylistEditorGui implements Listener {
                                     .decoration(TextDecoration.ITALIC, false)
                     ));
                 });
-                inventory.setItem(slot, icon);
+                inventory.setItem(slot, menuItem(context, PlaylistCartridgeMenuElement.TRACK,
+                        slot, slot, track, icon));
             } else {
                 ItemStack empty = new ItemStack(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
                 empty.editMeta(meta -> meta.displayName(MM.deserialize(plugin.getLocalizationManager()
                         .getMessage("playlist.empty_slot")).decoration(TextDecoration.ITALIC, false)));
-                inventory.setItem(slot, empty);
+                inventory.setItem(slot, menuItem(context,
+                        PlaylistCartridgeMenuElement.EMPTY_TRACK_SLOT,
+                        slot, slot, null, empty));
             }
         }
 
         ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         filler.editMeta(meta -> meta.displayName(Component.empty()));
-        for (int slot = TRACK_SLOTS; slot < INVENTORY_SIZE; slot++) inventory.setItem(slot, filler);
+        for (int slot = TRACK_SLOTS; slot < INVENTORY_SIZE; slot++) {
+            inventory.setItem(slot, menuItem(context, PlaylistCartridgeMenuElement.FILLER,
+                    slot, -1, null, filler));
+        }
 
         ItemStack help = new ItemStack(Material.BOOK);
         help.editMeta(meta -> {
@@ -214,7 +228,8 @@ public final class PlaylistEditorGui implements Listener {
                     .map(line -> MM.deserialize(line).decoration(TextDecoration.ITALIC, false))
                     .toList());
         });
-        inventory.setItem(HELP_SLOT, help);
+        inventory.setItem(HELP_SLOT, menuItem(context, PlaylistCartridgeMenuElement.HELP,
+                HELP_SLOT, -1, null, help));
 
         ItemStack addTrack = new ItemStack(Material.JUKEBOX);
         addTrack.editMeta(meta -> {
@@ -224,17 +239,34 @@ public final class PlaylistEditorGui implements Listener {
                     .map(line -> MM.deserialize(line).decoration(TextDecoration.ITALIC, false))
                     .toList());
         });
-        inventory.setItem(ADD_TRACK_SLOT, addTrack);
+        inventory.setItem(ADD_TRACK_SLOT, menuItem(context, PlaylistCartridgeMenuElement.ADD_TRACK,
+                ADD_TRACK_SLOT, -1, null, addTrack));
 
         ItemStack clear = new ItemStack(Material.BARRIER);
         clear.editMeta(meta -> meta.displayName(MM.deserialize(plugin.getLocalizationManager()
                 .getMessage("playlist.clear_button")).decoration(TextDecoration.ITALIC, false)));
-        inventory.setItem(CLEAR_SLOT, clear);
+        inventory.setItem(CLEAR_SLOT, menuItem(context, PlaylistCartridgeMenuElement.CLEAR,
+                CLEAR_SLOT, -1, null, clear));
 
         ItemStack close = new ItemStack(Material.IRON_DOOR);
         close.editMeta(meta -> meta.displayName(MM.deserialize(plugin.getLocalizationManager()
                 .getMessage("playlist.close_button")).decoration(TextDecoration.ITALIC, false)));
-        inventory.setItem(CLOSE_SLOT, close);
+        inventory.setItem(CLOSE_SLOT, menuItem(context, PlaylistCartridgeMenuElement.CLOSE,
+                CLOSE_SLOT, -1, null, close));
+    }
+
+    private PlaylistCartridgeMenuContext menuContext(Player player, UUID cartridgeId,
+                                                     MixerPlaylist cartridge) {
+        return new PlaylistCartridgeMenuContext(player, cartridgeId, cartridge.name(),
+                cartridge.tracks().size(), plugin.getPlaylistCartridgeMaxTracks());
+    }
+
+    private ItemStack menuItem(PlaylistCartridgeMenuContext menu,
+                               PlaylistCartridgeMenuElement element, int slot, int trackIndex,
+                               MixerPlaylistTrack track, ItemStack defaultItem) {
+        return plugin.api().playlistCartridgeMenus().renderItem(
+                new PlaylistCartridgeMenuItemContext(menu, element, slot, trackIndex, track),
+                defaultItem);
     }
 
     private static final class EditorHolder implements InventoryHolder {

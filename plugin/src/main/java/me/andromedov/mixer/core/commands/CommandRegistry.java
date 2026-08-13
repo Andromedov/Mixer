@@ -669,7 +669,7 @@ public class CommandRegistry {
     private void renamePlaylistCartridge(Player player, String name) {
         ItemStack item = player.getInventory().getItemInMainHand();
         var service = plugin.getPlaylistCartridges();
-        UUID id = service.id(item).orElse(null);
+        UUID id = service.ensureInitialized(item).orElse(null);
         var playlist = service.read(item).orElse(null);
         if (id == null || playlist == null) {
             MessageUtil.sendErrMsg(player, "must_hold_cartridge");
