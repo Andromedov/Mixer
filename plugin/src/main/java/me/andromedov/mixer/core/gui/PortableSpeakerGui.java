@@ -1,6 +1,9 @@
 package me.andromedov.mixer.core.gui;
 
 import me.andromedov.mixer.api.disc.MixerDisc;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuContext;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuElement;
+import me.andromedov.mixer.api.gui.PortableSpeakerRepeatMode;
 import me.andromedov.mixer.api.playback.MixerPlaybackOrigin;
 import me.andromedov.mixer.api.playlist.MixerPlaylist;
 import me.andromedov.mixer.api.playlist.MixerPlaylistTrack;
@@ -44,7 +47,7 @@ public class PortableSpeakerGui implements Listener {
     private static final int NEXT_SLOT = 16;
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
-    private Component getTitle() {
+    private Component getDefaultTitle() {
         String title = MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessage("portableSpeaker.portable_speaker_gui_name");
         return MM.deserialize(title);
@@ -52,20 +55,28 @@ public class PortableSpeakerGui implements Listener {
 
     public void open(Player player, UUID speakerId) {
         PortableSpeakerHolder holder = new PortableSpeakerHolder(speakerId);
-        Inventory inv = Bukkit.createInventory(holder, INVENTORY_SIZE, getTitle());
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        EntityMixerAudioPlayer active = plugin.getPortablePlayerMap().get(player.getUniqueId());
+        ItemStack storedMedia = plugin.getPortableSpeakers().peek(player, speakerId).orElse(null);
+        holder.mediaLocked = active != null && speakerId.equals(active.getSourceItemId())
+                && storedMedia != null;
+        PortableSpeakerMenuContext context = menuContext(player, holder, storedMedia != null);
+        Component title = plugin.api().portableSpeakerMenus().renderTitle(context, getDefaultTitle());
+        Inventory inv = Bukkit.createInventory(holder, INVENTORY_SIZE, title);
         holder.inventory = inv;
 
         ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta fillerMeta = filler.getItemMeta();
         fillerMeta.displayName(Component.empty());
         filler.setItemMeta(fillerMeta);
+        filler = menuItem(PortableSpeakerMenuElement.FILLER, context, filler);
         for (int i = 0; i < INVENTORY_SIZE; i++) if (i != MEDIA_SLOT) inv.setItem(i, filler);
 
         ItemStack start = new ItemStack(Material.LIME_CONCRETE);
         start.editMeta(meta -> meta.displayName(MM.deserialize(MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessage("portableSpeaker.portable_speaker_start_button"))
                 .decoration(TextDecoration.ITALIC, false)));
-        inv.setItem(START_SLOT, start);
+        inv.setItem(START_SLOT, menuItem(PortableSpeakerMenuElement.START, context, start));
 
         ItemStack dsp = new ItemStack(Material.AMETHYST_SHARD);
         dsp.editMeta(meta -> {
@@ -73,20 +84,17 @@ public class PortableSpeakerGui implements Listener {
                     .getMessage("dsp.gui_title")).decoration(TextDecoration.ITALIC, false));
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         });
-        inv.setItem(DSP_SLOT, dsp);
+        inv.setItem(DSP_SLOT, menuItem(PortableSpeakerMenuElement.DSP, context, dsp));
 
         ItemStack stop = new ItemStack(Material.RED_CONCRETE);
         stop.editMeta(meta -> meta.displayName(MM.deserialize(MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessage("portableSpeaker.portable_speaker_stop_button"))
                 .decoration(TextDecoration.ITALIC, false)));
-        inv.setItem(STOP_SLOT, stop);
-        EntityMixerAudioPlayer active = MixerPlugin.getPlugin().getPortablePlayerMap().get(player.getUniqueId());
-        ItemStack storedMedia = MixerPlugin.getPlugin().getPortableSpeakers().peek(player, speakerId).orElse(null);
-        if (active != null && speakerId.equals(active.getSourceItemId()) && storedMedia != null) {
-            holder.mediaLocked = true;
+        inv.setItem(STOP_SLOT, menuItem(PortableSpeakerMenuElement.STOP, context, stop));
+        if (holder.mediaLocked) {
             inv.setItem(MEDIA_SLOT, storedMedia);
         } else {
-            MixerPlugin.getPlugin().getPortableSpeakers().take(player, speakerId)
+            plugin.getPortableSpeakers().take(player, speakerId)
                     .ifPresent(media -> inv.setItem(MEDIA_SLOT, media));
         }
         updateControls(inv, holder, player);
@@ -227,14 +235,52 @@ public class PortableSpeakerGui implements Listener {
 
     private void updateControls(Inventory inventory, PortableSpeakerHolder holder, Player player) {
         PortablePlaylistSession session = session(player, holder);
-        inventory.setItem(PREVIOUS_SLOT, button(Material.ARROW, "playlist.previous_button"));
-        inventory.setItem(SHUFFLE_SLOT, button(session != null && session.shuffle() ? Material.LIME_DYE : Material.GRAY_DYE,
-                "playlist.shuffle_button", session != null && session.shuffle() ? "ON" : "OFF"));
-        inventory.setItem(REPEAT_SLOT, button(Material.REPEATER, "playlist.repeat_button",
-                session == null ? "OFF" : session.repeatMode().name()));
-        inventory.setItem(PAUSE_SLOT, button(session != null && session.paused() ? Material.LIME_CONCRETE : Material.YELLOW_CONCRETE,
-                session != null && session.paused() ? "playlist.resume_button" : "playlist.pause_button"));
-        inventory.setItem(NEXT_SLOT, button(Material.ARROW, "playlist.next_button"));
+        PortableSpeakerMenuContext context = menuContext(player, holder,
+                holder.mediaLocked || hasItem(inventory.getItem(MEDIA_SLOT)));
+        inventory.setItem(PREVIOUS_SLOT, menuItem(PortableSpeakerMenuElement.PREVIOUS, context,
+                button(Material.ARROW, "playlist.previous_button")));
+        boolean shuffle = session != null && session.shuffle();
+        inventory.setItem(SHUFFLE_SLOT, menuItem(
+                shuffle ? PortableSpeakerMenuElement.SHUFFLE_ENABLED
+                        : PortableSpeakerMenuElement.SHUFFLE_DISABLED,
+                context, button(shuffle ? Material.LIME_DYE : Material.GRAY_DYE,
+                        "playlist.shuffle_button", shuffle ? "ON" : "OFF")));
+        PortableSpeakerRepeatMode repeatMode = context.repeatMode();
+        PortableSpeakerMenuElement repeatElement = switch (repeatMode) {
+            case OFF -> PortableSpeakerMenuElement.REPEAT_OFF;
+            case ALL -> PortableSpeakerMenuElement.REPEAT_ALL;
+            case ONE -> PortableSpeakerMenuElement.REPEAT_ONE;
+        };
+        inventory.setItem(REPEAT_SLOT, menuItem(repeatElement, context,
+                button(Material.REPEATER, "playlist.repeat_button", repeatMode.name())));
+        boolean paused = session != null && session.paused();
+        inventory.setItem(PAUSE_SLOT, menuItem(
+                paused ? PortableSpeakerMenuElement.RESUME : PortableSpeakerMenuElement.PAUSE,
+                context, button(paused ? Material.LIME_CONCRETE : Material.YELLOW_CONCRETE,
+                        paused ? "playlist.resume_button" : "playlist.pause_button")));
+        inventory.setItem(NEXT_SLOT, menuItem(PortableSpeakerMenuElement.NEXT, context,
+                button(Material.ARROW, "playlist.next_button")));
+    }
+
+    private PortableSpeakerMenuContext menuContext(Player player, PortableSpeakerHolder holder,
+                                                   boolean mediaPresent) {
+        PortablePlaylistSession session = session(player, holder);
+        PortableSpeakerRepeatMode repeatMode = session == null
+                ? PortableSpeakerRepeatMode.OFF
+                : PortableSpeakerRepeatMode.valueOf(session.repeatMode().name());
+        return new PortableSpeakerMenuContext(player, holder.speakerId, session != null,
+                session != null && session.paused(), session != null && session.shuffle(),
+                repeatMode, mediaPresent);
+    }
+
+    private ItemStack menuItem(PortableSpeakerMenuElement element,
+                               PortableSpeakerMenuContext context, ItemStack defaultItem) {
+        return MixerPlugin.getPlugin().api().portableSpeakerMenus()
+                .renderItem(element, context, defaultItem);
+    }
+
+    private static boolean hasItem(ItemStack item) {
+        return item != null && !item.getType().isAir();
     }
 
     private ItemStack button(Material material, String messageKey, Object... args) {
