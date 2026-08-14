@@ -21,7 +21,7 @@ This plugin transforms standard Jukeboxes into a complete audio system, supporti
 * **🎧 VoiceChat Integration:** Adds a dedicated "Mixer" volume category to the Simple Voice Chat settings.
 * **🤖 Redstone Playlists:** Trigger playlists from Barrels (including Text-to-Speech!) using Redstone signals.
 * **🌐 Wide Source Support:** Works with YouTube, SoundCloud, Bandcamp, Twitch, direct HTTP links, and hundreds of sites via **Cobalt** protocol support (`cobalt://`).
-* **🧩 Addon API:** Build separate Paper plugins that register custom audio source protocols, playback policies, portable-speaker and cartridge-editor menu themes, or control Mixer players and DSP without importing internal classes.
+* **🧩 Addon API:** Build separate Paper plugins that register custom audio source protocols, playback policies, any menu themes, or control Mixer players and DSP without importing internal classes.
 
 ---
 
@@ -43,4 +43,4 @@ You can report bugs or suggest your ideas on [GitHub](https://github.com/Androme
 
 Mixer Reloaded is a fork of a [Mixer](https://modrinth.com/plugin/mixer) plugin. Original developer is not very active, but shoutout to [somewhatcity](https://github.com/hnwh224/Mixer) for an amazing plugin.<br>
 
-Many thanks to [AntiDot](https://www.twitch.tv/anti_dot) for the increadible logo for this project.
+Many thanks to [Anti_Dot](https://www.twitch.tv/anti_dot) for the increadible logo for this project.

@@ -5,6 +5,8 @@ import me.andromedov.mixer.api.addon.MixerAddon;
 import me.andromedov.mixer.api.addon.MixerAddonContext;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.addon.MixerAddonRegistration;
+import me.andromedov.mixer.api.gui.DspMenuProvider;
+import me.andromedov.mixer.api.gui.DspMenuProviderRegistration;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolver;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicy;
@@ -38,18 +40,21 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
     private final ImplPortableSpeakerMenuRegistry portableSpeakerMenus;
     private final ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus;
+    private final ImplDspMenuRegistry dspMenus;
     private final ConcurrentMap<String, Registration> registrations = new ConcurrentHashMap<>();
 
     ImplMixerAddonManager(MixerPlugin plugin, MixerApi api, ImplMixerAudioSourceRegistry sources,
                           ImplMixerPlaybackPolicyRegistry playbackPolicies,
                           ImplPortableSpeakerMenuRegistry portableSpeakerMenus,
-                          ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus) {
+                          ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus,
+                          ImplDspMenuRegistry dspMenus) {
         this.plugin = plugin;
         this.api = api;
         this.sources = sources;
         this.playbackPolicies = playbackPolicies;
         this.portableSpeakerMenus = portableSpeakerMenus;
         this.playlistCartridgeMenus = playlistCartridgeMenus;
+        this.dspMenus = dspMenus;
     }
 
     @Override
@@ -109,6 +114,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
         playbackPolicies.unregisterOwnedBy(owner);
         portableSpeakerMenus.unregisterOwnedBy(owner);
         playlistCartridgeMenus.unregisterOwnedBy(owner);
+        dspMenus.unregisterOwnedBy(owner);
     }
 
     void shutdown() {
@@ -117,6 +123,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
         playbackPolicies.shutdown();
         portableSpeakerMenus.shutdown();
         playlistCartridgeMenus.shutdown();
+        dspMenus.shutdown();
     }
 
     private static String validateAddonId(String id) {
@@ -192,6 +199,16 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
             }
             PlaylistCartridgeMenuProviderRegistration menuRegistration =
                     playlistCartridgeMenus.register(owner(), provider);
+            registration.resources.add(menuRegistration);
+            return menuRegistration;
+        }
+
+        @Override
+        public DspMenuProviderRegistration registerDspMenuProvider(DspMenuProvider provider) {
+            if (!registration.active()) {
+                throw new IllegalStateException("Addon is no longer active: " + registration.id);
+            }
+            DspMenuProviderRegistration menuRegistration = dspMenus.register(owner(), provider);
             registration.resources.add(menuRegistration);
             return menuRegistration;
         }

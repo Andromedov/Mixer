@@ -2,6 +2,7 @@ package me.andromedov.mixer.api;
 
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.disc.MixerDiscService;
+import me.andromedov.mixer.api.gui.DspMenuRegistry;
 import me.andromedov.mixer.api.gui.PortableSpeakerMenuRegistry;
 import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuRegistry;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
@@ -53,6 +54,8 @@ public interface MixerApi {
     PortableSpeakerMenuRegistry portableSpeakerMenus();
 
     PlaylistCartridgeMenuRegistry playlistCartridgeMenus();
+
+    DspMenuRegistry dspMenus();
 
     MixerPlaybackPolicyRegistry playbackPolicies();
 

@@ -1,6 +1,8 @@
 package me.andromedov.mixer.api.addon;
 
 import me.andromedov.mixer.api.MixerApi;
+import me.andromedov.mixer.api.gui.DspMenuProvider;
+import me.andromedov.mixer.api.gui.DspMenuProviderRegistration;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolver;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
 import me.andromedov.mixer.api.gui.PortableSpeakerMenuProvider;
@@ -24,4 +26,6 @@ public interface MixerAddonContext {
 
     PlaylistCartridgeMenuProviderRegistration registerPlaylistCartridgeMenuProvider(
             PlaylistCartridgeMenuProvider provider);
+
+    DspMenuProviderRegistration registerDspMenuProvider(DspMenuProvider provider);
 }
