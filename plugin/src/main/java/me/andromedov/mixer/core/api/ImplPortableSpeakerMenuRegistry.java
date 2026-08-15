@@ -12,17 +12,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Objects;
-import java.util.logging.Level;
 
 final class ImplPortableSpeakerMenuRegistry implements PortableSpeakerMenuRegistry {
-    private final MixerPlugin plugin;
-    private final PrioritizedProviderRegistry<PortableSpeakerMenuProvider> providers =
-            new PrioritizedProviderRegistry<>("Portable speaker menu");
+    private final MenuProviderPipeline<PortableSpeakerMenuProvider> providers;
 
     ImplPortableSpeakerMenuRegistry(MixerPlugin plugin) {
-        this.plugin = plugin;
+        this.providers = new MenuProviderPipeline<>(
+                plugin, "Portable speaker menu", PortableSpeakerMenuProvider::priority);
     }
 
     @Override
@@ -35,8 +32,7 @@ final class ImplPortableSpeakerMenuRegistry implements PortableSpeakerMenuRegist
 
     @Override
     public Collection<PortableSpeakerMenuProviderRegistration> registrations() {
-        return providers.entries().stream().map(Registration::new).map(r ->
-                (PortableSpeakerMenuProviderRegistration) r).toList();
+        return providers.registrations(Registration::new);
     }
 
     @Override
@@ -47,18 +43,8 @@ final class ImplPortableSpeakerMenuRegistry implements PortableSpeakerMenuRegist
         Objects.requireNonNull(defaultItem, "defaultItem");
         MixerScheduler.requireOwned(context.player(), "render a portable speaker menu item");
 
-        ItemStack rendered = defaultItem.clone();
-        for (var registration : providers.ordered(PortableSpeakerMenuProvider::priority)) {
-            try {
-                ItemStack candidate = registration.provider().customizeItem(
-                        element, context, rendered.clone());
-                if (candidate != null && !candidate.getType().isAir()) rendered = candidate.clone();
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "Portable speaker menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderItem(defaultItem,
+                (provider, current) -> provider.customizeItem(element, context, current));
     }
 
     @Override
@@ -67,17 +53,8 @@ final class ImplPortableSpeakerMenuRegistry implements PortableSpeakerMenuRegist
         Objects.requireNonNull(defaultTitle, "defaultTitle");
         MixerScheduler.requireOwned(context.player(), "render a portable speaker menu title");
 
-        Component rendered = defaultTitle;
-        for (var registration : providers.ordered(PortableSpeakerMenuProvider::priority)) {
-            try {
-                Component candidate = registration.provider().customizeTitle(context, rendered);
-                if (candidate != null) rendered = candidate;
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "Portable speaker menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderTitle(defaultTitle,
+                (provider, current) -> provider.customizeTitle(context, current));
     }
 
     void unregisterOwnedBy(Plugin owner) { providers.unregisterOwnedBy(owner); }

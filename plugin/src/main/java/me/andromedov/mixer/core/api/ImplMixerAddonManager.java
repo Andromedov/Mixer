@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 final class ImplMixerAddonManager implements MixerAddonManager, Listener {
@@ -161,56 +162,38 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
 
         @Override
         public MixerAudioSourceResolverRegistration registerSourceResolver(MixerAudioSourceResolver resolver) {
-            if (!registration.active()) {
-                throw new IllegalStateException("Addon is no longer active: " + registration.id);
-            }
-            MixerAudioSourceResolverRegistration sourceRegistration = sources.register(owner(), resolver);
-            registration.resources.add(sourceRegistration);
-            return sourceRegistration;
+            return registerResource(() -> sources.register(owner(), resolver));
         }
 
         @Override
         public MixerPlaybackPolicyRegistration registerPlaybackPolicy(MixerPlaybackPolicy policy) {
-            if (!registration.active()) {
-                throw new IllegalStateException("Addon is no longer active: " + registration.id);
-            }
-            MixerPlaybackPolicyRegistration policyRegistration = playbackPolicies.register(owner(), policy);
-            registration.resources.add(policyRegistration);
-            return policyRegistration;
+            return registerResource(() -> playbackPolicies.register(owner(), policy));
         }
 
         @Override
         public PortableSpeakerMenuProviderRegistration registerPortableSpeakerMenuProvider(
                 PortableSpeakerMenuProvider provider) {
-            if (!registration.active()) {
-                throw new IllegalStateException("Addon is no longer active: " + registration.id);
-            }
-            PortableSpeakerMenuProviderRegistration menuRegistration =
-                    portableSpeakerMenus.register(owner(), provider);
-            registration.resources.add(menuRegistration);
-            return menuRegistration;
+            return registerResource(() -> portableSpeakerMenus.register(owner(), provider));
         }
 
         @Override
         public PlaylistCartridgeMenuProviderRegistration registerPlaylistCartridgeMenuProvider(
                 PlaylistCartridgeMenuProvider provider) {
-            if (!registration.active()) {
-                throw new IllegalStateException("Addon is no longer active: " + registration.id);
-            }
-            PlaylistCartridgeMenuProviderRegistration menuRegistration =
-                    playlistCartridgeMenus.register(owner(), provider);
-            registration.resources.add(menuRegistration);
-            return menuRegistration;
+            return registerResource(() -> playlistCartridgeMenus.register(owner(), provider));
         }
 
         @Override
         public DspMenuProviderRegistration registerDspMenuProvider(DspMenuProvider provider) {
+            return registerResource(() -> dspMenus.register(owner(), provider));
+        }
+
+        private <R extends AutoCloseable> R registerResource(Supplier<R> factory) {
             if (!registration.active()) {
                 throw new IllegalStateException("Addon is no longer active: " + registration.id);
             }
-            DspMenuProviderRegistration menuRegistration = dspMenus.register(owner(), provider);
-            registration.resources.add(menuRegistration);
-            return menuRegistration;
+            R resource = factory.get();
+            registration.resources.add(resource);
+            return resource;
         }
     }
 

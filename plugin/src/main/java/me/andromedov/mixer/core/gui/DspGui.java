@@ -8,6 +8,7 @@ import me.andromedov.mixer.api.gui.DspMenuTargetType;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
+import me.andromedov.mixer.core.dsp.DspSettings;
 import me.andromedov.mixer.core.util.MixerScheduler;
 import me.andromedov.mixer.core.util.Utils;
 import net.kyori.adventure.text.Component;
@@ -34,6 +35,12 @@ import java.util.UUID;
 
 public class DspGui implements Listener {
     private static final MiniMessage MM = MiniMessage.miniMessage();
+    private static final int INVENTORY_SIZE = 27;
+    private static final int GAIN_SLOT = 10;
+    private static final int HIGH_PASS_SLOT = 12;
+    private static final int LOW_PASS_SLOT = 14;
+    private static final int FLANGER_SLOT = 16;
+    private static final int RESET_SLOT = 22;
 
     private Component getTitle() {
         String title = MixerPlugin.getPlugin().getLocalizationManager().getMessage("dsp.gui_title");
@@ -42,38 +49,39 @@ public class DspGui implements Listener {
 
     public void open(Player player, Location location) {
         MixerScheduler.requireOwned(location, "open the DSP editor");
-        open(player, (Object) location.clone());
+        open(player, new JukeboxTarget(location));
     }
 
     /** Opens the DSP GUI for a portable speaker. */
     public void open(Player player, UUID speakerId) {
         MixerScheduler.requireOwned(player, "open the portable speaker DSP editor");
-        open(player, (Object) speakerId);
+        open(player, new SpeakerTarget(speakerId));
     }
 
-    private void open(Player player, Object target) {
-        JsonObject dspData = loadDspData(target);
-        DspMenuContext context = menuContext(player, target, dspData);
+    private void open(Player player, DspTarget target) {
+        DspSettings settings = loadSettings(target);
+        DspMenuContext context = menuContext(player, target, settings);
         Component title = MixerPlugin.getPlugin().api().dspMenus().renderTitle(context, getTitle());
         DspHolder holder = new DspHolder(player.getUniqueId(), target, title);
-        updateInventory(holder.getInventory(), holder, player, dspData);
+        updateInventory(holder.getInventory(), holder, player, settings);
         player.openInventory(holder.getInventory());
     }
 
     private void updateInventory(Inventory inventory, DspHolder holder, Player player) {
-        updateInventory(inventory, holder, player, loadDspData(holder.target));
+        updateInventory(inventory, holder, player, loadSettings(holder.target));
     }
 
     private void updateInventory(Inventory inventory, DspHolder holder, Player player,
-                                 JsonObject dspData) {
-        DspMenuContext context = menuContext(player, holder.target, dspData);
+                                 DspSettings settings) {
+        DspMenuContext context = menuContext(player, holder.target, settings);
 
         ItemStack gainItem = createItem(Material.GOAT_HORN, "dsp.gain_name");
         List<String> gainLore = MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessageList("dsp.gain_lore");
         replacePlaceholder(gainLore, "%gain%", String.valueOf(Math.round(context.gain() * 100)));
         addLore(gainItem, gainLore);
-        inventory.setItem(10, menuItem(context, DspMenuElement.GAIN, 10, gainItem));
+        inventory.setItem(GAIN_SLOT,
+                menuItem(context, DspMenuElement.GAIN, GAIN_SLOT, gainItem));
 
         ItemStack hpItem = createItem(Material.IRON_BARS, "dsp.highpass_name");
         List<String> hpLore = MixerPlugin.getPlugin().getLocalizationManager()
@@ -82,7 +90,8 @@ public class DspGui implements Listener {
         replacePlaceholder(hpLore, "%status%",
                 context.highPassFrequency() > 0 ? "<green>ON" : "<red>OFF");
         addLore(hpItem, hpLore);
-        inventory.setItem(12, menuItem(context, DspMenuElement.HIGH_PASS_FILTER, 12, hpItem));
+        inventory.setItem(HIGH_PASS_SLOT,
+                menuItem(context, DspMenuElement.HIGH_PASS_FILTER, HIGH_PASS_SLOT, hpItem));
 
         ItemStack lpItem = createItem(Material.SOUL_SOIL, "dsp.lowpass_name");
         List<String> lpLore = MixerPlugin.getPlugin().getLocalizationManager()
@@ -91,7 +100,8 @@ public class DspGui implements Listener {
         replacePlaceholder(lpLore, "%status%",
                 context.lowPassFrequency() < 20000 ? "<green>ON" : "<red>OFF");
         addLore(lpItem, lpLore);
-        inventory.setItem(14, menuItem(context, DspMenuElement.LOW_PASS_FILTER, 14, lpItem));
+        inventory.setItem(LOW_PASS_SLOT,
+                menuItem(context, DspMenuElement.LOW_PASS_FILTER, LOW_PASS_SLOT, lpItem));
 
         ItemStack flangerItem = createItem(Material.AMETHYST_BLOCK, "dsp.flanger_name");
         List<String> flangerLore = MixerPlugin.getPlugin().getLocalizationManager()
@@ -101,12 +111,14 @@ public class DspGui implements Listener {
         addLore(flangerItem, flangerLore);
         DspMenuElement flangerElement = context.flangerEnabled()
                 ? DspMenuElement.FLANGER_ENABLED : DspMenuElement.FLANGER_DISABLED;
-        inventory.setItem(16, menuItem(context, flangerElement, 16, flangerItem));
+        inventory.setItem(FLANGER_SLOT,
+                menuItem(context, flangerElement, FLANGER_SLOT, flangerItem));
 
         ItemStack resetItem = createItem(Material.BARRIER, "dsp.reset_name");
         addLore(resetItem, MixerPlugin.getPlugin().getLocalizationManager()
                 .getMessageList("dsp.reset_lore"));
-        inventory.setItem(22, menuItem(context, DspMenuElement.RESET, 22, resetItem));
+        inventory.setItem(RESET_SLOT,
+                menuItem(context, DspMenuElement.RESET, RESET_SLOT, resetItem));
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (inventory.getItem(slot) != null) continue;
@@ -122,30 +134,26 @@ public class DspGui implements Listener {
                 new DspMenuItemContext(menu, element, slot), defaultItem);
     }
 
-    private DspMenuContext menuContext(Player player, Object target, JsonObject dspData) {
-        double gain = dspData.has("gain")
-                ? dspData.getAsJsonObject("gain").get("gain").getAsDouble() : 1.0;
-        float highPass = dspData.has("highPassFilter")
-                ? dspData.getAsJsonObject("highPassFilter").get("frequency").getAsFloat() : 0;
-        float lowPass = dspData.has("lowPassFilter")
-                ? dspData.getAsJsonObject("lowPassFilter").get("frequency").getAsFloat() : 20000;
-        boolean flanger = dspData.has("flangerEffect");
-        if (target instanceof Location location) {
-            return new DspMenuContext(player, DspMenuTargetType.JUKEBOX, location, null,
-                    gain, highPass, lowPass, flanger);
+    private DspMenuContext menuContext(Player player, DspTarget target, DspSettings settings) {
+        if (target instanceof JukeboxTarget jukebox) {
+            return new DspMenuContext(player, DspMenuTargetType.JUKEBOX, jukebox.location(), null,
+                    settings.gain(), settings.highPassFrequency(), settings.lowPassFrequency(),
+                    settings.flangerEnabled());
         }
+        SpeakerTarget speaker = (SpeakerTarget) target;
         return new DspMenuContext(player, DspMenuTargetType.PORTABLE_SPEAKER, null,
-                (UUID) target, gain, highPass, lowPass, flanger);
+                speaker.id(), settings.gain(), settings.highPassFrequency(),
+                settings.lowPassFrequency(), settings.flangerEnabled());
     }
 
-    private JsonObject loadDspData(Object target) {
+    private DspSettings loadSettings(DspTarget target) {
         JsonObject data;
-        if (target instanceof Location location) {
-            data = Utils.loadNbtData(location, "mixer_dsp");
+        if (target instanceof JukeboxTarget jukebox) {
+            data = Utils.loadNbtData(jukebox.location(), "mixer_dsp");
         } else {
-            data = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp((UUID) target);
+            data = MixerPlugin.getPlugin().getDatabase().loadSpeakerDsp(((SpeakerTarget) target).id());
         }
-        return data == null ? new JsonObject() : data;
+        return DspSettings.fromJson(data);
     }
 
     private void replacePlaceholder(List<String> list, String target, String replacement) {
@@ -184,8 +192,9 @@ public class DspGui implements Listener {
             return;
         }
 
-        Object target = holder.target;
-        if (target instanceof Location location) {
+        DspTarget target = holder.target;
+        if (target instanceof JukeboxTarget jukebox) {
+            Location location = jukebox.location();
             if (!Bukkit.isOwnedByCurrentRegion(location)
                     || location.getBlock().getType() != Material.JUKEBOX) {
                 player.closeInventory();
@@ -193,106 +202,102 @@ public class DspGui implements Listener {
             }
         }
 
-        JsonObject dspData = loadDspData(target);
-        boolean updateAudio = false;
-        boolean heavyUpdate = false;
-
-        int slot = event.getSlot();
-        if (slot == 10) {
-            JsonObject gainObject = dspData.has("gain")
-                    ? dspData.getAsJsonObject("gain") : new JsonObject();
-            double gain = gainObject.has("gain") ? gainObject.get("gain").getAsDouble() : 1.0;
-            double change = event.isShiftClick() ? 0.01 : 0.1;
-            if (event.isLeftClick()) gain += change;
-            else if (event.isRightClick()) gain -= change;
-            gainObject.addProperty("gain", Math.max(0.0, Math.min(3.0, gain)));
-            dspData.add("gain", gainObject);
-            updateAudio = true;
-        } else if (slot == 12) {
-            JsonObject filter = dspData.has("highPassFilter")
-                    ? dspData.getAsJsonObject("highPassFilter") : new JsonObject();
-            float frequency = filter.has("frequency") ? filter.get("frequency").getAsFloat() : 0;
-            if (event.isLeftClick()) frequency += 50;
-            else if (event.isRightClick()) frequency -= 50;
-            frequency = Math.max(0, Math.min(5000, frequency));
-            if (frequency <= 0) dspData.remove("highPassFilter");
-            else {
-                filter.addProperty("frequency", frequency);
-                dspData.add("highPassFilter", filter);
-            }
-            heavyUpdate = true;
-        } else if (slot == 14) {
-            JsonObject filter = dspData.has("lowPassFilter")
-                    ? dspData.getAsJsonObject("lowPassFilter") : new JsonObject();
-            float frequency = filter.has("frequency")
-                    ? filter.get("frequency").getAsFloat() : 20000;
-            if (event.isLeftClick()) frequency += 500;
-            else if (event.isRightClick()) frequency -= 500;
-            frequency = Math.max(500, Math.min(20000, frequency));
-            if (frequency >= 20000) dspData.remove("lowPassFilter");
-            else {
-                filter.addProperty("frequency", frequency);
-                dspData.add("lowPassFilter", filter);
-            }
-            heavyUpdate = true;
-        } else if (slot == 16) {
-            if (dspData.has("flangerEffect")) dspData.remove("flangerEffect");
-            else {
-                JsonObject flanger = new JsonObject();
-                flanger.addProperty("maxFlangerLength", 0.01);
-                flanger.addProperty("wet", 0.5);
-                flanger.addProperty("lfoFrequency", 0.2);
-                dspData.add("flangerEffect", flanger);
-            }
-            heavyUpdate = true;
-        } else if (slot == 22) {
-            dspData = new JsonObject();
-            heavyUpdate = true;
-        }
-
-        if (!updateAudio && !heavyUpdate) return;
-        if (target instanceof Location location) {
+        DspSettings settings = loadSettings(target);
+        DspUpdateType updateType = updateSettings(settings, event);
+        if (updateType == DspUpdateType.NONE) return;
+        JsonObject dspData = settings.toJson();
+        if (target instanceof JukeboxTarget jukebox) {
+            Location location = jukebox.location();
             Utils.saveNbtData(location, "mixer_dsp", dspData);
             IMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin().playerHashMap().get(location);
             if (audioPlayer != null) {
                 audioPlayer.reloadDspSettings();
-                if (heavyUpdate) audioPlayer.loadDsp();
+                if (updateType == DspUpdateType.FULL) audioPlayer.loadDsp();
                 else audioPlayer.updateVolume();
             }
         } else {
-            UUID speakerId = (UUID) target;
+            UUID speakerId = ((SpeakerTarget) target).id();
             MixerPlugin.getPlugin().getDatabase().saveSpeakerDsp(speakerId, dspData);
             EntityMixerAudioPlayer audioPlayer = MixerPlugin.getPlugin()
                     .getPortablePlayerMap().get(player.getUniqueId());
             if (audioPlayer != null && speakerId.equals(audioPlayer.getSourceItemId())) {
                 audioPlayer.setDspSettings(dspData);
-                if (heavyUpdate) audioPlayer.loadDsp();
+                if (updateType == DspUpdateType.FULL) audioPlayer.loadDsp();
                 else audioPlayer.updateVolume();
             }
         }
         updateInventory(holder.getInventory(), holder, player);
     }
 
+    private DspUpdateType updateSettings(DspSettings settings, InventoryClickEvent event) {
+        int slot = event.getSlot();
+        if (slot == GAIN_SLOT && (event.isLeftClick() || event.isRightClick())) {
+            double step = event.isShiftClick() ? 0.01 : 0.1;
+            settings.adjustGain(event.isLeftClick() ? step : -step);
+            return DspUpdateType.VOLUME;
+        }
+        if (slot == HIGH_PASS_SLOT && (event.isLeftClick() || event.isRightClick())) {
+            settings.adjustHighPass(event.isLeftClick() ? 50 : -50);
+            return DspUpdateType.FULL;
+        }
+        if (slot == LOW_PASS_SLOT && (event.isLeftClick() || event.isRightClick())) {
+            settings.adjustLowPass(event.isLeftClick() ? 500 : -500);
+            return DspUpdateType.FULL;
+        }
+        if (slot == FLANGER_SLOT) {
+            settings.toggleFlanger();
+            return DspUpdateType.FULL;
+        }
+        if (slot == RESET_SLOT) {
+            settings.reset();
+            return DspUpdateType.FULL;
+        }
+        return DspUpdateType.NONE;
+    }
+
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         if (!(event.getView().getTopInventory().getHolder(false) instanceof DspHolder)) return;
-        if (event.getRawSlots().stream().anyMatch(slot -> slot < 27)) event.setCancelled(true);
+        if (event.getRawSlots().stream().anyMatch(slot -> slot < INVENTORY_SIZE)) {
+            event.setCancelled(true);
+        }
     }
 
     private static final class DspHolder implements InventoryHolder {
         private final UUID viewerId;
-        private final Object target;
+        private final DspTarget target;
         private final Inventory inventory;
 
-        private DspHolder(UUID viewerId, Object target, Component title) {
+        private DspHolder(UUID viewerId, DspTarget target, Component title) {
             this.viewerId = viewerId;
-            this.target = target instanceof Location location ? location.clone() : target;
-            this.inventory = Bukkit.createInventory(this, 27, title);
+            this.target = target;
+            this.inventory = Bukkit.createInventory(this, INVENTORY_SIZE, title);
         }
 
         @Override
         public @NotNull Inventory getInventory() {
             return inventory;
         }
+    }
+
+    private sealed interface DspTarget permits JukeboxTarget, SpeakerTarget {}
+
+    private record JukeboxTarget(Location location) implements DspTarget {
+        private JukeboxTarget {
+            location = location.clone();
+        }
+
+        @Override
+        public Location location() {
+            return location.clone();
+        }
+    }
+
+    private record SpeakerTarget(UUID id) implements DspTarget {}
+
+    private enum DspUpdateType {
+        NONE,
+        VOLUME,
+        FULL
     }
 }
