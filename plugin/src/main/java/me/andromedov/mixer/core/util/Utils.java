@@ -3,6 +3,8 @@ package me.andromedov.mixer.core.util;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import me.andromedov.mixer.core.MixerPlugin;
+import me.andromedov.mixer.core.security.AudioSourcePolicy;
+import me.andromedov.mixer.core.security.AudioSourcePolicyException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -23,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.logging.Level;
 
 public class Utils {
@@ -32,7 +35,9 @@ public class Utils {
         return item.getType().name().contains("MUSIC_DISC");
     }
 
-    public static OkHttpClient client = new OkHttpClient();
+    public static final OkHttpClient client = new OkHttpClient.Builder()
+            .dns(hostname -> Arrays.asList(AudioSourcePolicy.resolvePublicAddresses(hostname)))
+            .build();
 
     public static JsonObject loadNbtData(Location location, String category) {
         if(!location.getBlock().getType().equals(Material.JUKEBOX)) return null;
@@ -137,6 +142,15 @@ public class Utils {
     }
 
     public static File downloadFile(String urlStr, String fileName) {
+        String safeUrl;
+        try {
+            safeUrl = MixerPlugin.getPlugin().getAudioSourcePolicy().validateRemoteHttpUrl(urlStr);
+        } catch (AudioSourcePolicyException exception) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                    "Blocked unsafe audio download: " + exception.getMessage(), null);
+            return null;
+        }
+
         File audioDir = new File(MixerPlugin.getPlugin().getDataFolder(), "audio");
         if (!audioDir.exists() && !audioDir.mkdirs()) {
             MixerPlugin.getPlugin().logDebug(Level.WARNING, "Could not create audio directory.", null);
@@ -151,7 +165,7 @@ public class Utils {
         }
         File target = targetPath.toFile();
         Request request = new Request.Builder()
-                .url(urlStr)
+                .url(safeUrl)
                 .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build();
 
@@ -199,6 +213,14 @@ public class Utils {
     }
 
     public static String requestCobaltMediaUrl(String url) {
+        try {
+            url = MixerPlugin.getPlugin().getAudioSourcePolicy().validateRemoteHttpUrl(url);
+        } catch (AudioSourcePolicyException exception) {
+            MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                    "Blocked unsafe Cobalt source: " + exception.getMessage(), null);
+            return null;
+        }
+
         // Fallback instances for Cobalt to bypass rate-limits or Cloudflare issues
         String[] instances = {
                 "https://api.cobalt.tools/",
@@ -229,7 +251,13 @@ public class Utils {
                     if (response.isSuccessful()) {
                         JsonObject json = (JsonObject) JsonParser.parseString(res);
                         if (json.has("url")) {
-                            return json.get("url").getAsString();
+                            try {
+                                return MixerPlugin.getPlugin().getAudioSourcePolicy()
+                                        .validateRemoteHttpUrl(json.get("url").getAsString());
+                            } catch (AudioSourcePolicyException exception) {
+                                MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                                        "Cobalt returned an unsafe media URL: " + exception.getMessage(), null);
+                            }
                         }
                     } else {
                         MixerPlugin.getPlugin().logDebug(Level.INFO, "Cobalt API (" + instance + ") returned HTTP " + response.code() + ". Trying next mirror...", null);

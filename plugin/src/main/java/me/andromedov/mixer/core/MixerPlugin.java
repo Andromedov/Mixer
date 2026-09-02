@@ -14,6 +14,7 @@ import me.andromedov.mixer.core.listener.*;
 import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
 import me.andromedov.mixer.core.playlist.PortablePlaylistSession;
 import me.andromedov.mixer.core.portable.PortableSpeakerService;
+import me.andromedov.mixer.core.security.AudioSourcePolicy;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
@@ -59,6 +60,7 @@ public class MixerPlugin extends JavaPlugin {
     protected PlayerInteractListener playerInteractListener;
     private CommandRegistry commandRegistry;
     private MixerScheduler scheduler;
+    private AudioSourcePolicy audioSourcePolicy;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
@@ -107,6 +109,7 @@ public class MixerPlugin extends JavaPlugin {
         scheduler.runAsync(this::cleanupOpusTemp);
 
         initializeConfig();
+        audioSourcePolicy = new AudioSourcePolicy(new File(getDataFolder(), "audio").toPath());
 
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
@@ -455,6 +458,7 @@ public class MixerPlugin extends JavaPlugin {
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public MixerDatabase getDatabase() { return database; }
     public MixerScheduler scheduler() { return scheduler; }
+    public AudioSourcePolicy getAudioSourcePolicy() { return audioSourcePolicy; }
 
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
