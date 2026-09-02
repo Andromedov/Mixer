@@ -4,7 +4,6 @@ import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.util.MessageUtil;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
@@ -12,7 +11,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.util.UUID;
 
@@ -23,7 +21,7 @@ public class InventoryListener implements Listener {
         if (!MixerPlugin.getPlugin().isPortableSpeakerEnabled()) return;
 
         if (e.getClickedInventory() == null) {
-            checkAndStop(e.getWhoClicked().getUniqueId(), e.getCursor(), null);
+            checkAndStop((org.bukkit.entity.Player) e.getWhoClicked(), e.getCursor(), null);
             return;
         }
 
@@ -40,14 +38,14 @@ public class InventoryListener implements Listener {
             }
         }
 
-        checkAndStop(e.getWhoClicked().getUniqueId(), currentItem, type);
-        checkAndStop(e.getWhoClicked().getUniqueId(), cursorItem, type);
+        checkAndStop((org.bukkit.entity.Player) e.getWhoClicked(), currentItem, type);
+        checkAndStop((org.bukkit.entity.Player) e.getWhoClicked(), cursorItem, type);
 
         if (e.getClick() == ClickType.NUMBER_KEY) {
             int hotbarButton = e.getHotbarButton();
             if (hotbarButton >= 0 && hotbarButton <= 8) {
                 ItemStack hotbarItem = e.getWhoClicked().getInventory().getItem(hotbarButton);
-                checkAndStop(e.getWhoClicked().getUniqueId(), hotbarItem, e.getClickedInventory().getType());
+                checkAndStop((org.bukkit.entity.Player) e.getWhoClicked(), hotbarItem, e.getClickedInventory().getType());
             }
         }
     }
@@ -74,10 +72,10 @@ public class InventoryListener implements Listener {
             }
         }
 
-        checkAndStop(e.getWhoClicked().getUniqueId(), draggedItem, type);
+        checkAndStop((org.bukkit.entity.Player) e.getWhoClicked(), draggedItem, type);
     }
 
-    private void checkAndStop(UUID playerId, ItemStack item, InventoryType inventoryType) {
+    private void checkAndStop(org.bukkit.entity.Player owner, ItemStack item, InventoryType inventoryType) {
         if (item == null || item.getType() == Material.AIR) return;
 
         if (inventoryType == InventoryType.PLAYER ||
@@ -86,36 +84,12 @@ public class InventoryListener implements Listener {
             return;
         }
 
-        String matName = MixerPlugin.getPlugin().getPortableSpeakerItemMaterial();
-        Material mat = Material.getMaterial(matName);
-        if (mat == null) mat = Material.NOTE_BLOCK;
-
-        if (item.getType() == mat) {
-            NamespacedKey speakerKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker");
-            if (item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(speakerKey, PersistentDataType.BYTE)) {
-
-                NamespacedKey idKey = new NamespacedKey(MixerPlugin.getPlugin(), "mixer_speaker_id");
-                UUID itemId = null;
-
-                if (item.getItemMeta().getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) {
-                    try {
-                        itemId = UUID.fromString(item.getItemMeta().getPersistentDataContainer().get(idKey, PersistentDataType.STRING));
-                    } catch (Exception ex) {
-                        return;
-                    }
-                }
-
-                if (MixerPlugin.getPlugin().getPortablePlayerMap().containsKey(playerId)) {
-                    EntityMixerAudioPlayer player = MixerPlugin.getPlugin().getPortablePlayerMap().get(playerId);
-
-                    if (player.getSourceItemId() != null && itemId != null && player.getSourceItemId().equals(itemId)) {
-                        player.stop();
-                        if (org.bukkit.Bukkit.getPlayer(playerId) != null) {
-                            MessageUtil.sendActionBarMsg(org.bukkit.Bukkit.getPlayer(playerId), "playback_stop");
-                        }
-                    }
-                }
-            }
-        }
+        MixerPlugin plugin = MixerPlugin.getPlugin();
+        UUID itemId = plugin.getPortableSpeakers().id(item).orElse(null);
+        EntityMixerAudioPlayer player = plugin.getPortablePlayerMap().get(owner.getUniqueId());
+        if (player == null || itemId == null || !itemId.equals(player.getSourceItemId())) return;
+        plugin.getPortableSpeakers().eject(owner, item);
+        player.stop();
+        MessageUtil.sendActionBarMsg(owner, "playback_stop");
     }
 }

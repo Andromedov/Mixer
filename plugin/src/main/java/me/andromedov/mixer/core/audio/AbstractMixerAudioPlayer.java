@@ -18,7 +18,6 @@ import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManag
 import com.sedmelluq.discord.lavaplayer.source.beam.BeamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.getyarn.GetyarnAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
@@ -37,8 +36,11 @@ import me.andromedov.mixer.api.MixerDsp;
 import me.andromedov.mixer.api.MixerTrack;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
+import me.andromedov.mixer.core.security.AudioSourcePolicy;
+import me.andromedov.mixer.core.security.AudioSourcePolicyException;
+import me.andromedov.mixer.core.security.PublicAddressDnsResolver;
+import me.andromedov.mixer.core.security.SafeLocalAudioSourceManager;
 import me.andromedov.mixer.core.util.Utils;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -76,6 +78,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
         APM.registerSourceManager(SoundCloudAudioSourceManager.builder()
                 .withFormatHandler(new MixerSoundCloudFormatHandler())
+                .withFilterOutPreviewTracks(MixerPlugin.getPlugin().isSoundCloudFilterOutPreviewTracks())
                 .build());
         APM.registerSourceManager(new BandcampAudioSourceManager());
         APM.registerSourceManager(new VimeoAudioSourceManager());
@@ -83,8 +86,12 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         APM.registerSourceManager(new BeamAudioSourceManager());
         APM.registerSourceManager(new GetyarnAudioSourceManager());
         APM.registerSourceManager(new NicoAudioSourceManager());
-        APM.registerSourceManager(new HttpAudioSourceManager());
-        APM.registerSourceManager(new LocalAudioSourceManager());
+        AudioSourcePolicy sourcePolicy = MixerPlugin.getPlugin().getAudioSourcePolicy();
+        HttpAudioSourceManager httpSourceManager = new HttpAudioSourceManager();
+        httpSourceManager.configureBuilder(builder ->
+                builder.setDnsResolver(new PublicAddressDnsResolver()));
+        APM.registerSourceManager(httpSourceManager);
+        APM.registerSourceManager(new SafeLocalAudioSourceManager(sourcePolicy));
 
         int frameBufferDuration = MixerPlugin.getPlugin().getAudioFrameBufferDuration();
         APM.setFrameBufferDuration(frameBufferDuration);
@@ -175,13 +182,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void persistDspSettings() { }
 
     protected void initializeAsync() {
-        Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+        MixerPlugin.getPlugin().scheduler().runAsync(() -> {
             synchronized(initializationLock) {
                 try {
                     lavaplayer = APM.createPlayer();
                     lavaplayer.addListener(new AudioEventAdapter() {
                         @Override
                         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
+                            onTrackEnded(track, endReason);
                             if (endReason.mayStartNext) {
                                 start();
                             }
@@ -249,6 +257,11 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected abstract void broadcastAudio(byte[] data);
     protected abstract void notifyUser(String message);
+    protected abstract void requireOwnedThread(String action);
+
+    protected void onTrackEnded(AudioTrack track, AudioTrackEndReason endReason) { }
+
+    protected void onTrackLoadFailed(String source) { }
 
     protected void processAudioFrame() {
         try {
@@ -351,7 +364,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
     protected void loadNextFromQueue() {
         if (!loadingQueue.isEmpty() && running) {
             String nextUrl = loadingQueue.poll();
-            Bukkit.getScheduler().runTaskAsynchronously(MixerPlugin.getPlugin(), () -> {
+            MixerPlugin.getPlugin().scheduler().runAsync(() -> {
                 try {
                     attemptLoad(nextUrl, 0);
                 } catch (Exception e) {
@@ -364,11 +377,13 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
 
     protected void attemptLoad(String audioUrl, int retryCount) {
         if (audioUrl == null || audioUrl.isEmpty()) {
+            onTrackLoadFailed(audioUrl);
             loadNextFromQueue();
             return;
         }
 
         String finalUrlToLoad = audioUrl;
+        AudioSourcePolicy sourcePolicy = MixerPlugin.getPlugin().getAudioSourcePolicy();
 
         try {
             finalUrlToLoad = MixerPlugin.getPlugin().api().sources().resolve(finalUrlToLoad);
@@ -379,6 +394,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 MixerPlugin.getPlugin().logDebug(Level.WARNING,
                         "Addon source resolver failed for URL: " + audioUrl, exception);
                 notifyUser("<red>Error resolving addon audio source.</red>");
+                onTrackLoadFailed(audioUrl);
                 loadNextFromQueue();
             }
             return;
@@ -389,6 +405,12 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
                 rawUrl = "https://" + rawUrl;
             }
+            try {
+                rawUrl = sourcePolicy.validateRemoteHttpUrl(rawUrl);
+            } catch (AudioSourcePolicyException exception) {
+                rejectUnsafeSource(audioUrl, exception);
+                return;
+            }
             String resolvedUrl = Utils.requestCobaltMediaUrl(rawUrl);
             if (resolvedUrl == null || resolvedUrl.isEmpty()) {
                 if (retryCount < MAX_RETRIES) {
@@ -396,6 +418,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "Max retries reached for Cobalt URL: " + audioUrl, null);
                     notifyUser("<red>Error resolving Cobalt media. Max retries reached.</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
                 return;
@@ -405,6 +428,13 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         else if (finalUrlToLoad.startsWith("https://youtube.com") || finalUrlToLoad.startsWith("https://www.youtube.com")) {
             String resolvedUrl = Utils.requestCobaltMediaUrl(finalUrlToLoad);
             if (resolvedUrl != null && !resolvedUrl.isEmpty()) finalUrlToLoad = resolvedUrl;
+        }
+
+        try {
+            finalUrlToLoad = sourcePolicy.validateForLoad(finalUrlToLoad);
+        } catch (AudioSourcePolicyException exception) {
+            rejectUnsafeSource(audioUrl, exception);
+            return;
         }
 
         APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
@@ -435,6 +465,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.WARNING, "No matches found for URL: " + audioUrl, null);
                     notifyUser("<red>No matches found after retries</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
             }
@@ -446,17 +477,26 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 } else {
                     MixerPlugin.getPlugin().logDebug(Level.SEVERE, "Failed to load URL: " + audioUrl, e);
                     notifyUser("<red>Error loading: " + e.getMessage() + "</red>");
+                    onTrackLoadFailed(audioUrl);
                     loadNextFromQueue();
                 }
             }
         });
     }
 
+    private void rejectUnsafeSource(String originalSource, AudioSourcePolicyException exception) {
+        MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                "Blocked unsafe audio source: " + exception.getMessage(), null);
+        notifyUser("<red>This audio source is not allowed.</red>");
+        onTrackLoadFailed(originalSource);
+        loadNextFromQueue();
+    }
+
     protected void scheduleRetry(String url, int currentRetry, String reason) {
         int nextRetry = currentRetry + 1;
         MixerPlugin.getPlugin().logDebug(Level.WARNING, "Load failed (" + reason + "). Retrying " + nextRetry + "/" + MAX_RETRIES, null);
         notifyUser("<yellow>Retrying... (" + nextRetry + "/" + MAX_RETRIES + ")</yellow>");
-        Bukkit.getScheduler().runTaskLaterAsynchronously(MixerPlugin.getPlugin(), () -> attemptLoad(url, nextRetry), 60L);
+        MixerPlugin.getPlugin().scheduler().runAsyncLater(() -> attemptLoad(url, nextRetry), 60L);
     }
 
     // Subclasses can override this to save config

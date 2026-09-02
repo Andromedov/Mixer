@@ -5,12 +5,18 @@ import me.andromedov.mixer.api.addon.MixerAddon;
 import me.andromedov.mixer.api.addon.MixerAddonContext;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.addon.MixerAddonRegistration;
+import me.andromedov.mixer.api.gui.DspMenuProvider;
+import me.andromedov.mixer.api.gui.DspMenuProviderRegistration;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolver;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolverRegistration;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicy;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistration;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuProvider;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuProviderRegistration;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuProvider;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuProviderRegistration;
 import me.andromedov.mixer.core.MixerPlugin;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
@@ -25,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 
 final class ImplMixerAddonManager implements MixerAddonManager, Listener {
@@ -32,14 +39,23 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     private final MixerApi api;
     private final ImplMixerAudioSourceRegistry sources;
     private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
+    private final ImplPortableSpeakerMenuRegistry portableSpeakerMenus;
+    private final ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus;
+    private final ImplDspMenuRegistry dspMenus;
     private final ConcurrentMap<String, Registration> registrations = new ConcurrentHashMap<>();
 
     ImplMixerAddonManager(MixerPlugin plugin, MixerApi api, ImplMixerAudioSourceRegistry sources,
-                          ImplMixerPlaybackPolicyRegistry playbackPolicies) {
+                          ImplMixerPlaybackPolicyRegistry playbackPolicies,
+                          ImplPortableSpeakerMenuRegistry portableSpeakerMenus,
+                          ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus,
+                          ImplDspMenuRegistry dspMenus) {
         this.plugin = plugin;
         this.api = api;
         this.sources = sources;
         this.playbackPolicies = playbackPolicies;
+        this.portableSpeakerMenus = portableSpeakerMenus;
+        this.playlistCartridgeMenus = playlistCartridgeMenus;
+        this.dspMenus = dspMenus;
     }
 
     @Override
@@ -97,12 +113,18 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
                 .forEach(Registration::close);
         sources.unregisterOwnedBy(owner);
         playbackPolicies.unregisterOwnedBy(owner);
+        portableSpeakerMenus.unregisterOwnedBy(owner);
+        playlistCartridgeMenus.unregisterOwnedBy(owner);
+        dspMenus.unregisterOwnedBy(owner);
     }
 
     void shutdown() {
         List.copyOf(registrations.values()).forEach(Registration::close);
         sources.shutdown();
         playbackPolicies.shutdown();
+        portableSpeakerMenus.shutdown();
+        playlistCartridgeMenus.shutdown();
+        dspMenus.shutdown();
     }
 
     private static String validateAddonId(String id) {
@@ -118,9 +140,7 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
     }
 
     private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        MixerScheduler.requireGlobalThread(action);
     }
 
     private final class Context implements MixerAddonContext {
@@ -142,22 +162,38 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
 
         @Override
         public MixerAudioSourceResolverRegistration registerSourceResolver(MixerAudioSourceResolver resolver) {
-            if (!registration.active()) {
-                throw new IllegalStateException("Addon is no longer active: " + registration.id);
-            }
-            MixerAudioSourceResolverRegistration sourceRegistration = sources.register(owner(), resolver);
-            registration.resources.add(sourceRegistration);
-            return sourceRegistration;
+            return registerResource(() -> sources.register(owner(), resolver));
         }
 
         @Override
         public MixerPlaybackPolicyRegistration registerPlaybackPolicy(MixerPlaybackPolicy policy) {
+            return registerResource(() -> playbackPolicies.register(owner(), policy));
+        }
+
+        @Override
+        public PortableSpeakerMenuProviderRegistration registerPortableSpeakerMenuProvider(
+                PortableSpeakerMenuProvider provider) {
+            return registerResource(() -> portableSpeakerMenus.register(owner(), provider));
+        }
+
+        @Override
+        public PlaylistCartridgeMenuProviderRegistration registerPlaylistCartridgeMenuProvider(
+                PlaylistCartridgeMenuProvider provider) {
+            return registerResource(() -> playlistCartridgeMenus.register(owner(), provider));
+        }
+
+        @Override
+        public DspMenuProviderRegistration registerDspMenuProvider(DspMenuProvider provider) {
+            return registerResource(() -> dspMenus.register(owner(), provider));
+        }
+
+        private <R extends AutoCloseable> R registerResource(Supplier<R> factory) {
             if (!registration.active()) {
                 throw new IllegalStateException("Addon is no longer active: " + registration.id);
             }
-            MixerPlaybackPolicyRegistration policyRegistration = playbackPolicies.register(owner(), policy);
-            registration.resources.add(policyRegistration);
-            return policyRegistration;
+            R resource = factory.get();
+            registration.resources.add(resource);
+            return resource;
         }
     }
 
