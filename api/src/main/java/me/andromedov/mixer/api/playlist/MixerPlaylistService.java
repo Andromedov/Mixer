@@ -14,14 +14,15 @@ public interface MixerPlaylistService {
     Optional<UUID> id(ItemStack item);
 
     /**
-     * Ensures a marker-only cartridge has a valid UUID and playlist payload.
+     * Ensures a marker-only cartridge has a valid UUID and playlist payload without
+     * replacing its existing display name, lore, item model, or other visual metadata.
      * Existing valid identity and tracks are preserved.
      */
     Optional<UUID> ensureInitialized(ItemStack item);
 
     Optional<MixerPlaylist> read(ItemStack item);
 
-    /** Updates a cartridge without modifying its identity. */
+    /** Updates a cartridge without modifying its identity or custom visual metadata. */
     boolean write(ItemStack item, UUID cartridgeId, MixerPlaylist playlist);
 
     int maxTracks();
