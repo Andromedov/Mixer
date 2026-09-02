@@ -149,12 +149,22 @@ public class EntityMixerAudioPlayer extends AbstractMixerAudioPlayer {
 
     @Override
     public void stop() {
+        stop(true);
+    }
+
+    public void stopWithoutEject() {
+        stop(false);
+    }
+
+    private void stop(boolean ejectMedia) {
         super.stop();
         if (particleTask != null) {
             particleTask.cancel();
             particleTask = null;
         }
-        MixerPlugin.getPlugin().getPortableSpeakers().eject(owner, sourceItemId);
+        if (ejectMedia) {
+            MixerPlugin.getPlugin().getPortableSpeakers().eject(owner, sourceItemId);
+        }
         var session = MixerPlugin.getPlugin().getPortablePlaylistSessions().remove(owner.getUniqueId());
         if (session != null) session.cancel();
         MixerPlugin.getPlugin().getPortablePlayerMap().remove(owner.getUniqueId());
