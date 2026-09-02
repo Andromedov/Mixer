@@ -18,7 +18,6 @@ import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManag
 import com.sedmelluq.discord.lavaplayer.source.beam.BeamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.getyarn.GetyarnAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
-import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.nico.NicoAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
@@ -37,6 +36,10 @@ import me.andromedov.mixer.api.MixerDsp;
 import me.andromedov.mixer.api.MixerTrack;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
+import me.andromedov.mixer.core.security.AudioSourcePolicy;
+import me.andromedov.mixer.core.security.AudioSourcePolicyException;
+import me.andromedov.mixer.core.security.PublicAddressDnsResolver;
+import me.andromedov.mixer.core.security.SafeLocalAudioSourceManager;
 import me.andromedov.mixer.core.util.Utils;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -83,8 +86,12 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         APM.registerSourceManager(new BeamAudioSourceManager());
         APM.registerSourceManager(new GetyarnAudioSourceManager());
         APM.registerSourceManager(new NicoAudioSourceManager());
-        APM.registerSourceManager(new HttpAudioSourceManager());
-        APM.registerSourceManager(new LocalAudioSourceManager());
+        AudioSourcePolicy sourcePolicy = MixerPlugin.getPlugin().getAudioSourcePolicy();
+        HttpAudioSourceManager httpSourceManager = new HttpAudioSourceManager();
+        httpSourceManager.configureBuilder(builder ->
+                builder.setDnsResolver(new PublicAddressDnsResolver()));
+        APM.registerSourceManager(httpSourceManager);
+        APM.registerSourceManager(new SafeLocalAudioSourceManager(sourcePolicy));
 
         int frameBufferDuration = MixerPlugin.getPlugin().getAudioFrameBufferDuration();
         APM.setFrameBufferDuration(frameBufferDuration);
@@ -376,6 +383,7 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         }
 
         String finalUrlToLoad = audioUrl;
+        AudioSourcePolicy sourcePolicy = MixerPlugin.getPlugin().getAudioSourcePolicy();
 
         try {
             finalUrlToLoad = MixerPlugin.getPlugin().api().sources().resolve(finalUrlToLoad);
@@ -397,6 +405,12 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
             if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
                 rawUrl = "https://" + rawUrl;
             }
+            try {
+                rawUrl = sourcePolicy.validateRemoteHttpUrl(rawUrl);
+            } catch (AudioSourcePolicyException exception) {
+                rejectUnsafeSource(audioUrl, exception);
+                return;
+            }
             String resolvedUrl = Utils.requestCobaltMediaUrl(rawUrl);
             if (resolvedUrl == null || resolvedUrl.isEmpty()) {
                 if (retryCount < MAX_RETRIES) {
@@ -414,6 +428,13 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
         else if (finalUrlToLoad.startsWith("https://youtube.com") || finalUrlToLoad.startsWith("https://www.youtube.com")) {
             String resolvedUrl = Utils.requestCobaltMediaUrl(finalUrlToLoad);
             if (resolvedUrl != null && !resolvedUrl.isEmpty()) finalUrlToLoad = resolvedUrl;
+        }
+
+        try {
+            finalUrlToLoad = sourcePolicy.validateForLoad(finalUrlToLoad);
+        } catch (AudioSourcePolicyException exception) {
+            rejectUnsafeSource(audioUrl, exception);
+            return;
         }
 
         APM.loadItem(finalUrlToLoad, new AudioLoadResultHandler() {
@@ -461,6 +482,14 @@ public abstract class AbstractMixerAudioPlayer implements MixerAudioPlayer {
                 }
             }
         });
+    }
+
+    private void rejectUnsafeSource(String originalSource, AudioSourcePolicyException exception) {
+        MixerPlugin.getPlugin().logDebug(Level.WARNING,
+                "Blocked unsafe audio source: " + exception.getMessage(), null);
+        notifyUser("<red>This audio source is not allowed.</red>");
+        onTrackLoadFailed(originalSource);
+        loadNextFromQueue();
     }
 
     protected void scheduleRetry(String url, int currentRetry, String reason) {

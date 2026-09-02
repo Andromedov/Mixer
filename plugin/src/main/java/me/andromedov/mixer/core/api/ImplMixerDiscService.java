@@ -12,6 +12,7 @@ import me.andromedov.mixer.api.disc.MixerDiscService;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.AbstractMixerAudioPlayer;
+import me.andromedov.mixer.core.security.AudioSourcePolicyException;
 import me.andromedov.mixer.core.util.Utils;
 import me.andromedov.mixer.core.util.MixerScheduler;
 import io.papermc.paper.datacomponent.DataComponentTypes;
@@ -24,7 +25,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.io.File;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -144,12 +144,6 @@ final class ImplMixerDiscService implements MixerDiscService {
             throw new MixerDiscProbeException("Failed to resolve audio source", exception);
         }
 
-        if (resolved.startsWith("file://")) {
-            File file = new File(resolved.substring(7));
-            if (!file.isFile()) throw new MixerDiscProbeException("Local audio file does not exist");
-            return file.getAbsolutePath();
-        }
-
         if (resolved.startsWith("cobalt://") || resolved.startsWith("cobalt:")) {
             String rawUrl = resolved.replaceFirst("^cobalt:(//)?", "");
             if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
@@ -159,13 +153,17 @@ final class ImplMixerDiscService implements MixerDiscService {
             if (cobaltUrl == null || cobaltUrl.isBlank()) {
                 throw new MixerDiscProbeException("Cobalt could not resolve the submitted source");
             }
-            return cobaltUrl;
+            resolved = cobaltUrl;
         }
-        if (resolved.startsWith("https://youtube.com") || resolved.startsWith("https://www.youtube.com")) {
+        else if (resolved.startsWith("https://youtube.com") || resolved.startsWith("https://www.youtube.com")) {
             String cobaltUrl = Utils.requestCobaltMediaUrl(resolved);
-            if (cobaltUrl != null && !cobaltUrl.isBlank()) return cobaltUrl;
+            if (cobaltUrl != null && !cobaltUrl.isBlank()) resolved = cobaltUrl;
         }
-        return resolved;
+        try {
+            return plugin.getAudioSourcePolicy().validateForLoad(resolved);
+        } catch (AudioSourcePolicyException exception) {
+            throw new MixerDiscProbeException("Audio source is not allowed: " + exception.getMessage(), exception);
+        }
     }
 
     private CompletionStage<MixerTrack> loadTrack(String resolvedSource) {

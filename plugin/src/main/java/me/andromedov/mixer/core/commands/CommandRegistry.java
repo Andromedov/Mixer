@@ -31,6 +31,7 @@ import org.bukkit.block.Jukebox;
 
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
+import me.andromedov.mixer.core.security.AudioSourcePolicyException;
 import me.andromedov.mixer.core.util.MessageUtil;
 import me.andromedov.mixer.core.util.Utils;
 import me.andromedov.mixer.api.source.MixerAudioSourceResolutionException;
@@ -183,17 +184,8 @@ public class CommandRegistry {
                 return;
             }
 
-            // 1. Handle File URLs
-            if (streamUrl.startsWith("file://")) {
-                String filename = streamUrl.substring(7);
-                File file = new File(filename);
-                if (file.exists() && file.isFile()) {
-                    streamUrl = file.getAbsolutePath();
-                    urlToSaveOnDisc = streamUrl;
-                }
-            }
-            // 2. Handle Cobalt URLs
-            else if (streamUrl.startsWith("cobalt://") || streamUrl.startsWith("cobalt:")) {
+            // 1. Resolve Cobalt URLs before applying the final source policy.
+            if (streamUrl.startsWith("cobalt://") || streamUrl.startsWith("cobalt:")) {
                 String uri = streamUrl.replaceFirst("^cobalt:(//)?", "");
                 if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
                     uri = "https://" + uri;
@@ -204,6 +196,20 @@ public class CommandRegistry {
                     return; // Stops here, no HTML downloading
                 }
                 urlToSaveOnDisc = originalInput; // Keep cobalt://... on the disc if NOT saving locally
+            }
+
+            // 2. Reject private-network URLs and local files outside Mixer's audio directory.
+            try {
+                streamUrl = plugin.getAudioSourcePolicy().validateForLoad(streamUrl);
+            } catch (AudioSourcePolicyException exception) {
+                plugin.logDebug(Level.WARNING,
+                        "Blocked unsafe burn source: " + exception.getMessage(), null);
+                runForPlayer(player, () -> MessageUtil.sendErrMsg(
+                        player, "loading_failed", "Audio source is not allowed"));
+                return;
+            }
+            if (new File(streamUrl).isAbsolute()) {
+                urlToSaveOnDisc = streamUrl;
             }
 
             // 3. Handle Local Saving (-s)
@@ -234,6 +240,15 @@ public class CommandRegistry {
                     runForPlayer(player, () -> MessageUtil.sendErrMsg(player, "download_failed"));
                     return;
                 }
+            }
+
+            try {
+                streamUrl = plugin.getAudioSourcePolicy().validateForLoad(streamUrl);
+            } catch (AudioSourcePolicyException exception) {
+                cleanupFailedDownload(localAudioFile);
+                runForPlayer(player, () -> MessageUtil.sendErrMsg(
+                        player, "loading_failed", "Audio source is not allowed"));
+                return;
             }
 
             final String urlForLambda = streamUrl;
