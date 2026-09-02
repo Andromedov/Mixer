@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -89,6 +90,31 @@ public final class PortableSpeakerService {
             give(player, media);
             return true;
         }).orElse(false);
+    }
+
+    /**
+     * Moves the media stored in a speaker to a player's death drops. Death drops
+     * have already been captured by Bukkit when {@code PlayerDeathEvent} fires,
+     * so returning the item to the inventory at that point would make it vanish
+     * when the inventory is cleared.
+     */
+    public boolean ejectIntoDrops(Player player, UUID speakerId, List<ItemStack> drops) {
+        if (!Bukkit.isOwnedByCurrentRegion(player) || speakerId == null) return false;
+
+        ItemStack droppedSpeaker = drops.stream()
+                .filter(item -> speakerId.equals(id(item).orElse(null)))
+                .findFirst()
+                .orElse(null);
+        ItemStack inventorySpeaker = find(player, speakerId).orElse(null);
+
+        Optional<ItemStack> media = droppedSpeaker != null ? take(droppedSpeaker) : Optional.empty();
+        if (inventorySpeaker != null && inventorySpeaker != droppedSpeaker) {
+            Optional<ItemStack> inventoryMedia = take(inventorySpeaker);
+            if (media.isEmpty()) media = inventoryMedia;
+        }
+
+        media.ifPresent(drops::add);
+        return media.isPresent();
     }
 
     private Optional<ItemStack> peek(ItemStack speaker) {

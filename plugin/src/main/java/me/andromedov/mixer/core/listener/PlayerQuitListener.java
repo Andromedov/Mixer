@@ -15,7 +15,13 @@ public class PlayerQuitListener implements Listener {
 
     @EventHandler
     public void onDeath(PlayerDeathEvent e) {
-        stopPlayer(e.getEntity().getUniqueId());
+        EntityMixerAudioPlayer player = MixerPlugin.getPlugin().getPortablePlayerMap()
+                .remove(e.getEntity().getUniqueId());
+        if (player == null) return;
+
+        MixerPlugin.getPlugin().getPortableSpeakers()
+                .ejectIntoDrops(e.getEntity(), player.getSourceItemId(), e.getDrops());
+        player.stopWithoutEject();
     }
 
     private void stopPlayer(java.util.UUID uuid) {
