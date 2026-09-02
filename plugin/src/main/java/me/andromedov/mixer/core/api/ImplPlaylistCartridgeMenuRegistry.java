@@ -13,15 +13,13 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
 import java.util.Objects;
-import java.util.logging.Level;
 
 final class ImplPlaylistCartridgeMenuRegistry implements PlaylistCartridgeMenuRegistry {
-    private final MixerPlugin plugin;
-    private final PrioritizedProviderRegistry<PlaylistCartridgeMenuProvider> providers =
-            new PrioritizedProviderRegistry<>("Playlist cartridge menu");
+    private final MenuProviderPipeline<PlaylistCartridgeMenuProvider> providers;
 
     ImplPlaylistCartridgeMenuRegistry(MixerPlugin plugin) {
-        this.plugin = plugin;
+        this.providers = new MenuProviderPipeline<>(
+                plugin, "Playlist cartridge menu", PlaylistCartridgeMenuProvider::priority);
     }
 
     @Override
@@ -34,8 +32,7 @@ final class ImplPlaylistCartridgeMenuRegistry implements PlaylistCartridgeMenuRe
 
     @Override
     public Collection<PlaylistCartridgeMenuProviderRegistration> registrations() {
-        return providers.entries().stream().map(Registration::new).map(r ->
-                (PlaylistCartridgeMenuProviderRegistration) r).toList();
+        return providers.registrations(Registration::new);
     }
 
     @Override
@@ -43,17 +40,8 @@ final class ImplPlaylistCartridgeMenuRegistry implements PlaylistCartridgeMenuRe
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(defaultItem, "defaultItem");
         MixerScheduler.requireOwned(context.menu().player(), "render a playlist cartridge menu item");
-        ItemStack rendered = defaultItem.clone();
-        for (var registration : providers.ordered(PlaylistCartridgeMenuProvider::priority)) {
-            try {
-                ItemStack candidate = registration.provider().customizeItem(context, rendered.clone());
-                if (candidate != null && !candidate.getType().isAir()) rendered = candidate.clone();
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "Playlist cartridge menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderItem(defaultItem,
+                (provider, current) -> provider.customizeItem(context, current));
     }
 
     @Override
@@ -61,17 +49,8 @@ final class ImplPlaylistCartridgeMenuRegistry implements PlaylistCartridgeMenuRe
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(defaultTitle, "defaultTitle");
         MixerScheduler.requireOwned(context.player(), "render a playlist cartridge menu title");
-        Component rendered = defaultTitle;
-        for (var registration : providers.ordered(PlaylistCartridgeMenuProvider::priority)) {
-            try {
-                Component candidate = registration.provider().customizeTitle(context, rendered);
-                if (candidate != null) rendered = candidate;
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "Playlist cartridge menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderTitle(defaultTitle,
+                (provider, current) -> provider.customizeTitle(context, current));
     }
 
     void unregisterOwnedBy(Plugin owner) { providers.unregisterOwnedBy(owner); }

@@ -48,6 +48,22 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation(project(":api"))
+
+    testImplementation(platform("org.junit:junit-bom:5.14.1"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("io.papermc.paper:paper-api:${paperApiVersion.get()}")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v1.21:4.35.0") {
+        exclude(group = "org.junit.jupiter", module = "junit-jupiter-api")
+    }
+    testImplementation("org.mockito:mockito-core:5.15.2")
+    testRuntimeOnly("com.google.code.gson:gson:2.13.2")
+    testRuntimeOnly("org.apache.logging.log4j:log4j-core:2.25.3")
+    testRuntimeOnly("me.clip:placeholderapi:2.12.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks {

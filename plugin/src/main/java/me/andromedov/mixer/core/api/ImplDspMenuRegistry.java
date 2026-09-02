@@ -13,15 +13,12 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.Collection;
 import java.util.Objects;
-import java.util.logging.Level;
 
 final class ImplDspMenuRegistry implements DspMenuRegistry {
-    private final MixerPlugin plugin;
-    private final PrioritizedProviderRegistry<DspMenuProvider> providers =
-            new PrioritizedProviderRegistry<>("DSP menu");
+    private final MenuProviderPipeline<DspMenuProvider> providers;
 
     ImplDspMenuRegistry(MixerPlugin plugin) {
-        this.plugin = plugin;
+        this.providers = new MenuProviderPipeline<>(plugin, "DSP menu", DspMenuProvider::priority);
     }
 
     @Override
@@ -33,8 +30,7 @@ final class ImplDspMenuRegistry implements DspMenuRegistry {
 
     @Override
     public Collection<DspMenuProviderRegistration> registrations() {
-        return providers.entries().stream().map(Registration::new).map(r ->
-                (DspMenuProviderRegistration) r).toList();
+        return providers.registrations(Registration::new);
     }
 
     @Override
@@ -42,17 +38,8 @@ final class ImplDspMenuRegistry implements DspMenuRegistry {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(defaultItem, "defaultItem");
         MixerScheduler.requireOwned(context.menu().player(), "render a DSP menu item");
-        ItemStack rendered = defaultItem.clone();
-        for (var registration : providers.ordered(DspMenuProvider::priority)) {
-            try {
-                ItemStack candidate = registration.provider().customizeItem(context, rendered.clone());
-                if (candidate != null && !candidate.getType().isAir()) rendered = candidate.clone();
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "DSP menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderItem(defaultItem,
+                (provider, current) -> provider.customizeItem(context, current));
     }
 
     @Override
@@ -60,17 +47,8 @@ final class ImplDspMenuRegistry implements DspMenuRegistry {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(defaultTitle, "defaultTitle");
         MixerScheduler.requireOwned(context.player(), "render a DSP menu title");
-        Component rendered = defaultTitle;
-        for (var registration : providers.ordered(DspMenuProvider::priority)) {
-            try {
-                Component candidate = registration.provider().customizeTitle(context, rendered);
-                if (candidate != null) rendered = candidate;
-            } catch (Exception exception) {
-                plugin.logDebug(Level.WARNING,
-                        "DSP menu provider failed: " + registration.key(), exception);
-            }
-        }
-        return rendered;
+        return providers.renderTitle(defaultTitle,
+                (provider, current) -> provider.customizeTitle(context, current));
     }
 
     void unregisterOwnedBy(Plugin owner) { providers.unregisterOwnedBy(owner); }

@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.ToIntFunction;
+import java.util.function.Function;
 
 /** Shared registration lifecycle for the independent public provider APIs. */
 final class PrioritizedProviderRegistry<P> {
@@ -33,15 +34,25 @@ final class PrioritizedProviderRegistry<P> {
         return entry;
     }
 
-    Collection<Entry> entries() {
-        return List.copyOf(entries.values());
+    <R> Collection<R> registrations(Function<Entry, R> mapper) {
+        return entries.values().stream().map(mapper).toList();
     }
 
     List<Entry> ordered(ToIntFunction<P> priority) {
+        return ordered(priority, false);
+    }
+
+    List<Entry> orderedDescending(ToIntFunction<P> priority) {
+        return ordered(priority, true);
+    }
+
+    private List<Entry> ordered(ToIntFunction<P> priority, boolean descending) {
+        Comparator<Entry> comparator = Comparator.comparingInt(
+                entry -> priority.applyAsInt(entry.provider()));
+        if (descending) comparator = comparator.reversed();
         return entries.values().stream()
                 .filter(Entry::active)
-                .sorted(Comparator.comparingInt((Entry entry) -> priority.applyAsInt(entry.provider()))
-                        .thenComparing(Entry::key))
+                .sorted(comparator.thenComparing(Entry::key))
                 .toList();
     }
 
