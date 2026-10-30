@@ -227,7 +227,11 @@ final class ImplMixerAddonManager implements MixerAddonManager, Listener {
 
         @Override
         public void close() {
-            requireMainThread("unregister a Mixer addon");
+            // Folia stops the global region scheduler before firing PluginDisableEvent.
+            // At that point no region ticks remain, so shutdown cleanup should probably be safe here ._.
+            if (!plugin.getServer().isStopping()) {
+                requireMainThread("unregister a Mixer addon");
+            }
             if (!active.compareAndSet(true, false)) return;
 
             registrations.remove(id, this);
