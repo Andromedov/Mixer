@@ -22,12 +22,12 @@ import org.bukkit.inventory.meta.BookMeta;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class RedstoneListener implements Listener {
-    private final Map<Location, Long> cooldowns = new HashMap<>();
+    private final Map<Location, Long> cooldowns = new ConcurrentHashMap<>();
     private static final long COOLDOWN_MS = 1000;
 
     @EventHandler(priority = EventPriority.HIGHEST)

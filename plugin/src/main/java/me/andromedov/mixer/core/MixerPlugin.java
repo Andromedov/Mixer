@@ -8,11 +8,17 @@ import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
 import me.andromedov.mixer.core.commands.CommandRegistry;
 import me.andromedov.mixer.core.db.MixerDatabase;
 import me.andromedov.mixer.core.gui.DspGui;
+import me.andromedov.mixer.core.gui.PlaylistEditorGui;
 import me.andromedov.mixer.core.gui.PortableSpeakerGui;
 import me.andromedov.mixer.core.listener.*;
+import me.andromedov.mixer.core.playlist.PlaylistCartridgeService;
+import me.andromedov.mixer.core.playlist.PortablePlaylistSession;
+import me.andromedov.mixer.core.portable.PortableSpeakerService;
+import me.andromedov.mixer.core.security.AudioSourcePolicy;
 import me.andromedov.mixer.core.papi.MixerPapiExpansion;
 import me.andromedov.mixer.core.util.LocalizationManager;
 import me.andromedov.mixer.core.util.MessageUtil;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import me.andromedov.mixer.core.util.UpdateChecker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Logger;
@@ -48,19 +54,26 @@ public class MixerPlugin extends JavaPlugin {
 
     // Entity/Player Map
     private final Map<UUID, EntityMixerAudioPlayer> portablePlayerMap = new ConcurrentHashMap<>();
+    private final Map<UUID, PortablePlaylistSession> portablePlaylistSessions = new ConcurrentHashMap<>();
 
     private LocalizationManager localizationManager;
     protected PlayerInteractListener playerInteractListener;
     private CommandRegistry commandRegistry;
+    private MixerScheduler scheduler;
+    private AudioSourcePolicy audioSourcePolicy;
 
     // GUIs
     private PortableSpeakerGui portableSpeakerGui;
     private DspGui dspGui;
+    private PlaylistEditorGui playlistEditorGui;
+    private PlaylistCartridgeService playlistCartridges;
+    private PortableSpeakerService portableSpeakers;
 
     // Config
     private boolean youtubeEnabled;
     private boolean youtubeUseOAuth;
     private String youtubeRefreshToken;
+    private boolean soundCloudFilterOutPreviewTracks;
     private int volumePercent;
     private int audioSampleRate;
     private int audioBufferSize;
@@ -79,6 +92,9 @@ public class MixerPlugin extends JavaPlugin {
     private boolean portableSpeakerEnabled;
     private int portableSpeakerRange;
     private String portableSpeakerItemMaterial;
+    private boolean playlistCartridgesEnabled;
+    private String playlistCartridgeMaterial;
+    private int playlistCartridgeMaxTracks;
 
     // Update Notifier Config
     private boolean updateNotifierEnabled;
@@ -87,15 +103,20 @@ public class MixerPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
+        scheduler = new MixerScheduler(this);
 
         // Async cleanup
-        Bukkit.getScheduler().runTaskAsynchronously(this, this::cleanupOpusTemp);
+        scheduler.runAsync(this::cleanupOpusTemp);
 
         initializeConfig();
+        audioSourcePolicy = new AudioSourcePolicy(new File(getDataFolder(), "audio").toPath());
 
         localizationManager = new LocalizationManager(this);
         localizationManager.setLanguage(language);
         MessageUtil.initialize(localizationManager);
+
+        playlistCartridges = new PlaylistCartridgeService(this);
+        portableSpeakers = new PortableSpeakerService(this);
 
         // Initialize Database
         database = new MixerDatabase(this);
@@ -129,6 +150,9 @@ public class MixerPlugin extends JavaPlugin {
         // GUI registration
         portableSpeakerGui = new PortableSpeakerGui();
         pm.registerEvents(portableSpeakerGui, this);
+
+        playlistEditorGui = new PlaylistEditorGui(this, playlistCartridges);
+        pm.registerEvents(playlistEditorGui, this);
 
         // Register DSP GUI
         dspGui = new DspGui();
@@ -287,6 +311,8 @@ public class MixerPlugin extends JavaPlugin {
         youtubeEnabled = config.getBoolean("mixer.youtube.enabled", false);
         youtubeUseOAuth = config.getBoolean("mixer.youtube.useOAuth", false);
         youtubeRefreshToken = config.getString("mixer.youtube.refreshToken", "");
+        soundCloudFilterOutPreviewTracks = config.getBoolean(
+                "mixer.soundcloud.filterOutPreviewTracks", false);
         volumePercent = config.getInt("mixer.volume", 50);
 
         discInserted = config.getBoolean("mixer.disc-inserted", false);
@@ -306,6 +332,11 @@ public class MixerPlugin extends JavaPlugin {
         portableSpeakerEnabled = config.getBoolean("portableSpeakers.portableSpeaker", true);
         portableSpeakerRange = config.getInt("portableSpeakers.portableSpeakerRange", 100);
         portableSpeakerItemMaterial = config.getString("portableSpeakers.portableSpeakerItemMaterial", "NOTE_BLOCK");
+        playlistCartridgesEnabled = config.getBoolean("portableSpeakers.playlistCartridges.enabled", true);
+        playlistCartridgeMaterial = config.getString(
+                "portableSpeakers.playlistCartridges.material", "MUSIC_DISC_11").toUpperCase(Locale.ROOT);
+        playlistCartridgeMaxTracks = Math.max(1, Math.min(18,
+                config.getInt("portableSpeakers.playlistCartridges.maxTracks", 18)));
 
         updateNotifierEnabled = config.getBoolean("updateNotifier.enabled", true);
         updateNotifierJoin = config.getBoolean("updateNotifier.on-join", true);
@@ -411,20 +442,28 @@ public class MixerPlugin extends JavaPlugin {
             try { player.stop(); } catch (Exception ignored) {}
         });
         portablePlayerMap.clear();
+        portablePlaylistSessions.clear();
     }
 
     public Map<Location, IMixerAudioPlayer> playerHashMap() { return playerHashMap; }
     public Map<UUID, EntityMixerAudioPlayer> getPortablePlayerMap() { return portablePlayerMap; }
+    public Map<UUID, PortablePlaylistSession> getPortablePlaylistSessions() { return portablePlaylistSessions; }
     public PortableSpeakerGui getPortableSpeakerGui() { return portableSpeakerGui; }
     public DspGui getDspGui() { return dspGui; }
+    public PlaylistEditorGui getPlaylistEditorGui() { return playlistEditorGui; }
+    public PlaylistCartridgeService getPlaylistCartridges() { return playlistCartridges; }
+    public PortableSpeakerService getPortableSpeakers() { return portableSpeakers; }
 
     public MixerApi api() { return api; }
     public LocalizationManager getLocalizationManager() { return localizationManager; }
     public MixerDatabase getDatabase() { return database; }
+    public MixerScheduler scheduler() { return scheduler; }
+    public AudioSourcePolicy getAudioSourcePolicy() { return audioSourcePolicy; }
 
     public boolean isYoutubeEnabled() { return youtubeEnabled; }
     public boolean isYoutubeUseOAuth() { return youtubeUseOAuth; }
     public String getYoutubeRefreshToken() { return youtubeRefreshToken; }
+    public boolean isSoundCloudFilterOutPreviewTracks() { return soundCloudFilterOutPreviewTracks; }
     public int getVolumePercent() { return volumePercent; }
     public float getVolumeMultiplier() { return volumePercent / 100.0f; }
     public int getAudioSampleRate() { return audioSampleRate; }
@@ -443,6 +482,9 @@ public class MixerPlugin extends JavaPlugin {
     public boolean isPortableSpeakerEnabled() { return portableSpeakerEnabled; }
     public int getPortableSpeakerRange() { return portableSpeakerRange; }
     public String getPortableSpeakerItemMaterial() { return portableSpeakerItemMaterial; }
+    public boolean arePlaylistCartridgesEnabled() { return playlistCartridgesEnabled; }
+    public String getPlaylistCartridgeMaterial() { return playlistCartridgeMaterial; }
+    public int getPlaylistCartridgeMaxTracks() { return playlistCartridgeMaxTracks; }
 
     public boolean isUpdateNotifierEnabled() { return updateNotifierEnabled; }
     public boolean isUpdateNotifierJoin() { return updateNotifierJoin; }

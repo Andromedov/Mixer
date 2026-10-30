@@ -8,12 +8,13 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 public class LocalizationManager {
     private final MixerPlugin plugin;
-    private final Map<String, FileConfiguration> languageConfigs = new HashMap<>();
-    private String currentLanguage = "en";
+    private final Map<String, FileConfiguration> languageConfigs = new ConcurrentHashMap<>();
+    private volatile String currentLanguage = "en";
 
     public LocalizationManager(MixerPlugin plugin) {
         this.plugin = plugin;

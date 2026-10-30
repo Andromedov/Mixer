@@ -7,8 +7,6 @@ import com.google.gson.JsonParser;
 import me.andromedov.mixer.core.MixerPlugin;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.bukkit.Bukkit;
-
 import java.io.IOException;
 import java.util.function.BiConsumer;
 import java.util.logging.Level;
@@ -26,7 +24,7 @@ public class UpdateChecker {
     public void check(BiConsumer<String, String> onSuccess) {
         if (!plugin.isUpdateNotifierEnabled()) return;
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+        plugin.scheduler().runAsync(() -> {
             Request request = new Request.Builder()
                     .url(MODRINTH_API_URL)
                     .addHeader("User-Agent", "Andromedov/Mixer/" + currentVersion)
@@ -62,7 +60,7 @@ public class UpdateChecker {
                         plugin.logDebug(Level.INFO, "Download: https://modrinth.com/plugin/mixer-reloaded/version/" + versionId, null);
                         plugin.logDebug(Level.INFO, "========================================", null);
 
-                        Bukkit.getScheduler().runTask(plugin, () -> onSuccess.accept(latestVersion, versionId));
+                        plugin.scheduler().runGlobal(() -> onSuccess.accept(latestVersion, versionId));
                     }
                     break;
                 }

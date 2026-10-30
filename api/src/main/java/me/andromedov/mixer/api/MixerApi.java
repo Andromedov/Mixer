@@ -2,7 +2,11 @@ package me.andromedov.mixer.api;
 
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.disc.MixerDiscService;
+import me.andromedov.mixer.api.gui.DspMenuRegistry;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuRegistry;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuRegistry;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
+import me.andromedov.mixer.api.playlist.MixerPlaylistService;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -44,6 +48,14 @@ public interface MixerApi {
     MixerAudioSourceRegistry sources();
 
     MixerDiscService discs();
+
+    MixerPlaylistService playlists();
+
+    PortableSpeakerMenuRegistry portableSpeakerMenus();
+
+    PlaylistCartridgeMenuRegistry playlistCartridgeMenus();
+
+    DspMenuRegistry dspMenus();
 
     MixerPlaybackPolicyRegistry playbackPolicies();
 

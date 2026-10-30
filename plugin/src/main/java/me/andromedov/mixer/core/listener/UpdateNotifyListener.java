@@ -10,8 +10,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 public class UpdateNotifyListener implements Listener {
 
     private final MixerPlugin plugin;
-    private String newVersion;
-    private String versionId;
+    private volatile String newVersion;
+    private volatile String versionId;
 
     public UpdateNotifyListener(MixerPlugin plugin) {
         this.plugin = plugin;

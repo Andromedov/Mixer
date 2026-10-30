@@ -4,12 +4,16 @@ import me.andromedov.mixer.api.MixerApi;
 import me.andromedov.mixer.api.MixerAudioPlayer;
 import me.andromedov.mixer.api.addon.MixerAddonManager;
 import me.andromedov.mixer.api.disc.MixerDiscService;
+import me.andromedov.mixer.api.gui.DspMenuRegistry;
+import me.andromedov.mixer.api.gui.PortableSpeakerMenuRegistry;
+import me.andromedov.mixer.api.gui.PlaylistCartridgeMenuRegistry;
 import me.andromedov.mixer.api.playback.MixerPlaybackPolicyRegistry;
+import me.andromedov.mixer.api.playlist.MixerPlaylistService;
 import me.andromedov.mixer.api.source.MixerAudioSourceRegistry;
 import me.andromedov.mixer.core.MixerPlugin;
 import me.andromedov.mixer.core.audio.EntityMixerAudioPlayer;
 import me.andromedov.mixer.core.audio.IMixerAudioPlayer;
-import org.bukkit.Bukkit;
+import me.andromedov.mixer.core.util.MixerScheduler;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -22,6 +26,9 @@ public final class ImplMixerApi implements MixerApi {
     private final ImplMixerAudioSourceRegistry sources;
     private final ImplMixerDiscService discs;
     private final ImplMixerPlaybackPolicyRegistry playbackPolicies;
+    private final ImplPortableSpeakerMenuRegistry portableSpeakerMenus;
+    private final ImplPlaylistCartridgeMenuRegistry playlistCartridgeMenus;
+    private final ImplDspMenuRegistry dspMenus;
     private final ImplMixerAddonManager addons;
 
     public ImplMixerApi(MixerPlugin plugin) {
@@ -29,7 +36,12 @@ public final class ImplMixerApi implements MixerApi {
         this.sources = new ImplMixerAudioSourceRegistry();
         this.discs = new ImplMixerDiscService(plugin, sources);
         this.playbackPolicies = new ImplMixerPlaybackPolicyRegistry(plugin);
-        this.addons = new ImplMixerAddonManager(plugin, this, sources, playbackPolicies);
+        this.portableSpeakerMenus = new ImplPortableSpeakerMenuRegistry(plugin);
+        this.playlistCartridgeMenus = new ImplPlaylistCartridgeMenuRegistry(plugin);
+        this.dspMenus = new ImplDspMenuRegistry(plugin);
+        this.addons = new ImplMixerAddonManager(
+                plugin, this, sources, playbackPolicies, portableSpeakerMenus,
+                playlistCartridgeMenus, dspMenus);
     }
 
     @Override
@@ -39,8 +51,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public IMixerAudioPlayer createPlayer(Location location) {
-        requireMainThread("create a locational audio player");
         Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "create a locational audio player");
         if (plugin.playerHashMap().containsKey(blockLocation)) {
             throw new IllegalStateException("Player at this location already exists");
         }
@@ -49,8 +61,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public MixerAudioPlayer getOrCreatePlayer(Location location) {
-        requireMainThread("create a locational audio player");
         Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "create a locational audio player");
         IMixerAudioPlayer existing = plugin.playerHashMap().get(blockLocation);
         return existing != null ? existing : createPlayer(blockLocation);
     }
@@ -69,8 +81,9 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public boolean stopPlayer(Location location) {
-        requireMainThread("stop a locational audio player");
-        IMixerAudioPlayer player = plugin.playerHashMap().get(blockLocation(location));
+        Location blockLocation = blockLocation(location);
+        MixerScheduler.requireOwned(blockLocation, "stop a locational audio player");
+        IMixerAudioPlayer player = plugin.playerHashMap().get(blockLocation);
         if (player == null) return false;
         player.stop();
         return true;
@@ -78,8 +91,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public MixerAudioPlayer createPortablePlayer(Player owner) {
-        requireMainThread("create a portable audio player");
         if (owner == null) throw new IllegalArgumentException("Owner must not be null");
+        MixerScheduler.requireOwned(owner, "create a portable audio player");
         EntityMixerAudioPlayer existing = plugin.getPortablePlayerMap().remove(owner.getUniqueId());
         if (existing != null) existing.stop();
         EntityMixerAudioPlayer created = new EntityMixerAudioPlayer(owner);
@@ -95,8 +108,8 @@ public final class ImplMixerApi implements MixerApi {
 
     @Override
     public boolean stopPortablePlayer(Player owner) {
-        requireMainThread("stop a portable audio player");
         if (owner == null) return false;
+        MixerScheduler.requireOwned(owner, "stop a portable audio player");
         EntityMixerAudioPlayer player = plugin.getPortablePlayerMap().get(owner.getUniqueId());
         if (player == null) return false;
         player.stop();
@@ -116,6 +129,26 @@ public final class ImplMixerApi implements MixerApi {
     @Override
     public MixerDiscService discs() {
         return discs;
+    }
+
+    @Override
+    public MixerPlaylistService playlists() {
+        return plugin.getPlaylistCartridges();
+    }
+
+    @Override
+    public PortableSpeakerMenuRegistry portableSpeakerMenus() {
+        return portableSpeakerMenus;
+    }
+
+    @Override
+    public PlaylistCartridgeMenuRegistry playlistCartridgeMenus() {
+        return playlistCartridgeMenus;
+    }
+
+    @Override
+    public DspMenuRegistry dspMenus() {
+        return dspMenus;
     }
 
     @Override
@@ -141,12 +174,6 @@ public final class ImplMixerApi implements MixerApi {
         if (location == null || location.getWorld() == null) {
             throw new IllegalArgumentException("Location and its world must not be null");
         }
-        return location.getBlock().getLocation();
-    }
-
-    private static void requireMainThread(String action) {
-        if (!Bukkit.isPrimaryThread()) {
-            throw new IllegalStateException("Must " + action + " on the Bukkit main thread");
-        }
+        return new Location(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 }

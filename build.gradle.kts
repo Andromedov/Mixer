@@ -19,7 +19,7 @@ allprojects {
     apply(plugin = "maven-publish")
 
     group = "me.andromedov"
-    version = "2.3.0"
+    version = "2.4.0-SNAPSHOT"
 
     repositories {
         maven("https://repo.papermc.io/repository/maven-public/")
